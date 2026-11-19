@@ -17,6 +17,7 @@ export class MenuScene {
     const ui = app.ui;
     if (this.panel === 'main') {
       ui.innerHTML = `
+        <a class="home-link" href="https://dominodominick.com" target="_top" rel="noopener">&larr; dominodominick.com</a>
         <section class="panel">
           <h1>${esc(GAME_TITLE)}</h1>
           <p class="tagline">Board game and minigames for up to 6 players, right in the browser.</p>

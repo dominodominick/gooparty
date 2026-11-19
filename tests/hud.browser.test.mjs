@@ -95,6 +95,12 @@ async function openGame(viewport) {
       if (sc.canStop()) { if (mode === 'all' || !sc.devReady()) sc.doStop(); } else if (sc.canChoose()) sc.doChoose(0);
     }, 40);
   });
+  // the start menu: a small link back to the main website, top left, clickable
+  const home = await page.locator('a.home-link').boundingBox();
+  assert.ok(home && home.x < 60 && home.y < 60, 'the back link sits in the top left');
+  assert.equal(await page.getAttribute('a.home-link', 'href'), 'https://dominodominick.com');
+  assert.equal(await page.evaluate(({ x, y }) => !!document.elementFromPoint(x, y)?.closest('a.home-link'), { x: home.x + home.width / 2, y: home.y + home.height / 2 }), true, 'nothing lies over it');
+  if (!fs.existsSync(path.join(shots, 'menu.png'))) { fs.mkdirSync(shots, { recursive: true }); await page.screenshot({ path: path.join(shots, 'menu.png') }); }
   await page.click('[data-act=play]');
   await page.click('[data-act=offline]');
   await page.click('[data-act=add-npc]');
