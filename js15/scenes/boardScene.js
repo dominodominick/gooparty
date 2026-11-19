@@ -1347,17 +1347,17 @@ export class BoardScene {
     const moved = pawn.gx === undefined ? 0 : Math.hypot(gx - pawn.gx, gz - pawn.gz);
     pawn.gx = gx; pawn.gz = gz;
     const speed = dt > 0 ? (moved < 4 ? moved / dt : 0) : 0;            // jumps (teleports) do not count as running
-    const want = Math.min(1, speed / 6);
+    const want = Math.min(1, speed / 7);
     pawn.amp = (pawn.amp || 0) + (want - (pawn.amp || 0)) * Math.min(1, dt * 12);
-    pawn.phase = (pawn.phase || 0) + Math.min(moved, 1.2) * 2.1;       // one full stride about every 3 units
-    const sw = Math.sin(pawn.phase) * pawn.amp * 0.95, flying = pawn.groundY != null, F = pawn.fx;
+    pawn.phase = (pawn.phase || 0) + Math.min(moved, 1.2) * 1.45;      // long strides: one full stride about every 4.3 units
+    const sw = Math.sin(pawn.phase) * pawn.amp * 1.15, flying = pawn.groundY != null, F = pawn.fx;
     if (U.legs) {
       if (F && F.legs) { U.legs[0].rotation.x = F.legs[0]; U.legs[1].rotation.x = F.legs[1]; }
       else { U.legs[0].rotation.x = flying ? 0.5 : sw; U.legs[1].rotation.x = flying ? -0.4 : -sw; }
       if (F && F.arms) { U.arms[0].rotation.x = F.arms[0]; U.arms[1].rotation.x = F.arms[1]; }
       else { U.arms[0].rotation.x = flying ? -2.4 : -sw * 0.8; U.arms[1].rotation.x = flying ? -2.4 : sw * 0.8; } // arms up while flying
     }
-    if (!F) g.position.y += Math.abs(Math.cos(pawn.phase)) * pawn.amp * 0.16;    // a little spring in each step
+    if (!F) g.position.y += Math.abs(Math.cos(pawn.phase)) * pawn.amp * 0.2;    // a little spring in each step
     if (U.shadow) this.placeShadow(pawn, U.shadow, flying);
   }
 

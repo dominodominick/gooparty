@@ -722,6 +722,22 @@ assert.ok(DUR.fly >= 2400 && DUR.drop >= 1800);
   sc.exit();
 }
 
+// ---- walking: long strides (one full stride every ~4.3 units) and a full swing at walking speed ----
+{
+  const bg = new BoardGame({ slots: [0, 1], rng: mulberry32(3), isNpc: () => true }); bg.start(0);
+  app.session = makeSession(bg, 0, ['A', 'B']);
+  const sc = new BoardScene(); sc.enter();
+  const pawn = sc.pawns[0], g = pawn.group; g.position.x = 0; g.position.z = 0; pawn.gx = 0; pawn.gz = 0; pawn.phase = 0; pawn.amp = 0; pawn.fx = null; pawn.groundY = null;
+  const space = 3.9, stepMs = DUR.walkStep, dt = 1 / 60, v = space / (stepMs / 1000); // a walk at the game's pace, spaces ~3.9 units apart
+  let dist = 0;
+  for (let i = 0; i < 120; i++) { g.position.x += v * dt; dist += v * dt; sc.animateLimbs(pawn, dt); }
+  const strideLen = dist / (pawn.phase / (2 * Math.PI));
+  assert.ok(strideLen > 4 && strideLen < 4.7, `one stride covers ${strideLen.toFixed(2)} units`);
+  assert.ok(pawn.amp > 0.95, 'walking pace gives the full leg swing');
+  assert.ok(stepMs <= 260, `a space takes ${stepMs} ms`);
+  sc.exit();
+}
+
 // ---- the map's own motion (the water): the scene ticks it every frame, but not while an offline game is paused ----
 {
   const bg = new BoardGame({ slots: [0, 1], rng: mulberry32(2), isNpc: () => true });

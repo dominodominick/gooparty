@@ -351,6 +351,11 @@ The hand-built island is gone. The game now runs on the converted Wii Party map 
   sinks away. The game's "broken" message did not say who broke it, so the scene had no player to animate and
   only waited, then hid the wall.
 
+## Build 52
+
+- Players walk faster and take longer strides: a space now takes 250 ms when walking (was 340) and 170 ms when hurrying
+  (was 190). One full stride covers about 4.3 units (was 3), with a bigger leg and arm swing and a little more spring.
+
 ## Build 51
 
 - The start menu has a small "← dominodominick.com" button in the top left, back to the main website.
