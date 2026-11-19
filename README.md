@@ -351,6 +351,13 @@ The hand-built island is gone. The game now runs on the converted Wii Party map 
   sinks away. The game's "broken" message did not say who broke it, so the scene had no player to animate and
   only waited, then hid the wall.
 
+## Build 58
+
+- Fix: the stray spike balls are gone again (one floating over the pit, one on the path in front of the spike statue).
+  Build 57's dragon change dropped the line in `ChallengeFX.attach()` that sets up the spike ball (`mapBall`), which also
+  hides the loose copies of the ball the converted map leaves along its old course. New tests in `challengeFx.test.js`
+  and the board scene smoke test catch it if it goes missing again.
+
 ## Build 57
 
 - Dragon wall: the wall no longer tips. Only the dragon moves, with the game's own skeleton and its own shooting animation

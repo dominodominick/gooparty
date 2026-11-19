@@ -112,6 +112,8 @@ export class ChallengeFX {
     o.guardHead = []; o.guard.traverse((m) => { if (m.isMesh && /^mr001m067/.test((Array.isArray(m.material) ? m.material[0] : m.material)?.name || '')) o.guardHead.push(m); });
     try { o.dragon = rigDragon(o.guardFire, DRAGON); } catch (e) { o.dragon = null; }
     if (o.dragon) o.dragon.pose(0);
+    // the spike ball: the map's own, re-centred so it can roll; its loose copies along the old course are hidden
+    o.ball = this.mapBall(board);
     // the spike ball statue: a monster head that holds the ball in its open mouth, sitting on a stone block. Both are part
     // of the map (m001_50), but the converted map left the head at the middle of the island, under the ground.
     o.statue = this.spikeHead(board);

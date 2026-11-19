@@ -137,4 +137,21 @@ for (const k of ['vine', 'dragon', 'crates', 'spike']) {
   assert.equal(fx.endsHidden({ path }, runner), true); assert.ok(fx.hidden.has(runner), 'and stays there');
   assert.equal(fx.hideLegFor({ path: [{ track: 'island', idx: r.lastIdx + 2 }] }, last), null, 'a run that stops short does not hide');
 }
+
+// ---- the map's spike ball: the loose copies along its old course (one over the pit, one in front of the statue) are hidden
+{
+  const meshes = ['mr001m016', 'mr001m016_2', 'mr001m016_21', 'mr001m016_22', 'mr001m001'].map((name) => ({
+    isMesh: true, material: { name }, visible: true, userData: {}, position: { set() {} }, rotation: {},
+    geometry: { clone() { return { translate() {} }; } } }));
+  const board = { scale: 0.016, island: { traverse: (fn) => meshes.forEach(fn) } };
+  const ball = mk(0).mapBall(board);
+  assert.equal(meshes[0].visible, false); assert.equal(meshes[1].visible, false, 'the loose copies are hidden');
+  assert.equal(ball.parts.length, 2, 'the ball itself is the two m016_21/22 parts'); assert.equal(meshes[4].visible, true, 'nothing else is touched');
+}
+// attach() must set the ball up (build 57 lost this line and the loose copies showed again)
+{
+  const src = (await import('node:fs')).readFileSync(new URL('../js15/scenes/challengeFx.js', import.meta.url), 'utf8');
+  const attach = src.slice(src.indexOf('  attach(board) {'), src.indexOf('  spikeHead(board) {'));
+  assert.ok(/o\.ball = this\.mapBall\(board\)/.test(attach), 'attach() sets up the spike ball');
+}
 console.log('challengeFx tests passed');
