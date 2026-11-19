@@ -4,6 +4,8 @@ import * as THREE from 'three';
 import { loadBoardGameIsland, makeLoader } from './wiiBoard.js';
 import { MAP_SCALE } from '../game/boardLayout.js';
 import { waterCanvas, WaterFlow, WATER_FLOW } from './water.js';
+import { addWatasy } from './watasy.js';
+import { WATASY } from './watasyModel.js';
 
 const FILES = ['island.glb', 'volcano.glb', 'sky.glb', 'props.glb', 'board.json'];
 let promise = null;
@@ -34,7 +36,10 @@ function calmWater(board) {
     mesh.material = mesh.material.clone(); mesh.material.polygonOffset = true; mesh.material.polygonOffsetFactor = -2; mesh.material.polygonOffsetUnits = -6;
   }
   const flow = new WaterFlow(), blue = {};
-  board.tick = (dt) => flow.update(dt);
+  let swim = null;
+  try { swim = addWatasy(THREE, board.island, WATASY); } catch (e) { swim = null; } // the dinosaur in the pool by the bridge
+  board.watasy = swim;
+  board.tick = (dt) => { flow.update(dt); if (swim) swim(dt); };
   // the blue water texture, made once for the river (solid) and once for the sea layer (half see-through, over the sea-floor colours)
   const blueWater = (m, kind) => {
     if (!blue[kind]) {

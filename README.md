@@ -351,6 +351,20 @@ The hand-built island is gone. The game now runs on the converted Wii Party map 
   sinks away. The game's "broken" message did not say who broke it, so the scene had no player to animate and
   only waited, then hid the wall.
 
+## Build 54
+
+- The long-necked dinosaur is back in the pool by the rope bridge, with its ring of ripples moving with it.
+  - The model is the game's own: it is not in the converted map but in the disc's NPC file
+    `files/mr001/npc/mr001_03.brres.lz` ("watasy"). `tools/extract_watasy.py` reads it (LZ, BRRES, MDL0, TEX0 readers in
+    `tools/wii/`) and writes `js15/world/watasyModel.js`: 346 vertices, 550 triangles and its 128x128 body texture.
+  - The motion is the map's own animation, `files/mr001/map/motion/m001_09.branm`, read key by key. It is exact simple
+    curves: a circle of radius 550 map units round the pool, one lap every 2000 frames (33 s at 60 frames a second),
+    always facing along the circle, bobbing 50 units down and up every 100 frames. `js15/world/watasy.js` plays it.
+  - The ripple ring (m001_09, already in the map, frozen where the lap starts) now rides along with it.
+  - The game draws it rigid too: its own animation file targets neck bones this model does not have.
+  - It is lit by the scene's lights like the players. It stops while an offline game is paused.
+- Tests: `tests/watasy.test.js` (the model data, the path, and that the ring in the map sits where the path starts).
+
 ## Build 53
 
 - Even faster, even longer strides: 185 ms a space when walking (was 250), 140 ms when hurrying (was 170), one full
