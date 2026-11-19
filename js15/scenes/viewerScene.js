@@ -89,7 +89,7 @@ export class ViewerScene extends BoardScene {
     const put = (slot, idx) => { const p = this.pawns[slot], q = this.pos.island[idx]; Object.assign(p, { track: 'island', idx, x: q.x, y: q.y + 0.05, z: q.z, scale: 1, fx: null }); p.group.visible = true; this.place(p); return p; };
     return [
       ['Vine swing (4, then walk 2)', () => { const v = stopOf('vine'); at(v); this.fx.begin(0); this.demo.push(() => ({ t: 0, dur: 1200 }), move({ ...walk(v, 6, 'walk', { swing: 4 }), dur: 6 * 340 + 350 + DUR.cross + DUR.swing + DUR.vinePause })); }], // rolled 4 on the vine, 2 spaces left to walk
-      ['Dragon fireball', () => { const p = at(stopOf('dragon')); this.demo.push(() => this.fx.playNote({ fx: 'fireball', dur: DUR.fire }, p)); }],
+      ['Dragon fireball', () => { const s = stopOf('dragon'), p = at(s); this.demo.push(() => this.fx.playNote({ fx: 'fireball', dur: DUR.fire }, p), move({ t: 'move', slot: 0, mode: 'knock', path: [{ track: 'island', idx: s - 1 }], count: { total: 1, dir: 'back' }, dur: DUR.knock })); }],
       ['Smash dragon wall', () => { const p = at(stopOf('dragon')); this.demo.push(() => this.fx.brokenAnim({ challenge: 'dragon', dur: DUR.wall }, p)); }],
       ['Blue statue throw', () => { const s = stopOf('statueBlue'); at(s); this.demo.push(move(throwBy(s, 'blue'))); }],
       ['Red statue throw', () => { const s = stopOf('statueRed'); at(s); this.demo.push(move(throwBy(s, 'red'))); }],

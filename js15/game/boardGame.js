@@ -36,7 +36,8 @@ export const DUR = {
   swing: 2400,   // the vine swing
   vinePause: 1000, // standing on the landing spot after the vine, before walking the rest
   wall: 4800,    // hitting a wall three times until it breaks
-  fire: 2300,    // the dragon's fireball
+  fire: 1700,    // the dragon spits the fireball in its mouth at the player
+  knock: 1100,   // ...and they are blown back onto the space behind them in one arc
   pit: 2900,     // the spike ball rolling down at a player who failed
   swim: 3000,    // a crate breaks and the player swims across
   statueThrow: 13000, // a statue's hands wake up, it throws the player high over the island, they walk off its platform
@@ -117,7 +118,7 @@ const crossings = (start, path) => { // how many steps cross a gap (they are lon
 const move = (slot, mode, path, count, follow = false, start = null) => {
   const dur = mode === 'walk' ? path.length * DUR.walkStep + DUR.moveTail + crossings(start, path) * DUR.cross
     : mode === 'fast' ? path.length * DUR.fastStep + DUR.moveTail + crossings(start, path) * DUR.cross
-    : mode === 'fly' ? DUR.fly : mode === 'spring' ? DUR.spring : DUR.drop;
+    : mode === 'fly' ? DUR.fly : mode === 'spring' ? DUR.spring : mode === 'knock' ? DUR.knock : DUR.drop;
   const ev = { t: 'move', slot, mode, path, dur };
   if (count && mode !== 'drop') ev.count = count;
   if (follow) ev.follow = true; // the camera pans to this player (it is someone else's pawn moving)
@@ -482,7 +483,7 @@ export class BoardGame {
       case 'dragon':
         if (d >= DRAGON_NEEDS) return pass('The dragon wall breaks!', 'dragon');
         events.push(note(slot, 'Fireball! Back one space.', { fx: 'fireball', dur: DUR.fire }));
-        this._moveTo(slot, walkBack(pos, 1), 'fast', events, BACK(1));
+        this._moveTo(slot, walkBack(pos, 1), 'knock', events, BACK(1));
         return true;
       case 'volcanoOrNot':
         if (d >= VOLCANO_NEEDS) return pass('You dodge the volcano!');

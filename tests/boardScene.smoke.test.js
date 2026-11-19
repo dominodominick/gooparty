@@ -628,6 +628,25 @@ assert.ok(DUR.fly >= 2400 && DUR.drop >= 1800);
     mv.step(1); mv.end();
     assert.equal(sc.leftFor(0), before - 4);
   }
+  // the dragon's fireball: the player is blown back onto the space behind in ONE arc, facing the dragon, and lands upright
+  {
+    at(sc.pawns[0], 'island', 24);
+    const pw = sc.pawns[0], A = { x: pw.x, y: pw.y, z: pw.z }, B = sc.nodeXYZ('island', 23, 0, true);
+    const note = sc.fx.playNote({ fx: 'fireball', dur: DUR.fire }, pw);
+    for (let u = 0; u <= 1.0001; u += 0.05) { note.step(Math.min(1, u)); assert.ok(Math.hypot(pw.x - A.x, pw.z - A.z) < 1e-9, 'the fireball itself does not move the player'); }
+    note.end();
+    const mv = sc.beginMove({ t: 'move', slot: 0, mode: 'knock', path: [{ track: 'island', idx: 23 }], count: { total: 1, dir: 'back' }, dur: DUR.knock });
+    let ups = 0, lastY = pw.y, rising = null, peaks = 0, lastD = 0, back = true;
+    for (let u = 0.02; u <= 1.0001; u += 0.02) {
+      mv.step(Math.min(1, u));
+      const d = Math.hypot(pw.x - A.x, pw.z - A.z); if (d + 1e-9 < lastD) back = false; lastD = d;
+      const r = pw.y > lastY + 1e-6; if (rising === true && !r) peaks++; rising = r; lastY = pw.y; if (r) ups++;
+    }
+    assert.equal(peaks, 1, 'a single arc, no hopping about'); assert.ok(back, 'always moving away from the dragon');
+    assert.ok(Math.hypot(pw.x - B.x, pw.z - B.z) < 1e-6, 'lands on the space behind');
+    assert.equal(pw.fx, null, 'on their feet at the end');
+    mv.end && mv.end();
+  }
   // dev tools: the dice go away and the player is simply on the spot
   {
     sc.queue.length = 0; sc.anim = null;

@@ -906,6 +906,20 @@ export class BoardScene {
         this.place(pawn);
       };
       a.cleanup = () => { sp.group.visible = false; sp.set(0.001); };
+    } else if (ev.mode === 'knock') {
+      // Blown back by the dragon's fireball: one low arc backwards onto the space behind, still facing the dragon, then on their feet.
+      const faceYaw = Math.atan2(A.x - B.x, A.z - B.z), lift = 1.6, T1 = 0.7;
+      if (count) this.setCounter(count, count.total);
+      a.step = (u) => {
+        const f = clamp01(u / T1), e = 1 - (1 - f) * (1 - f); // fast off the ground, slowing into the landing
+        const x = A.x + (B.x - A.x) * e, z = A.z + (B.z - A.z) * e, y = A.y + (B.y - A.y) * e + Math.sin(f * Math.PI) * lift;
+        pawn.x = x; pawn.y = y; pawn.z = z; pawn.yaw = pawn.faceYaw = faceYaw;
+        const land = clamp01((u - T1) / (1 - T1)); // a little stagger on landing, then upright
+        pawn.fx = f < 1 ? { x, y, z, yaw: faceYaw, tilt: 0.55 * Math.sin(f * Math.PI) + 0.2, arms: [-2.4, -2.4], legs: [0.5, -0.3], groundY: Math.min(A.y, B.y) }
+          : land < 1 ? { x, y, z, yaw: faceYaw, tilt: 0.25 * (1 - land), arms: [-1.2 * (1 - land), -1.2 * (1 - land)] } : null;
+        if (count) this.setCounter(count, f < 1 ? count.total : 0);
+        this.place(pawn);
+      };
     } else if (ev.mode === 'fly' && ev.statue && this.statues && this.statues[pawn.idx] && this.statues[pawn.idx].hands) {
       Object.assign(a, this.statueThrowAnim(ev, pawn, this.statues[pawn.idx], A, B, count));
     } else if (ev.mode === 'fly') {

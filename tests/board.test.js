@@ -130,8 +130,13 @@ assert.deepEqual(g.positions[0], I(11)); assert.equal(g.current(), 1);
 // Dragon wall: needs 4+; fail = back one space
 g = game(); g.positions[0] = I(22); roll(g, 2);        // 23, dragon(24)
 assert.equal(g.step.purpose, 'dragon');
-roll(g, 3);
+r = roll(g, 3);
 assert.deepEqual(g.positions[0], I(23), 'fireball pushes back a space'); assert.equal(g.current(), 1);
+{ const evs = r.events, fi = evs.findIndex((e) => e.fx === 'fireball'), mv = evs.filter((e) => e.t === 'move');
+  assert.ok(fi >= 0, 'the dragon spits its fireball');
+  assert.equal(mv.length, 1, 'one move after it: no walking about');
+  assert.equal(mv[0].mode, 'knock'); assert.deepEqual(mv[0].path, [I(23)], 'blown straight back onto the space behind');
+  assert.ok(evs.indexOf(mv[0]) > fi, 'after the fireball hits'); assert.equal(mv[0].dur, DUR.knock); }
 g = game(); g.positions[0] = I(22); roll(g, 2); roll(g, 4);
 assert.deepEqual(g.positions[0], I(25), 'pass: continue with the 1 space left');
 

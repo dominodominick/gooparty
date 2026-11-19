@@ -351,6 +351,11 @@ The hand-built island is gone. The game now runs on the converted Wii Party map 
   sinks away. The game's "broken" message did not say who broke it, so the scene had no player to animate and
   only waited, then hid the wall.
 
+## Build 56
+
+- Dragon wall: the dragon now spits the fireball that sits in its own mouth (`mr001m011_3` inside `m001_35`) instead of spawning a new orange ball. The ball flies to the player, bursts, and goes back in the mouth.
+- The player is knocked back in one arc onto the previous space (`mode: 'knock'`, `DUR.knock`), with no extra hops or walking.
+
 ## Build 55
 
 - The birds over the island fly. The converted map had all 30 frozen in mid-air; now they fly the game's own animation,

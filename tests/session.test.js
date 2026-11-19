@@ -110,7 +110,7 @@ assert.equal(cy.roster.scene, 'lobby');
 
 // ---------- board game over the network ----------
 const { DUR, TIMING } = await import('../js15/game/boardGame.js');
-Object.assign(DUR, { diceStop: 5, walkStep: 2, fastStep: 2, fly: 5, drop: 5, banner: 5, round: 10, turnIntro: 5, moveTail: 2, cross: 2, swing: 2, vinePause: 2, wall: 5, fire: 5, pit: 5, swim: 5, eruption: 5, minigame: 5, flyover: 5, spring: 5, ufo: 5, statueThrow: 5 });
+Object.assign(DUR, { knock: 5, diceStop: 5, walkStep: 2, fastStep: 2, fly: 5, drop: 5, banner: 5, round: 10, turnIntro: 5, moveTail: 2, cross: 2, swing: 2, vinePause: 2, wall: 5, fire: 5, pit: 5, swim: 5, eruption: 5, minigame: 5, flyover: 5, spring: 5, ufo: 5, statueThrow: 5 });
 Object.assign(TIMING, { npcRoll: 5, npcChoose: 5, npcDuel: 5, gap: 5 });
 
 const seen = [];
