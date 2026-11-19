@@ -351,6 +351,12 @@ The hand-built island is gone. The game now runs on the converted Wii Party map 
   sinks away. The game's "broken" message did not say who broke it, so the scene had no player to animate and
   only waited, then hid the wall.
 
+## Build 63
+
+- Smashing the spike statue: the player runs up to the statue itself (the head and the stone block it sits on) and
+  hits it three times; it shakes, bursts, crumbles and is gone, with the number pillar. The spike ball takes no part in
+  it and is never shown (it used to roll out to meet the player and be the thing that got smashed).
+
 ## Build 62
 
 - Fix: the spike ball no longer stops before the pit. It was waiting behind the last runner while their move finished on

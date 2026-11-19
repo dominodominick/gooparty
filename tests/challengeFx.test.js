@@ -246,4 +246,29 @@ for (const k of ['vine', 'dragon', 'crates', 'spike']) {
   fx.chase = null; anim.step(0.01);
   assert.notEqual(fx.s.camHold, cam, 'once it has dropped into the pit, the count-down cuts to the number'); assert.equal(fx.s.snapCamera, true);
 }
+
+// ---- smashing the spike statue: the player runs up to the statue and smashes it; no spike ball anywhere in it
+{
+  const shown = []; const ball = { show(v) { shown.push(v); }, set() { throw new Error('the ball must not move'); }, spin() {} };
+  const part = (x, y, z) => ({ position: { x, y, z, set(a, b, c) { this.x = a; this.y = b; this.z = c; } }, rotation: { x: 0 }, visible: true });
+  const head = part(-1375, 2050, 0), pillar = part(0, 0, 0);
+  const centre = { x: -22, y: 34, z: 0.5 };
+  head.updateWorldMatrix = () => {};
+  class V3 { constructor() { this.x = 0; this.y = 0; this.z = 0; } }
+  class Box3 { setFromObject() { this.min = { x: centre.x - 1.5, y: centre.y - 1.5, z: centre.z - 1.5 }; this.max = { x: centre.x + 1.5, y: centre.y + 1.5, z: centre.z + 1.5 }; return this; } getCenter(v) { Object.assign(v, centre); return v; } }
+  const bursts = [];
+  const fx = mk(0, { T: { Box3, Vector3: V3 }, o: { ball, statue: head, plate: [pillar], S: 0.016 }, broken: {}, burst(p) { bursts.push(p); }, setBroken() { this.brokenNow = true; }, release() {} });
+  fx.s.place = () => {};
+  const stand = sp.pit.stand, pawn = { x: stand.x, y: stand.y, z: stand.z };
+  const a = fx.brokenAnim({ challenge: 'spike', dur: 2000 }, pawn);
+  let moved = false;
+  for (let i = 0; i <= 100; i++) { a.step(i / 100); if (i > 25 && i < 60 && (head.position.x !== -1375 || pillar.position.x !== 0)) moved = true; }
+  a.end();
+  assert.ok(!shown.includes(true), 'the spike ball is never shown');
+  assert.ok(moved, 'the statue shakes as it is hit');
+  assert.ok(Math.hypot(pawn.x - centre.x, pawn.z - centre.z) < 3, 'the player smashes the statue, right up against it');
+  assert.ok(bursts.length && Math.hypot(bursts[0].x - centre.x, bursts[0].z - centre.z) < 0.01, 'it bursts at the statue');
+  assert.ok(!head.visible && !pillar.visible && head.position.x === -1375, 'and is gone (put back in place, hidden)');
+  assert.ok(fx.brokenNow, 'broken for good');
+}
 console.log('challengeFx tests passed');

@@ -135,7 +135,7 @@ export class ChallengeFX {
       m.position.set(p.x, p.y + 0.45, p.z); m.rotation.y = lane.yaw; return m;
     }));
     // the map is loaded once and shared, so a statue smashed earlier (in a game, or the viewer's demo) is put back first
-    if (o.statue) o.statue.visible = true;
+    if (o.statue) { o.statue.visible = true; if (o.statue.parent && o.statue.parent.isMesh) o.statue.parent.visible = true; }
     for (const m of o.plate) m.visible = true;
     this.showSpikeNumber(this.spikeNumber ?? SPIKE_START); // (only the current number's panel)
     for (const k of Object.keys(this.broken)) this.setBroken(k);
@@ -383,7 +383,7 @@ export class ChallengeFX {
   setBroken(kind) {
     this.broken[kind] = true;
     if (this.o && kind === 'dragon') { this.o.guard.visible = false; this.o.guardFire.visible = false; }
-    if (this.o && kind === 'spike') { if (this.o.ball) this.o.ball.show(false); if (this.o.statue) this.o.statue.visible = false; for (const m of this.o.plate) m.visible = false; if (this.o.numbers) for (const m of Object.values(this.o.numbers)) m.visible = false; if (this.o.jaws) this.o.jaws.rest(); } // the statue is broken for good
+    if (this.o && kind === 'spike') { if (this.o.ball) this.o.ball.show(false); if (this.o.statue) { this.o.statue.visible = false; if (this.o.statue.parent && this.o.statue.parent.isMesh) this.o.statue.parent.visible = false; } for (const m of this.o.plate) m.visible = false; if (this.o.numbers) for (const m of Object.values(this.o.numbers)) m.visible = false; if (this.o.jaws) this.o.jaws.rest(); } // the statue is broken for good
   }
 
   burst(at, n = 26) {
@@ -396,36 +396,54 @@ export class ChallengeFX {
 
   /** The roller hits the thing in the way three times and it goes to pieces. */
   brokenAnim(ev, pawn) {
-    const kind = ev.challenge, sp = this.sp, o = this.o;
-    const target = kind === 'dragon' ? sp.wall.at : lerp3(sp.pit.stand, sp.pit.mid, 0.7);
-    const ball = kind === 'spike' && o ? o.ball : null, obj = o && kind === 'dragon' ? o.guard : null;
+    const kind = ev.challenge, sp = this.sp, o = this.o, T = this.T;
+    // what gets smashed: the dragon wall, or the spike statue itself (its head and the pillar with the number); the spike
+    // ball stays out of it
+    const body = o && o.statue ? (o.statue.parent && o.statue.parent.isMesh ? o.statue.parent : o.statue) : null; // the stone block the head sits on (its parent), with the head
+    const smash = !o ? [] : kind === 'dragon' ? [o.guard] : [body, ...(o.plate || [])].filter((m, i, all) => m && all.indexOf(m) === i);
+    let target = kind === 'dragon' ? sp.wall.at : lerp3(sp.pit.stand, sp.pit.mid, 0.7), size = 0;
+    if (kind === 'spike' && body && T && T.Box3) { // the statue's middle: the block and the head on it, as they stand
+      body.updateWorldMatrix(true, true);
+      const box = new T.Box3().setFromObject(body), c = box.getCenter(new T.Vector3());
+      target = { x: c.x, y: c.y, z: c.z }; size = Math.max(box.max.x - box.min.x, box.max.z - box.min.z) / 2;
+    }
+    if (o && o.ball && kind === 'spike') o.ball.show(false);
+    if (kind === 'spike' && o && o.jaws) o.jaws.rest();
     const from = { x: pawn.x, y: pawn.y, z: pawn.z }, d = flat(from, target) || 1, ux = (target.x - from.x) / d, uz = (target.z - from.z) / d;
-    const gapTo = kind === 'dragon' ? 3.8 : sp.pit.R + 1.2;
+    const gapTo = kind === 'dragon' ? 3.8 : Math.max(2.2, size + 0.9);
     const reach = { x: target.x - ux * gapTo, y: from.y, z: target.z - uz * gapTo }, yaw = Math.atan2(ux, uz);
-    const base = obj ? { x: target.x, y: target.y, z: target.z } : null, ballStop = { x: target.x, y: from.y + sp.pit.R, z: target.z };
+    const S = (o && o.S) || 1, scaleOf = (m) => (kind === 'dragon' ? 1 : 1 / S); // the statue's pieces live in the map's units
+    const bases = smash.map((m) => ({ m, x: m.position.x, y: m.position.y, z: m.position.z, rx: m.rotation.x }));
+    const put = (dx, dy, dz, rx = 0) => { for (const b of bases) { const k = scaleOf(b.m); b.m.position.set(b.x + dx * k, b.y + dy * k, b.z + dz * k); if (kind === 'dragon') b.m.rotation.x = b.rx + rx; } };
     this.walkTo = null;
     let shattered = false;
     const a = { t: 0, dur: ev.dur };
     a.step = (u) => {
-      if (u < 0.2) { // run up to it (the boulder rolls down to meet the player)
+      if (u < 0.2) { // run up to it
         const p = lerp3(from, reach, ease(u / 0.2)); pawn.x = p.x; pawn.y = p.y; pawn.z = p.z; pawn.fx = null;
-        if (ball) { ball.show(true); ball.set(lerp3(sp.pit.from, ballStop, ease(u / 0.2))); ball.spin(u * 30); }
       } else if (u < 0.62) { // three hits: lunge, the thing shakes
         const k = (u - 0.2) / 0.42 * 3, f = k - Math.floor(k), lunge = Math.sin(Math.min(1, f * 1.6) * Math.PI);
         pawn.x = reach.x + ux * lunge * 1.3; pawn.z = reach.z + uz * lunge * 1.3; pawn.y = reach.y + lunge * 0.5;
         pawn.fx = { x: pawn.x, y: pawn.y, z: pawn.z, yaw, arms: [-1.6 - lunge * 1.2, -1.6 - lunge * 1.2], tilt: lunge * 0.25 };
-        const sh = f > 0.3 && f < 0.75 ? Math.sin(f * 60) * 0.35 : 0;
-        if (obj && base) obj.position.set(base.x + sh, base.y, base.z + sh * 0.6);
-        if (ball) ball.set({ x: ballStop.x + sh, y: ballStop.y, z: ballStop.z + sh * 0.6 });
+        const sh = f > 0.3 && f < 0.75 ? Math.sin(f * 60) * (kind === 'dragon' ? 0.35 : 0.22) : 0;
+        put(sh, 0, sh * 0.6);
       } else {
-        if (!shattered) { shattered = true; pawn.fx = null; pawn.x = reach.x; pawn.y = reach.y; pawn.z = reach.z; this.burst(ball ? ballStop : target); if (ball) ball.show(false); }
-        if (obj) { const k = clamp01((u - 0.62) / 0.2); obj.position.y = (base ? base.y : target.y) - k * 2; obj.rotation.x = -k * 1.2; if (k >= 1) obj.visible = false; }
+        if (!shattered) { shattered = true; pawn.fx = null; pawn.x = reach.x; pawn.y = reach.y; pawn.z = reach.z; this.burst(target); if (kind === 'spike') this.burst({ x: target.x, y: target.y + size * 0.8, z: target.z }); }
+        const k = clamp01((u - 0.62) / 0.2); // it crumbles: sinks and tips over, then is gone
+        put(0, -k * 2, 0, -k * 1.2);
+        if (k >= 1) for (const b of bases) b.m.visible = false;
       }
       this.s.place(pawn);
     };
-    a.end = () => { pawn.fx = null; if (obj) { obj.visible = false; obj.rotation.x = 0; } if (ball) ball.show(false); this.setBroken(kind); this.release(); };
+    a.end = () => {
+      pawn.fx = null;
+      for (const b of bases) { b.m.position.set(b.x, b.y, b.z); b.m.rotation.x = b.rx; b.m.visible = false; }
+      if (o && o.ball && kind === 'spike') o.ball.show(false);
+      this.setBroken(kind); this.release();
+    };
     return a;
   }
+
 
   // ------------------------------------------------------------------ what a "space" note shows
   playNote(ev, pawn) {
