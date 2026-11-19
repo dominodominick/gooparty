@@ -208,4 +208,29 @@ for (const k of ['vine', 'dragon', 'crates', 'spike']) {
   fx.counting = true; fx.s.camHold = 'number'; fx.chaseCamera(c, route.at(12), 1 / 60);
   assert.equal(fx.s.camHold, 'number', 'the number count-down has the camera');
 }
+
+// ---- the count-down waits for the spike ball to drop into the pit; the camera watches it fall
+{
+  const fx = mk(0); fx.s.camHold = null;
+  const route = { sEdge: 50, at: (sd) => ({ x: 20 * Math.cos(sd / 20), y: 30 - sd * 0.1, z: 20 * Math.sin(sd / 20) }) };
+  const c = { s: 49, route }; fx.chaseCamera(c, route.at(49), 1 / 60);
+  const camAt = { x: fx.s.camHold.x, y: fx.s.camHold.y, z: fx.s.camHold.z };
+  c.s = 52; const falling = { ...route.at(52), y: route.at(52).y - 10 };
+  for (let i = 0; i < 60; i++) fx.chaseCamera(c, falling, 1 / 60);
+  assert.deepEqual({ x: fx.s.camHold.x, y: fx.s.camHold.y, z: fx.s.camHold.z }, camAt, 'over the edge the camera stays put');
+  assert.ok(Math.abs(fx.s.camHold.ty - falling.y) < 1.5, 'and looks down at the falling ball');
+  // a count-down that starts while the ball is still rolling waits for it
+  class V3 { constructor(x = 0, y = 0, z = 0) { this.x = x; this.y = y; this.z = z; }
+    applyMatrix4() { return this; } subVectors(a, b) { this.x = a.x - b.x; this.y = a.y - b.y; this.z = a.z - b.z; return this; }
+    cross(v) { const { x, y, z } = this; this.x = y * v.z - z * v.y; this.y = z * v.x - x * v.z; this.z = x * v.y - y * v.x; return this; }
+    normalize() { const l = Math.hypot(this.x, this.y, this.z) || 1; this.x /= l; this.y /= l; this.z /= l; return this; } negate() { this.x *= -1; this.y *= -1; this.z *= -1; return this; } }
+  const pts = [[0, 0, 0], [0, 1, 0], [1, 0, 0]];
+  const panel = { updateWorldMatrix() {}, matrixWorld: null, geometry: { boundingBox: { getCenter: (v) => v }, attributes: { position: { getX: (i) => pts[i][0], getY: (i) => pts[i][1], getZ: (i) => pts[i][2] } } } };
+  fx.T = { Vector3: V3 }; fx.o = { numbers: { 5: panel, 4: panel } }; fx.chase = c; fx.rippleFor = () => null; fx.showSpikeNumber = () => {};
+  const cam = fx.s.camHold, anim = fx.countAnim({ from: 5, to: 4, dur: 2600 });
+  anim.t = 500; anim.step(0.2);
+  assert.equal(anim.t, 0, 'the count-down holds while the ball still rolls'); assert.equal(fx.s.camHold, cam, 'and the camera stays on the ball');
+  fx.chase = null; anim.step(0.01);
+  assert.notEqual(fx.s.camHold, cam, 'once it has dropped into the pit, the count-down cuts to the number'); assert.equal(fx.s.snapCamera, true);
+}
 console.log('challengeFx tests passed');

@@ -325,7 +325,7 @@ __mods["js15/config.js"] = (() => {
 
 const GAME_TITLE = 'Party Island'; // placeholder name: pick your own
 
-const BUILD = '60'; // shown in the menu and in games; every player must have the same build
+const BUILD = '61'; // shown in the menu and in games; every player must have the same build
 
 const MAX_PLAYERS = 6;
 
@@ -3003,6 +3003,8 @@ class ChallengeFX {
     const R0 = 0.12, R1 = 0.82; // the part of the whole the ripple takes
     a.fast = true;
     a.step = (u) => {
+      if (this.chase && (a.waited = (a.waited || 0) + 1) < 400) { a.t = 0; this.countWaiting = true; return; } // the ball goes over the edge and into the pit first
+      this.countWaiting = false;
       if (!a.cut) { a.cut = true; this.counting = true; s.camHold = view; s.snapCamera = true; } // a cut, not a pan
       else s.camHold = view;
       const k = clamp01((u - R0) / (R1 - R0));
@@ -3406,6 +3408,10 @@ class ChallengeFX {
         for (const key of ['x', 'y', 'z']) { c.cam[key] += (want[key] - c.cam[key]) * k; c.look[key] += (look[key] - c.look[key]) * k; }
       }
     }
+    else if (c.cam) { // over the edge: the camera stays put and watches it drop into the pit
+      const k = 1 - Math.exp(-dt * 8);
+      c.look.x += (q.x - c.look.x) * k; c.look.y += (q.y + 0.5 - c.look.y) * k; c.look.z += (q.z - c.look.z) * k;
+    }
     if (c.cam) s.camHold = { x: c.cam.x, y: c.cam.y, z: c.cam.z, tx: c.look.x, ty: c.look.y - 0.5, tz: c.look.z };
   }
 
@@ -3442,7 +3448,7 @@ class ChallengeFX {
     if (c.s > r.total || (c.fall || 0) > 1.6) { // long gone: the ball back in the statue's mouth, which shuts (the hiders stay put until the camera has left them)
       for (const pw of c.dodgers.keys()) pw.fx = null;
       this.chase = null;
-      if (c.cam && !this.counting) { s.camHold = null; s.runHold = false; s.snapCamera = true; } // cut back to the follow camera
+      if (c.cam && !this.counting && !this.countWaiting) { s.camHold = null; s.runHold = false; s.snapCamera = true; } // cut back to the follow camera
       if (!(this.broken && this.broken.spike)) { o.ball.goHome(); if (o.jaws && o.jaws.state === 'open') this.jawAnim = { t: 0 }; } else o.ball.show(false);
     }
   }

@@ -351,6 +351,12 @@ The hand-built island is gone. The game now runs on the converted Wii Party map 
   sinks away. The game's "broken" message did not say who broke it, so the scene had no player to animate and
   only waited, then hid the wall.
 
+## Build 61
+
+- Fix: the spike ball is seen dropping into the pit again. The number count-down was starting as soon as the players had
+  hidden, while the ball was still rolling, and cut away before it fell. It now waits for the ball to go over the edge
+  and drop in; the chase camera stays put at the edge and watches it fall, then cuts straight to the number.
+
 ## Build 60
 
 - Spike ball chase: the camera cuts to the rolling ball and goes along with it, out beside the path, a little behind and
