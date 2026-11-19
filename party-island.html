@@ -325,7 +325,7 @@ __mods["js15/config.js"] = (() => {
 
 const GAME_TITLE = 'Party Island'; // placeholder name: pick your own
 
-const BUILD = '64'; // shown in the menu and in games; every player must have the same build
+const BUILD = '65'; // shown in the menu and in games; every player must have the same build
 
 const MAX_PLAYERS = 6;
 
@@ -2863,6 +2863,8 @@ const HIDE_MS = 450;             // ducking into the tunnel mouth   // how fast 
 const FLOATERS = 3;       // crates / barrels in each lane of the pool
 
 /** Where the set pieces are, worked out from the map's hooks (world units). */
+const lerpCam = (a, b, k) => ({ x: a.x + (b.x - a.x) * k, y: a.y + (b.y - a.y) * k, z: a.z + (b.z - a.z) * k, tx: a.tx + (b.tx - a.tx) * k, ty: a.ty + (b.ty - a.ty) * k, tz: a.tz + (b.tz - a.tz) * k });
+
 function challengeSpecs(W = islandWorld()) {
   const H = W.hooks, A = W.aux, gap = (k) => W.gaps.find((g) => g.kind === k);
   // ---- the vine
@@ -3393,9 +3395,15 @@ class ChallengeFX {
       this.walkTo = null; this.chase = null; this.jawAnim = null;
       const OPEN = 0.35, SPIT = 0.4, BOUNCE = 0.2; // seconds: the jaws open / the ball flies out / one bounce
       const a = { t: 0, dur: ev.dur };
+      const shots = this.spikeShots(pawn), B0 = Math.min(1.15, secs * 0.62), B1 = Math.min(1.75, secs * 0.97);
       a.step = (u) => {
         if (!o || !o.ball) return;
         const t = u * secs;
+        if (shots) { // the camera: the statue from out below the ledge, pushing in; a look down the path at the others; back
+          const onB = shots.B && t >= B0 && t < B1, name = onB ? 'B' : 'A';
+          if (a.shot !== name) { a.shot = name; this.s.snapCamera = true; }
+          this.s.camHold = onB ? shots.B : lerpCam(shots.A0, shots.A1, ease(clamp01(t / secs)) * 0.75);
+        }
         if (jaws) { jaws.pose('open', t * JAW_FPS); jaws.state = 'open'; }
         o.ball.show(t > OPEN * 0.45); // it comes up out of the statue's throat once the jaws are parting
         let q;
@@ -3406,7 +3414,7 @@ class ChallengeFX {
         o.ball.set(q);
         if (t > OPEN + SPIT * 0.6) { const j = Math.abs(Math.sin((t - OPEN) * 14)) * 0.9; pawn.fx = { x: pawn.x, y: pawn.y + j, z: pawn.z, arms: [-2.8, -2.8] }; } // the player jumps in fright
       };
-      a.end = () => { pawn.fx = null; this.startChase(pawn.slot); };
+      a.end = () => { pawn.fx = null; this.startChase(pawn.slot, shots); };
       return a;
     }
     if (ev.fx === 'spikeCount') return this.countAnim(ev);
@@ -3445,9 +3453,45 @@ class ChallengeFX {
     return { pts, cum, at, near, total: cum[cum.length - 1], sLast: cum[atLast], sEdge: cum[atLast + 1], lastIdx };
   }
 
-  startChase(slot) {
+  startChase(slot, shots = null) {
     if (!this.o || !this.o.ball) return;
-    this.chase = { slot, t: 0, s: 0, v: 0, route: this.chaseRoute(), dodgers: new Map() };
+    this.chase = { slot, t: 0, s: 0, v: 0, route: this.chaseRoute(), dodgers: new Map(), shots };
+  }
+
+  /**
+   * The cameras for the spike ball, as the game frames it. A: out past the edge of the ledge and below it, looking up at
+   * the statue with the player in front of it (the path running off towards the camera's right); it pushes in from A0 to
+   * A1. B: down the path, low, looking back up at the ledge past whoever else is on the stretch (only when someone is).
+   */
+  spikeShots(pawn) {
+    const sp = this.sp, p = sp.pit, M = p.from, st = p.stand, P = this.s.pos && this.s.pos.island;
+    if (!M || !st) return null;
+    const tgt = { x: (M.x + st.x) / 2, y: st.y + 2.6, z: (M.z + st.z) / 2 };
+    let fx = p.popTo.x - M.x, fz = p.popTo.z - M.z; const fl = Math.hypot(fx, fz) || 1; fx /= fl; fz /= fl; // the way the statue looks
+    const spikeIdx = ISLAND.findIndex((n) => n.type === 'spike');
+    let dx = 0, dz = 1;
+    if (P && P[spikeIdx] && P[spikeIdx - 1]) { dx = P[spikeIdx - 1].x - P[spikeIdx].x; dz = P[spikeIdx - 1].z - P[spikeIdx].z; const dl = Math.hypot(dx, dz) || 1; dx /= dl; dz /= dl; } // the way the ball will roll
+    let cx = fx * 0.85 + dx * 0.5, cz = fz * 0.85 + dz * 0.5; const cl = Math.hypot(cx, cz) || 1; cx /= cl; cz /= cl;
+    const cam = (dist, up) => ({ x: tgt.x + cx * dist, y: st.y + up, z: tgt.z + cz * dist, tx: tgt.x, ty: tgt.y, tz: tgt.z });
+    const A0 = cam(23, 7), A1 = cam(15, 5.6); // above the ledge, looking a little down across it at the statue
+    // someone else on the stretch below the statue: a look from down the path, past them, back up at the ledge
+    let B = null;
+    if (P && this.s.pawns) {
+      const r = this.chaseRoute();
+      let far = -1;
+      for (const o of Object.values(this.s.pawns)) {
+        if (!o || o === pawn || o.track !== 'island' || (o.group && o.group.visible === false)) continue;
+        if (o.idx < r.lastIdx || o.idx >= spikeIdx) continue;
+        far = Math.max(far, r.near(o));
+      }
+      if (far >= 0) {
+        const at = r.at(Math.min(r.sLast, far + 16)), R = p.R, ground = at.y - R;
+        let ox = at.x, oz = at.z; const ol = Math.hypot(ox, oz) || 1; ox /= ol; oz /= ol; // out from the middle of the island, off the rock
+        const look = r.at(2);
+        B = { x: at.x + ox * 1.2, y: ground + 4, z: at.z + oz * 1.2, tx: look.x, ty: look.y - R + 1.6, tz: look.z };
+      }
+    }
+    return { A0, A1, B };
   }
 
   /** Where a player ducks in, and the pose they hold there (looking out at the path). */
@@ -3492,29 +3536,51 @@ class ChallengeFX {
   }
 
   /**
-   * While the spike ball rolls down the stretch the camera goes with it: out beside the path, a little behind and above
-   * the ball, looking on down the path at the players running from it. It cuts in when the ball starts rolling, keeps
-   * level with the ball, and stops still to watch it go over the edge.
+   * The camera while the spike ball rolls, as the game does it. First (C) it stays on the statue shot and pans with the
+   * ball as it comes off the ledge. Then (D) it cuts to the path ahead of the runners, low over it, looking back up at
+   * them with the ball behind them, and backs away down the path as they come; it stops at the far end, over the pit,
+   * where the runners duck into the tunnel mouth and the ball rolls on past them. Then (E) it rises and looks down as the
+   * ball drops into the pit.
    */
   chaseCamera(c, q, dt) {
-    const s = this.s, r = c.route;
+    const s = this.s, r = c.route, R = this.sp.pit.R, k = 1 - Math.exp(-dt * 6);
     if (this.counting) return;
-    if (c.s <= r.sEdge) {
-      const ahead = r.at(c.s + 4), tx = ahead.x - q.x, tz = ahead.z - q.z, tl = Math.hypot(tx, tz) || 1;
-      let ox = q.x, oz = q.z; const ol = Math.hypot(ox, oz) || 1; ox /= ol; oz /= ol; // out from the middle of the island: away from the rock
-      const want = { x: q.x - tx / tl * 8 + ox * 9, y: q.y + 8.5, z: q.z - tz / tl * 8 + oz * 9 };
-      const look = r.at(c.s + 7);
-      if (!c.cam) { c.cam = { ...want }; c.look = { ...look }; s.snapCamera = true; } // the cut
-      else {
-        const k = 1 - Math.exp(-dt * 5);
-        for (const key of ['x', 'y', 'z']) { c.cam[key] += (want[key] - c.cam[key]) * k; c.look[key] += (look[key] - c.look[key]) * k; }
-      }
+    c.camT = (c.camT || 0) + dt;
+    if (!c.phase) c.phase = c.shots ? 'C' : 'D';
+    if (c.phase === 'C') {
+      const A = lerpCam(c.shots.A0, c.shots.A1, 0.75), A1 = c.shots.A1;
+      if (!c.cam) { c.cam = { x: A.x, y: A.y, z: A.z }; c.look = { x: A.tx, y: A.ty, z: A.tz }; }
+      for (const key of ['x', 'y', 'z']) c.cam[key] += (A1[key] - c.cam[key]) * k * 0.25; // still pushing in a little
+      const kk = 1 - Math.exp(-dt * 7);
+      c.look.x += (q.x - c.look.x) * kk; c.look.y += (q.y - c.look.y) * kk; c.look.z += (q.z - c.look.z) * kk; // pans with the ball
+      if (c.s > 9 || c.camT > 1.1) { c.phase = 'D'; c.cut = true; }
     }
-    else if (c.cam) { // over the edge: the camera stays put and watches it drop into the pit
-      const k = 1 - Math.exp(-dt * 8);
-      c.look.x += (q.x - c.look.x) * k; c.look.y += (q.y + 0.5 - c.look.y) * k; c.look.z += (q.z - c.look.z) * k;
+    if (c.phase === 'D' && c.s <= r.sEdge) {
+      // well ahead of the ball, and of whoever is out in front running from it; it only ever backs away, never comes back
+      let lead = c.s;
+      for (const pw of Object.values(s.pawns || {})) if (pw && c.running && c.running.has(pw.slot) && !(this.hidden && this.hidden.has(pw))) lead = Math.max(lead, r.near(pw));
+      const stopS = r.sEdge + 8; // it stops out beyond the pit, so the ball drops into it between them and the camera
+      c.camS = Math.min(stopS, Math.max(c.camS || 0, c.s + 18, lead + 12));
+      const camS = c.camS, at = this.routeAhead(r, camS);
+      let ox = at.x, oz = at.z; const ol = Math.hypot(ox, oz) || 1; ox /= ol; oz /= ol; // a little out from the rock
+      const want = { x: at.x + ox * 1.2, y: at.y - R + 4.6 + clamp01((camS - r.sEdge) / 8) * 2.5, z: at.z + oz * 1.2 };
+      const lk = r.at(Math.min(c.s + 6, r.sEdge)), look = { x: lk.x, y: lk.y - R + 1.2, z: lk.z };
+      if (!c.cam || c.cut) { c.cam = { ...want }; c.look = { ...look }; c.cut = false; s.snapCamera = true; } // the cut
+      else { const kf = 1 - Math.exp(-dt * 10); for (const key of ['x', 'y', 'z']) { c.cam[key] += (want[key] - c.cam[key]) * kf; c.look[key] += (look[key] - c.look[key]) * kf; } }
+    } else if (c.s > r.sEdge && c.cam) { // over the edge: the camera rises where it is and looks down at it dropping into the pit
+      if (c.riseFrom == null) c.riseFrom = c.cam.y;
+      c.cam.y += (c.riseFrom + 5 - c.cam.y) * (1 - Math.exp(-dt * 3));
+      const kk = 1 - Math.exp(-dt * 9);
+      c.look.x += (q.x - c.look.x) * kk; c.look.y += (q.y - c.look.y) * kk; c.look.z += (q.z - c.look.z) * kk;
     }
-    if (c.cam) s.camHold = { x: c.cam.x, y: c.cam.y, z: c.cam.z, tx: c.look.x, ty: c.look.y - 0.5, tz: c.look.z };
+    if (c.cam) s.camHold = { x: c.cam.x, y: c.cam.y, z: c.cam.z, tx: c.look.x, ty: c.look.y, tz: c.look.z };
+  }
+
+  /** A point on the ball's route, carried straight on past the edge (level) for the camera. */
+  routeAhead(r, sd) {
+    if (sd <= r.sEdge) return r.at(sd);
+    const e = r.at(r.sEdge), e0 = r.at(r.sEdge - 1); let dx = e.x - e0.x, dz = e.z - e0.z; const dl = Math.hypot(dx, dz) || 1; dx /= dl; dz /= dl;
+    return { x: e.x + dx * (sd - r.sEdge), y: e.y, z: e.z + dz * (sd - r.sEdge) };
   }
 
   updateChase(dt) {
@@ -3524,6 +3590,7 @@ class ChallengeFX {
     // The ball stays right behind whoever is running from it (the hindmost of them), and once they are all out of its
     // way it rolls on at full speed, over the edge and down.
     const running = s.anim ? (s.anim.slotsMoving || new Set([s.anim.slotMoving])) : new Set();
+    c.running = running;
     let behind = Infinity;
     for (const pawn of Object.values(s.pawns)) {
       if (!pawn || !running.has(pawn.slot) || this.hidden.has(pawn) || (pawn.fx && pawn.fx.hiding)) continue;
@@ -3551,7 +3618,7 @@ class ChallengeFX {
     if (c.s > r.total || (c.fall || 0) > 1.6) { // long gone: the ball back in the statue's mouth, which shuts (the hiders stay put until the camera has left them)
       for (const pw of c.dodgers.keys()) pw.fx = null;
       this.chase = null;
-      if (c.cam && !this.counting && !this.countWaiting) { s.camHold = null; s.runHold = false; s.snapCamera = true; } // cut back to the follow camera
+      if (c.cam && !this.counting && !this.countWaiting) this.afterChase = { t: 1.2, hold: s.camHold }; // keep looking into the pit a moment: the number count-down may be about to cut in
       if (!(this.broken && this.broken.spike)) { o.ball.goHome(); if (o.jaws && o.jaws.state === 'open') this.jawAnim = { t: 0 }; } else o.ball.show(false);
     }
   }
@@ -3833,6 +3900,12 @@ class ChallengeFX {
     // the spike ball rolling down the whole stretch without stopping, past the players hiding in the tunnel mouth,
     // and over the edge at the end
     if (this.chase && o) this.updateChase(dt);
+    if (this.afterChase) { // the ball has gone: hold the last shot a moment, then cut back to the follow camera (unless the count-down took over)
+      const h = this.afterChase; h.t -= dt;
+      if (this.counting || this.countWaiting || this.chase) this.afterChase = null;
+      else if (h.t <= 0) { this.afterChase = null; if (s.camHold === h.hold || !s.camHold) { s.camHold = null; s.runHold = false; s.snapCamera = true; } }
+      else if (h.hold) s.camHold = h.hold;
+    }
     if (this.jawAnim && o && o.jaws) { // the statue shuts its mouth on the new ball
       const j = this.jawAnim; j.t += dt; o.jaws.pose('close', j.t * JAW_FPS);
       if (j.t >= jawSecs(SPIKE_HEAD, 'close')) { o.jaws.rest(); this.jawAnim = null; }

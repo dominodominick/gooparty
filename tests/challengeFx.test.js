@@ -206,31 +206,86 @@ for (const k of ['vine', 'dragon', 'crates', 'spike']) {
   assert.ok(/o\.ball = this\.mapBall\(board\)/.test(attach), 'attach() sets up the spike ball');
 }
 
-// ---- the camera on the rolling spike ball: cuts in, stays out beside the path (away from the rock), looks on ahead
+// ---- the camera on the rolling spike ball, the way the game frames it
 {
-  const fx = mk(0); fx.s.camHold = null; fx.s.snapCamera = false;
   const route = { sEdge: 100, at: (sd) => ({ x: 20 * Math.cos(sd / 20), y: 30 - sd * 0.1, z: 20 * Math.sin(sd / 20) }) };
-  const c = { s: 10, route }; const q = route.at(10);
+  const d2 = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
+  // straight to the camera ahead of the runners when there was no statue shot
+  let fx = mk(0); fx.s.camHold = null; fx.s.snapCamera = false;
+  let c = { s: 10, route }; let q = route.at(10);
   fx.chaseCamera(c, q, 1 / 60);
-  assert.equal(fx.s.snapCamera, true, 'a cut to the ball');
-  const h = fx.s.camHold; assert.ok(h && Math.hypot(h.x, h.z) > Math.hypot(q.x, q.z) + 4, 'out from the rock');
-  assert.ok(h.y > q.y + 4, 'above the ball');
-  const look = route.at(17); assert.ok(Math.hypot(h.tx - look.x, h.tz - look.z) < 0.5, 'looking on down the path');
+  assert.equal(fx.s.snapCamera, true, 'a cut');
+  let h = fx.s.camHold;
+  assert.ok(d2(h, route.at(28)) < 2 && d2(h, q) > 14, 'out ahead of the ball, down the path');
+  assert.ok(h.y > route.at(28).y - 2.5 + 3 && h.y < route.at(28).y + 3, 'low over the path');
+  assert.ok(d2({ x: h.tx, z: h.tz }, route.at(16)) < 0.5, 'looking back up at the ball and whoever is running from it');
   fx.s.snapCamera = false; c.s = 12; fx.chaseCamera(c, route.at(12), 1 / 60);
-  assert.equal(fx.s.snapCamera, false, 'then it goes along with the ball, no more cuts');
-  fx.counting = true; fx.s.camHold = 'number'; fx.chaseCamera(c, route.at(12), 1 / 60);
+  assert.equal(fx.s.snapCamera, false, 'then it backs away down the path with them, no more cuts');
+  for (let i = 0; i < 120; i++) { c.s += 0.3; fx.chaseCamera(c, route.at(c.s), 1 / 60); }
+  assert.ok(d2(fx.s.camHold, route.at(c.s + 18)) < 3.5, 'keeping ahead of them');
+  fx.counting = true; fx.s.camHold = 'number'; fx.chaseCamera(c, route.at(c.s), 1 / 60);
   assert.equal(fx.s.camHold, 'number', 'the number count-down has the camera');
+  // after the statue shot: it stays there and pans with the ball coming off the ledge, then cuts ahead
+  fx = mk(0); fx.s.camHold = null; fx.s.snapCamera = false;
+  const A0 = { x: -50, y: 33, z: 20, tx: -27, ty: 35, tz: 3 }, A1 = { x: -42, y: 34, z: 15, tx: -27, ty: 35, tz: 3 };
+  c = { s: 0, t: 0, route, shots: { A0, A1, B: null } };
+  fx.chaseCamera(c, route.at(0), 1 / 60);
+  assert.equal(fx.s.snapCamera, false, 'no cut off the statue shot');
+  assert.ok(Math.hypot(fx.s.camHold.x - (-44), fx.s.camHold.z - 16.25) < 1, 'it carries on from where the statue shot was');
+  const startLook = { x: fx.s.camHold.tx, z: fx.s.camHold.tz };
+  for (let i = 0; i < 20; i++) { c.s += 0.3; fx.chaseCamera(c, route.at(c.s), 1 / 60); }
+  assert.ok(d2({ x: fx.s.camHold.tx, z: fx.s.camHold.tz }, route.at(c.s)) < d2(startLook, route.at(c.s)), 'and pans with the ball');
+  for (let i = 0; i < 20; i++) { c.s += 0.3; fx.chaseCamera(c, route.at(c.s), 1 / 60); }
+  assert.equal(fx.s.snapCamera, true, 'then cuts to the camera ahead of the runners'); assert.equal(c.phase, 'D');
 }
 
-// ---- the count-down waits for the spike ball to drop into the pit; the camera watches it fall
+// ---- the camera ahead keeps clear in front of whoever is leading the run, not just the ball
+{
+  const fx = mk(0); fx.s.pos = { island: P }; fx.hidden = new Map();
+  const r = fx.chaseRoute(), runner = { slot: 0, ...r.at(20) }; runner.y -= sp.pit.R;
+  fx.s.pawns = { 0: runner };
+  const c = { s: 4, route: r, running: new Set([0]) };
+  fx.chaseCamera(c, r.at(4), 1 / 60);
+  const camS = r.near({ x: fx.s.camHold.x, y: fx.s.camHold.y - 4.6 + sp.pit.R - sp.pit.R, z: fx.s.camHold.z });
+  assert.ok(camS > 20 + 9, `well in front of the runner out ahead of the ball (camera at ${camS.toFixed(1)} along the path, runner at 20)`);
+  const before = c.camS; runner.x = r.at(5).x; runner.z = r.at(5).z; fx.chaseCamera(c, r.at(4), 1 / 60);
+  assert.equal(c.camS, before, 'and it never comes back up the path');
+}
+
+// ---- the statue shot while it spits the ball, and the look down the path at whoever else is on the stretch
+{
+  const fx = mk(0); fx.s.pos = { island: P };
+  const p = sp.pit, st = p.stand, M = p.from, me = { slot: 0, track: 'island', idx: ISLAND.findIndex((n) => n.type === 'spike') };
+  fx.s.pawns = { 0: me };
+  let sh = fx.spikeShots(me);
+  assert.equal(sh.B, null, 'nobody else on the stretch: no look down the path');
+  for (const A of [sh.A0, sh.A1]) {
+    // the player is in front of the statue as the camera sees it: the stand lies between the camera and the statue
+    const ax = M.x - A.x, az = M.z - A.z, L = Math.hypot(ax, az), t = ((st.x - A.x) * ax + (st.z - A.z) * az) / (L * L);
+    const off = Math.hypot(A.x + ax * t - st.x, A.z + az * t - st.z);
+    assert.ok(t > 0.3 && t < 0.9 && off < 4, `the player stands in front of the statue in shot (along ${t.toFixed(2)}, ${off.toFixed(1)} off the line)`);
+    assert.ok(A.y > st.y + 4 && A.y < M.y + 3 && A.ty < A.y && A.ty > A.y - 5, 'from out over the edge, just above the ledge, looking a little down across it');
+  }
+  assert.ok(Math.hypot(sh.A1.x - sh.A1.tx, sh.A1.z - sh.A1.tz) < Math.hypot(sh.A0.x - sh.A0.tx, sh.A0.z - sh.A0.tz) - 4, 'it pushes in');
+  const r = fx.chaseRoute(), other = { slot: 1, track: 'island', idx: me.idx - 3, x: P[me.idx - 3].x, y: P[me.idx - 3].y, z: P[me.idx - 3].z, group: { visible: true } };
+  fx.s.pawns = { 0: me, 1: other };
+  sh = fx.spikeShots(me);
+  assert.ok(sh.B, 'someone else on the stretch: a look down the path');
+  assert.ok(r.near(sh.B) > r.near(other) + 3, 'from further down the path than them');
+  assert.ok(r.near({ x: sh.B.tx, y: sh.B.ty, z: sh.B.tz }) < 6, 'looking back up at the ledge the ball lands on');
+}
+
+// ---- the count-down waits for the spike ball to drop into the pit; the camera rises and looks down at it falling
 {
   const fx = mk(0); fx.s.camHold = null;
   const route = { sEdge: 50, at: (sd) => ({ x: 20 * Math.cos(sd / 20), y: 30 - sd * 0.1, z: 20 * Math.sin(sd / 20) }) };
-  const c = { s: 49, route }; fx.chaseCamera(c, route.at(49), 1 / 60);
+  const c = { s: 30, route }; for (let i = 0; i < 500; i++) { c.s = Math.min(49.9, c.s + 0.1); fx.chaseCamera(c, route.at(c.s), 1 / 60); }
+  const stop = fx.routeAhead(route, 58);
+  assert.ok(Math.hypot(fx.s.camHold.x - stop.x, fx.s.camHold.z - stop.z) < 2, 'the camera has stopped out beyond the pit');
   const camAt = { x: fx.s.camHold.x, y: fx.s.camHold.y, z: fx.s.camHold.z };
   c.s = 52; const falling = { ...route.at(52), y: route.at(52).y - 10 };
   for (let i = 0; i < 60; i++) fx.chaseCamera(c, falling, 1 / 60);
-  assert.deepEqual({ x: fx.s.camHold.x, y: fx.s.camHold.y, z: fx.s.camHold.z }, camAt, 'over the edge the camera stays put');
+  assert.ok(Math.hypot(fx.s.camHold.x - camAt.x, fx.s.camHold.z - camAt.z) < 1e-9 && fx.s.camHold.y > camAt.y + 1.5, 'over the edge the camera rises where it is');
   assert.ok(Math.abs(fx.s.camHold.ty - falling.y) < 1.5, 'and looks down at the falling ball');
   // a count-down that starts while the ball is still rolling waits for it
   class V3 { constructor(x = 0, y = 0, z = 0) { this.x = x; this.y = y; this.z = z; }

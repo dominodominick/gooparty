@@ -351,6 +351,19 @@ The hand-built island is gone. The game now runs on the converted Wii Party map 
   sinks away. The game's "broken" message did not say who broke it, so the scene had no player to animate and
   only waited, then hid the wall.
 
+## Build 65
+
+- Spike ball chase: the camera now follows the game's own sequence of shots (from the reference video).
+  - While the statue spits the ball: a wide shot of the statue from out past the edge of the ledge, the player in front
+    of it and the path running off to the right, slowly pushing in (`spikeShots` A0 -> A1).
+  - If anyone else is on the stretch: a quick cut to a look from down the path, behind them, back up at the ball on the
+    ledge (B); then back to the statue.
+  - As the ball comes off the ledge the camera stays on the statue shot and pans with it (C).
+  - Then it cuts to the path ahead of the runners, low over it, looking back up at them with the ball behind them, and
+    backs away down the path, always ahead of whoever is out in front (D).
+  - It stops out beyond the pit; the runners duck into the tunnel mouth at the side, the ball rolls on and drops into
+    the pit, and the camera rises and looks down after it (E). It holds there until the number count-down cuts in.
+
 ## Build 64
 
 - Smashing the spike statue: the player stops square in front of the statue's face, clear of it and of the number
