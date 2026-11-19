@@ -325,7 +325,7 @@ __mods["js15/config.js"] = (() => {
 
 const GAME_TITLE = 'Party Island'; // placeholder name: pick your own
 
-const BUILD = '65'; // shown in the menu and in games; every player must have the same build
+const BUILD = '66'; // shown in the menu and in games; every player must have the same build
 
 const MAX_PLAYERS = 6;
 
@@ -3539,8 +3539,8 @@ class ChallengeFX {
    * The camera while the spike ball rolls, as the game does it. First (C) it stays on the statue shot and pans with the
    * ball as it comes off the ledge. Then (D) it cuts to the path ahead of the runners, low over it, looking back up at
    * them with the ball behind them, and backs away down the path as they come; it stops at the far end, over the pit,
-   * where the runners duck into the tunnel mouth and the ball rolls on past them. Then (E) it rises and looks down as the
-   * ball drops into the pit.
+   * where the runners duck into the tunnel mouth and the ball rolls on past them. Then (E) it holds still, looking at the
+   * lip of the pit, and the ball drops out of sight.
    */
   chaseCamera(c, q, dt) {
     const s = this.s, r = c.route, R = this.sp.pit.R, k = 1 - Math.exp(-dt * 6);
@@ -3567,11 +3567,10 @@ class ChallengeFX {
       const lk = r.at(Math.min(c.s + 6, r.sEdge)), look = { x: lk.x, y: lk.y - R + 1.2, z: lk.z };
       if (!c.cam || c.cut) { c.cam = { ...want }; c.look = { ...look }; c.cut = false; s.snapCamera = true; } // the cut
       else { const kf = 1 - Math.exp(-dt * 10); for (const key of ['x', 'y', 'z']) { c.cam[key] += (want[key] - c.cam[key]) * kf; c.look[key] += (look[key] - c.look[key]) * kf; } }
-    } else if (c.s > r.sEdge && c.cam) { // over the edge: the camera rises where it is and looks down at it dropping into the pit
-      if (c.riseFrom == null) c.riseFrom = c.cam.y;
-      c.cam.y += (c.riseFrom + 5 - c.cam.y) * (1 - Math.exp(-dt * 3));
-      const kk = 1 - Math.exp(-dt * 9);
-      c.look.x += (q.x - c.look.x) * kk; c.look.y += (q.y - c.look.y) * kk; c.look.z += (q.z - c.look.z) * kk;
+    } else if (c.s > r.sEdge && c.cam) { // over the edge: the camera holds still, looking at the lip of the pit; the ball drops out of sight
+      if (!c.edgeLook) { const e = r.at(r.sEdge); c.edgeLook = { x: e.x, y: e.y - R + 1.2, z: e.z }; }
+      const kk = 1 - Math.exp(-dt * 4);
+      c.look.x += (c.edgeLook.x - c.look.x) * kk; c.look.y += (c.edgeLook.y - c.look.y) * kk; c.look.z += (c.edgeLook.z - c.look.z) * kk;
     }
     if (c.cam) s.camHold = { x: c.cam.x, y: c.cam.y, z: c.cam.z, tx: c.look.x, ty: c.look.y, tz: c.look.z };
   }

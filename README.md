@@ -351,6 +351,11 @@ The hand-built island is gone. The game now runs on the converted Wii Party map 
   sinks away. The game's "broken" message did not say who broke it, so the scene had no player to animate and
   only waited, then hid the wall.
 
+## Build 66
+
+- Spike ball chase: at the end the camera no longer rises and looks down into the pit. It holds still, out beyond the
+  pit, looking at the lip; the ball rolls over it and drops out of sight, and you never see it disappear in the pit.
+
 ## Build 65
 
 - Spike ball chase: the camera now follows the game's own sequence of shots (from the reference video).

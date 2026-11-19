@@ -275,7 +275,7 @@ for (const k of ['vine', 'dragon', 'crates', 'spike']) {
   assert.ok(r.near({ x: sh.B.tx, y: sh.B.ty, z: sh.B.tz }) < 6, 'looking back up at the ledge the ball lands on');
 }
 
-// ---- the count-down waits for the spike ball to drop into the pit; the camera rises and looks down at it falling
+// ---- the count-down waits for the spike ball to drop into the pit; the camera holds still and the ball drops out of sight
 {
   const fx = mk(0); fx.s.camHold = null;
   const route = { sEdge: 50, at: (sd) => ({ x: 20 * Math.cos(sd / 20), y: 30 - sd * 0.1, z: 20 * Math.sin(sd / 20) }) };
@@ -285,8 +285,9 @@ for (const k of ['vine', 'dragon', 'crates', 'spike']) {
   const camAt = { x: fx.s.camHold.x, y: fx.s.camHold.y, z: fx.s.camHold.z };
   c.s = 52; const falling = { ...route.at(52), y: route.at(52).y - 10 };
   for (let i = 0; i < 60; i++) fx.chaseCamera(c, falling, 1 / 60);
-  assert.ok(Math.hypot(fx.s.camHold.x - camAt.x, fx.s.camHold.z - camAt.z) < 1e-9 && fx.s.camHold.y > camAt.y + 1.5, 'over the edge the camera rises where it is');
-  assert.ok(Math.abs(fx.s.camHold.ty - falling.y) < 1.5, 'and looks down at the falling ball');
+  assert.deepEqual({ x: fx.s.camHold.x, y: fx.s.camHold.y, z: fx.s.camHold.z }, camAt, 'over the edge the camera holds still');
+  const lip = route.at(50);
+  assert.ok(Math.abs(fx.s.camHold.ty - (lip.y - sp.pit.R + 1.2)) < 0.5 && fx.s.camHold.ty > falling.y + 5, 'looking at the lip of the pit, not down after the ball: it drops out of sight');
   // a count-down that starts while the ball is still rolling waits for it
   class V3 { constructor(x = 0, y = 0, z = 0) { this.x = x; this.y = y; this.z = z; }
     applyMatrix4() { return this; } subVectors(a, b) { this.x = a.x - b.x; this.y = a.y - b.y; this.z = a.z - b.z; return this; }
