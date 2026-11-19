@@ -80,7 +80,7 @@ export class ViewerScene extends BoardScene {
 
   // ---------------------------------------------------------------- the set pieces
   demos() {
-    const at = (idx) => { const p = this.pawns[0], q = this.pos.island[idx]; this.fx.unhide(p); this.camSlot = 0; for (const o of Object.values(this.pawns)) if (o !== p) o.group.visible = false; Object.assign(p, { track: 'island', idx, x: q.x, y: q.y + 0.05, z: q.z, scale: 1, fx: null }); p.group.visible = true; this.place(p); this.lookAt({ p: q, dist: 32, pitch: 0.45 }); this.follow = true; return p; };
+    const at = (idx) => { const p = this.pawns[0], q = this.pos.island[idx]; this.fx.unhide(p); this.camSlot = 0; for (const o of Object.values(this.pawns)) if (o !== p) o.group.visible = false; Object.assign(p, { track: 'island', idx, x: q.x, y: q.y + 0.05, z: q.z, scale: 1, fx: null }); p.group.visible = true; this.place(p); if (!(this.slow < 1)) { this.lookAt({ p: q, dist: 32, pitch: 0.45 }); this.follow = true; } return p; }; // (in slow motion the camera stays where you put it)
     const walk = (from, n, mode = 'fast', extra = {}) => { const path = []; const step = n > 0 ? 1 : -1; for (let i = 1; i <= Math.abs(n); i++) path.push({ track: 'island', idx: from + i * step }); return { t: 'move', slot: 0, mode, path, dur: Math.abs(n) * (mode === 'fast' ? 190 : 340) + 350 + DUR.cross, ...extra }; };
     const move = (ev) => () => this.wrapMove(ev, this.beginMove(ev));
     const throwBy = (s, color) => { const n = ISLAND[s].arg, w = (color === 'blue' ? walkForward : walkBack)({ track: 'island', idx: s }, n);
@@ -114,7 +114,7 @@ export class ViewerScene extends BoardScene {
   tickAnim(dt) {
     if (!this.anim && this.demo.length) { this.anim = this.demo.shift()() || { t: 0, dur: 1 }; this.idle = false; }
     if (!this.anim) return;
-    const a = this.anim; a.t += dt * 1000;
+    const a = this.anim; a.t += dt * 1000 * (this.slow || 1); // (slow motion: the viewer's own toggle)
     const u = Math.min(1, a.t / Math.max(1, a.dur));
     if (a.step) a.step(u);
     if (u >= 1) { if (a.end) a.end(); this.anim = null; }
@@ -167,6 +167,7 @@ export class ViewerScene extends BoardScene {
     for (const [label, v] of this.places()) btn(label, () => { this.follow = false; this.lookAt(v); });
     head('Play');
     for (const [label, fn] of this.demos()) btn(label, () => { if (!this.anim) fn(); }, '#3c7a4a');
+    const slow = btn('Slow motion: off', () => { this.slow = this.slow === 0.15 ? 1 : 0.15; slow.textContent = `Slow motion: ${this.slow < 1 ? 'on' : 'off'}`; }, '#4a4a7a');
     head('');
     btn('Reset everything', () => app.go('viewer'), '#7a5a2a');
     btn('Back to menu', () => { app.session = null; app.go('menu'); }, '#7a2a3a');

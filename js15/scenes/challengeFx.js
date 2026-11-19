@@ -5,6 +5,8 @@
 import { ISLAND, gapBetween } from '../game/boardData.js';
 const islandTypeAt = (i) => ISLAND[i] && ISLAND[i].type;
 import { DUR } from '../game/boardGame.js';
+import { DRAGON } from '../world/dragonData.js';
+import { rigDragon, spatBallAt, DRAGON_FPS } from '../world/dragon.js';
 import { islandWorld, legVia, terrainHeight, MAP_SCALE } from '../game/boardLayout.js';
 
 const clamp01 = (v) => Math.min(1, Math.max(0, v));
@@ -102,15 +104,14 @@ export class ChallengeFX {
     const o = this.o = {};
     o.rope = make('m001_20'); o.rope.position.set(sp.swing.pivot.x, sp.swing.pivot.y, sp.swing.pivot.z);
     o.ropeAxis = new T.Vector3(-sp.swing.u.z, 0, sp.swing.u.x);
-    // the dragon wall: m001_35l is the dragon at rest; m001_35 is the same with fire in its mouth, shown only while it shoots
+    // the dragon wall: m001_35l is the dragon at rest. When it shoots, its head is swapped for the full model (m001_35), rigged
+    // with the game's own skeleton and shooting animation: the head rears back, the jaws open, the ball in its mouth rises
+    // and is spat. The wall is always m001_35l's: it never moves.
     o.guard = make('m001_35l'); o.guard.position.set(sp.wall.at.x, sp.wall.at.y, sp.wall.at.z); o.guard.rotation.y = sp.wall.yaw;
     o.guardFire = make('m001_35'); o.guardFire.position.copy(o.guard.position); o.guardFire.rotation.y = sp.wall.yaw; o.guardFire.visible = false;
-    o.fireball = null; // m001_35's own fireball (material mr001m011_3, "kazandan"): the one it spits
-    o.guardFire.traverse((m) => {
-      if (o.fireball || !m.isMesh || !/^mr001m011_3$/.test((Array.isArray(m.material) ? m.material[0] : m.material)?.name || '')) return;
-      m.geometry.computeBoundingSphere(); o.fireball = { mesh: m, center: m.geometry.boundingSphere.center.clone() };
-    });
-    o.ball = this.mapBall(board);
+    o.guardHead = []; o.guard.traverse((m) => { if (m.isMesh && /^mr001m067/.test((Array.isArray(m.material) ? m.material[0] : m.material)?.name || '')) o.guardHead.push(m); });
+    try { o.dragon = rigDragon(o.guardFire, DRAGON); } catch (e) { o.dragon = null; }
+    if (o.dragon) o.dragon.pose(0);
     // the spike ball statue: a monster head that holds the ball in its open mouth, sitting on a stone block. Both are part
     // of the map (m001_50), but the converted map left the head at the middle of the island, under the ground.
     o.statue = this.spikeHead(board);
@@ -295,46 +296,38 @@ export class ChallengeFX {
     if (!pawn) return null;
     const sp = this.sp, o = this.o;
     if (ev.fx === 'crates') { this.pending = { picked: ev.picked, safe: ev.safe, hit: ev.hit }; return null; }
-    if (ev.fx === 'fireball') { // the dragon spits the fireball it holds in its mouth; it flies at the player and bursts on them
-      const start = { x: pawn.x, y: pawn.y, z: pawn.z }, ball = o && o.fireball, T = this.T;
+    if (ev.fx === 'fireball') { // the dragon opens its jaws and spits the fireball it holds in its mouth; it bursts on the player
+      const start = { x: pawn.x, y: pawn.y, z: pawn.z }, rig = o && !this.broken.dragon ? o.dragon : null, T = this.T;
       this.walkTo = null;
-      const a = { t: 0, dur: ev.dur };
-      let from = null, home = null;
-      if (ball) { // where the ball sits in the dragon's mouth, in the scene's space
-        o.guardFire.updateMatrixWorld(true);
-        home = { parent: ball.mesh.parent, pos: ball.mesh.position.clone(), scale: ball.mesh.scale.clone() };
-        from = ball.center.clone().applyMatrix4(ball.mesh.matrixWorld);
-      } else from = new T.Vector3(sp.wall.at.x + Math.sin(sp.wall.yaw) * 1.6, sp.wall.at.y + 3.4, sp.wall.at.z + Math.cos(sp.wall.yaw) * 1.6);
+      const a = { t: 0, dur: ev.dur }, secs = ev.dur / 1000;
       const target = { x: start.x, y: start.y + 1.3, z: start.z };
-      const W1 = 0.22, W2 = 0.62; // open wide with the ball in its mouth / the ball flies / it bursts and the dragon settles
-      const showBall = (on) => { if (ball) ball.mesh.visible = on; else this.fire.visible = on; };
-      const putBall = (p, s) => {
-        if (ball) { // move the dragon's own ball: an offset from its rest place, in the dragon's space
-          const local = ball.mesh.parent.worldToLocal(new T.Vector3(p.x, p.y, p.z)), c = ball.center.clone().multiply(home.scale).multiplyScalar(s).applyQuaternion(ball.mesh.quaternion);
-          ball.mesh.position.copy(local).sub(c); ball.mesh.scale.copy(home.scale).multiplyScalar(s);
-        } else { this.fire.position.set(p.x, p.y, p.z); this.fire.scale.setScalar(0.8 * s); }
+      const SPIT = DRAGON.spit / DRAGON_FPS, FLY = 0.45, POP = 0.2; // seconds: the ball leaves the mouth / flies / bursts
+      let from = null;
+      if (rig) { // where the spat ball starts: its bone at the frame it appears, in the scene's space
+        o.guardFire.updateWorldMatrix(true, false);
+        from = o.guardFire.localToWorld(new T.Vector3(...spatBallAt(DRAGON, DRAGON.spit)));
+      } else from = new T.Vector3(sp.wall.at.x + Math.sin(sp.wall.yaw) * 1.6, sp.wall.at.y + 3.4, sp.wall.at.z + Math.cos(sp.wall.yaw) * 1.6);
+      const toModel = (p) => { const v = o.guardFire.worldToLocal(new T.Vector3(p.x, p.y, p.z)); return [v.x, v.y, v.z]; };
+      const showRig = (on) => {
+        if (!o || this.broken.dragon) return;
+        o.guardFire.visible = on && !!rig; for (const m of o.guardHead) m.visible = !(on && rig);
       };
-      const reset = () => {
-        if (ball) { ball.mesh.position.copy(home.pos); ball.mesh.scale.copy(home.scale); ball.mesh.visible = true; }
-        this.fire.visible = false;
-        if (o && !this.broken.dragon) { o.guard.visible = true; o.guardFire.visible = false; o.guardFire.rotation.x = 0; }
-      };
+      const reset = () => { showRig(false); if (rig) rig.pose(0); this.fire.visible = false; };
       a.step = (u) => {
-        if (o && !this.broken.dragon) { o.guard.visible = false; o.guardFire.visible = true; }
-        if (u < W1) { // rear back with the ball in its mouth
-          if (o) o.guardFire.rotation.x = 0.12 * Math.sin((u / W1) * Math.PI / 2);
-          showBall(true); if (!ball) putBall(from, 1);
-        } else if (u < W2) { // spit: the ball flies at the player
-          const k = (u - W1) / (W2 - W1);
-          if (o) o.guardFire.rotation.x = 0.12 - 0.3 * Math.sin(Math.min(1, k * 2) * Math.PI / 2);
-          const p = hop(from, target, k, 0.8); showBall(true); putBall(p, 1 + 0.15 * Math.sin(k * 40));
+        const t = u * secs, f = t * DRAGON_FPS;
+        showRig(true);
+        if (t < SPIT) { // rear back, jaws open, the ball rises in its mouth
+          if (rig) rig.pose(f); else { this.fire.visible = true; this.fire.position.copy(from); this.fire.scale.setScalar(0.8); }
+        } else if (t < SPIT + FLY) { // spat: the ball flies at the player
+          const k = (t - SPIT) / FLY, p = hop(from, target, k, 0.8);
+          if (rig) rig.pose(f, { at: toModel(p) }); else { this.fire.visible = true; this.fire.position.set(p.x, p.y, p.z); this.fire.scale.setScalar(0.8); }
           if (k > 0.85) pawn.fx = { x: start.x, y: start.y, z: start.z, tilt: 0.25 * (k - 0.85) / 0.15, arms: [-1.4, -1.4] };
-        } else { // it bursts on them; the dragon closes its mouth
-          const k = (u - W2) / (1 - W2);
-          showBall(k < 0.25); if (k < 0.25) putBall(target, 1 + k * 4);
-          if (o) o.guardFire.rotation.x = -0.18 * (1 - k);
+        } else { // it bursts on them; the dragon settles back
+          const k = clamp01((t - SPIT - FLY) / POP);
+          if (rig) rig.pose(f, k < 1 ? { at: toModel(target), scale: 1 + k * 1.5 } : { hide: true });
+          else { this.fire.visible = k < 1; this.fire.position.set(target.x, target.y, target.z); this.fire.scale.setScalar(0.8 * (1 + k * 1.5)); }
           pawn.fx = { x: start.x, y: start.y, z: start.z, tilt: 0.25, arms: [-1.4, -1.4] };
-          if (k >= 1) reset();
+          if (f >= DRAGON.frames - 1 && k >= 1) reset();
         }
         this.s.place(pawn);
       };

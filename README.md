@@ -351,6 +351,15 @@ The hand-built island is gone. The game now runs on the converted Wii Party map 
   sinks away. The game's "broken" message did not say who broke it, so the scene had no player to animate and
   only waited, then hid the wall.
 
+## Build 57
+
+- Dragon wall: the wall no longer tips. Only the dragon moves, with the game's own skeleton and its own shooting animation
+  (`m001_35_4.branm`, read by `tools/extract_dragon.py` into `js15/world/dragonData.js`): the head rears back, the jaws open,
+  the fireball in its mouth rises, and it is spat at the player. `js15/world/dragon.js` fits the skeleton onto the map's own
+  dragon mesh by vertex position (the map's textures stay) and poses it on the CPU. The resting model keeps showing the wall.
+- Viewer: a "Slow motion" toggle under Play (the camera stays where you put it while it is on).
+- Tests: `tests/dragon.test.js`.
+
 ## Build 56
 
 - Dragon wall: the dragon now spits the fireball that sits in its own mouth (`mr001m011_3` inside `m001_35`) instead of spawning a new orange ball. The ball flies to the player, bursts, and goes back in the mouth.
