@@ -146,6 +146,18 @@ for (const k of ['vine', 'dragon', 'crates', 'spike']) {
   const l0 = fx.hideLegFor({ slot: 0, path }, last).pose(1), l1 = fx.hideLegFor({ slot: 1, path }, last).pose(1);
   assert.ok(Math.hypot(l0.x - l1.x, l0.z - l1.z) > 0.5, 'two hiders do not stand in each other');
 }
+// a runner who has reached the last space (their move still finishing) does not hold the ball up: it rolls on and over
+{
+  const fx = mk(0), r = fx.chaseRoute ? (fx.s.pos = { island: P }, fx.chaseRoute()) : null, p = sp.pit;
+  const last = P[r.lastIdx], pawn = { slot: 0, track: 'island', idx: r.lastIdx, x: last.x, y: last.y, z: last.z };
+  const ball = { at: {}, set(q) { this.at = q; }, show() {}, goHome() { this.home = true; } };
+  Object.assign(fx, { o: { ball }, hidden: new Map(), broken: {}, chase: { slot: 0, t: 0, s: r.sLast - 12, v: 10, route: r, dodgers: new Map() } });
+  fx.s.pawns = { 0: pawn }; fx.s.anim = { slotMoving: 0 }; fx.s.camSlot = 0; // still "moving" the whole time
+  let still = 0, steps = 0, prev = fx.chase.s;
+  while (fx.chase && steps++ < 2000) { fx.updateChase(1 / 60); if (fx.chase) { still = fx.chase.s - prev < 0.05 ? still + 1 : 0; prev = fx.chase.s; assert.ok(still < 10, 'the ball never sits still before the edge'); } }
+  assert.ok(!fx.chase && ball.home, 'it went over the edge and into the pit');
+  void p;
+}
 // the ball keeps right behind whoever is running from it, and rolls the way it goes
 {
   const fx = mk(0); fx.s.pos = { island: P };
@@ -184,7 +196,8 @@ for (const k of ['vine', 'dragon', 'crates', 'spike']) {
   const board = { scale: 0.016, island: { traverse: (fn) => meshes.forEach(fn) } };
   const f0 = mk(0); f0.T = { Quaternion: Q, Vector3: V }; const ball = f0.mapBall(board);
   assert.equal(meshes[0].visible, false); assert.equal(meshes[1].visible, false, 'the loose copies are hidden');
-  assert.equal(ball.parts.length, 2, 'the ball itself is the two m016_21/22 parts'); assert.equal(meshes[4].visible, true, 'nothing else is touched');
+  assert.equal(ball.parts.length, 2, 'the ball itself is the two m016_21/22 parts');
+  assert.ok(ball.parts.every((m) => m.visible === false), 'and nothing sits in the statue\'s mouth until it spits'); assert.equal(meshes[4].visible, true, 'nothing else is touched');
 }
 // attach() must set the ball up (build 57 lost this line and the loose copies showed again)
 {

@@ -323,7 +323,7 @@ export class ChallengeFX {
       spin(a) { this.spinX = a; }, // (kept for old callers: the ball now turns by itself as it moves)
       show(v) { for (const m of parts) m.visible = v; },
       get visible() { return parts.length ? parts[0].visible : false; },
-      goHome() { this.quat.identity(); this.set(home, false); },
+      goHome() { this.quat.identity(); this.set(home, false); this.show(false); }, // nothing sits in the statue's mouth between chases
     };
     ball.goHome();
     return ball;
@@ -479,7 +479,7 @@ export class ChallengeFX {
         if (!o || !o.ball) return;
         const t = u * secs;
         if (jaws) { jaws.pose('open', t * JAW_FPS); jaws.state = 'open'; }
-        o.ball.show(true);
+        o.ball.show(t > OPEN * 0.45); // it comes up out of the statue's throat once the jaws are parting
         let q;
         if (t < OPEN) { const w = Math.sin(t * 60) * 0.1 * (t / OPEN); q = { x: p.from.x, y: p.from.y + Math.abs(w), z: p.from.z + w }; } // rattles as the mouth opens
         else if (t < OPEN + SPIT) q = hop(p.from, out, ease((t - OPEN) / SPIT), 1.6);                                                      // shoots out
@@ -547,7 +547,7 @@ export class ChallengeFX {
     this.hideSpots ||= new Map(); // everyone running in at once gets their own spot
     if (!this.hideSpots.has(ev.slot)) this.hideSpots.set(ev.slot, this.hidePose(this.hidden.size + this.hideSpots.size));
     const hp = this.hideSpots.get(ev.slot);
-    return { ms: HIDE_MS, steps: 0, kind: 'hide', pose: (l) => { const q = lerp3(B, hp.at, ease(l)); q.y += Math.sin(Math.PI * l) * 0.6; return { ...q, fx: { yaw: hp.yaw, arms: [-2.6, -2.6] } }; } };
+    return { ms: HIDE_MS, steps: 0, kind: 'hide', pose: (l) => { const q = lerp3(B, hp.at, ease(l)); q.y += Math.sin(Math.PI * l) * 0.6; return { ...q, fx: { yaw: hp.yaw, arms: [-2.6, -2.6], hiding: true } }; } };
   }
 
   /** The run back has ended: if it ended in the tunnel mouth, the player stays there out of sight of the ball. */
@@ -609,6 +609,7 @@ export class ChallengeFX {
     let behind = Infinity;
     for (const pawn of Object.values(s.pawns)) {
       if (!pawn || !running.has(pawn.slot) || this.hidden.has(pawn) || (pawn.fx && pawn.fx.hiding)) continue;
+      if (r.near(pawn) >= r.sLast - 0.3) continue; // on the last space or ducking into the tunnel mouth: out of its way, it rolls on
       behind = Math.min(behind, r.near(pawn));
     }
     const want = behind < Infinity ? Math.max(0, Math.min(CHASE_SPEED * 2, (behind - CHASE_GAP - c.s) * 5)) : CHASE_SPEED * 1.6;

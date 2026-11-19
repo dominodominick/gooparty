@@ -351,6 +351,14 @@ The hand-built island is gone. The game now runs on the converted Wii Party map 
   sinks away. The game's "broken" message did not say who broke it, so the scene had no player to animate and
   only waited, then hid the wall.
 
+## Build 62
+
+- Fix: the spike ball no longer stops before the pit. It was waiting behind the last runner while their move finished on
+  the last space (and while they ducked into the tunnel); a player on the last space or ducking in is now out of its way,
+  so it rolls straight on, over the edge and in.
+- The statue's mouth is empty between chases: the ball only appears as the jaws part to spit it, and is hidden once it
+  has dropped into the pit.
+
 ## Build 61
 
 - Fix: the spike ball is seen dropping into the pit again. The number count-down was starting as soon as the players had
