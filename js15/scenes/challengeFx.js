@@ -135,7 +135,7 @@ export class ChallengeFX {
       m.position.set(p.x, p.y + 0.45, p.z); m.rotation.y = lane.yaw; return m;
     }));
     // the map is loaded once and shared, so a statue smashed earlier (in a game, or the viewer's demo) is put back first
-    if (o.statue) { o.statue.visible = true; if (o.statue.parent && o.statue.parent.isMesh) o.statue.parent.visible = true; }
+    if (o.statue) this.statueStanding();
     for (const m of o.plate) m.visible = true;
     this.showSpikeNumber(this.spikeNumber ?? SPIKE_START); // (only the current number's panel)
     for (const k of Object.keys(this.broken)) this.setBroken(k);
@@ -383,7 +383,7 @@ export class ChallengeFX {
   setBroken(kind) {
     this.broken[kind] = true;
     if (this.o && kind === 'dragon') { this.o.guard.visible = false; this.o.guardFire.visible = false; }
-    if (this.o && kind === 'spike') { if (this.o.ball) this.o.ball.show(false); if (this.o.statue) { this.o.statue.visible = false; if (this.o.statue.parent && this.o.statue.parent.isMesh) this.o.statue.parent.visible = false; } for (const m of this.o.plate) m.visible = false; if (this.o.numbers) for (const m of Object.values(this.o.numbers)) m.visible = false; if (this.o.jaws) this.o.jaws.rest(); } // the statue is broken for good
+    if (this.o && kind === 'spike') { if (this.o.ball) this.o.ball.show(false); if (this.o.statue) { this.o.statue.visible = false; this.statueRubble(1); } /* a broken stump and rubble stay */ for (const m of this.o.plate) m.visible = false; if (this.o.numbers) for (const m of Object.values(this.o.numbers)) m.visible = false; if (this.o.jaws) this.o.jaws.rest(); } // the statue is broken for good
   }
 
   burst(at, n = 26) {
@@ -396,53 +396,137 @@ export class ChallengeFX {
 
   /** The roller hits the thing in the way three times and it goes to pieces. */
   brokenAnim(ev, pawn) {
-    const kind = ev.challenge, sp = this.sp, o = this.o, T = this.T;
-    // what gets smashed: the dragon wall, or the spike statue itself (its head and the pillar with the number); the spike
-    // ball stays out of it
-    const body = o && o.statue ? (o.statue.parent && o.statue.parent.isMesh ? o.statue.parent : o.statue) : null; // the stone block the head sits on (its parent), with the head
-    const smash = !o ? [] : kind === 'dragon' ? [o.guard] : [body, ...(o.plate || [])].filter((m, i, all) => m && all.indexOf(m) === i);
-    let target = kind === 'dragon' ? sp.wall.at : lerp3(sp.pit.stand, sp.pit.mid, 0.7), size = 0;
-    if (kind === 'spike' && body && T && T.Box3) { // the statue's middle: the block and the head on it, as they stand
-      body.updateWorldMatrix(true, true);
-      const box = new T.Box3().setFromObject(body), c = box.getCenter(new T.Vector3());
-      target = { x: c.x, y: c.y, z: c.z }; size = Math.max(box.max.x - box.min.x, box.max.z - box.min.z) / 2;
-    }
-    if (o && o.ball && kind === 'spike') o.ball.show(false);
-    if (kind === 'spike' && o && o.jaws) o.jaws.rest();
+    const kind = ev.challenge, sp = this.sp, o = this.o;
+    if (kind === 'spike') return this.statueSmash(ev, pawn);
+    const target = sp.wall.at, obj = o ? o.guard : null;
     const from = { x: pawn.x, y: pawn.y, z: pawn.z }, d = flat(from, target) || 1, ux = (target.x - from.x) / d, uz = (target.z - from.z) / d;
-    const gapTo = kind === 'dragon' ? 3.8 : Math.max(2.2, size + 0.9);
-    const reach = { x: target.x - ux * gapTo, y: from.y, z: target.z - uz * gapTo }, yaw = Math.atan2(ux, uz);
-    const S = (o && o.S) || 1, scaleOf = (m) => (kind === 'dragon' ? 1 : 1 / S); // the statue's pieces live in the map's units
-    const bases = smash.map((m) => ({ m, x: m.position.x, y: m.position.y, z: m.position.z, rx: m.rotation.x }));
-    const put = (dx, dy, dz, rx = 0) => { for (const b of bases) { const k = scaleOf(b.m); b.m.position.set(b.x + dx * k, b.y + dy * k, b.z + dz * k); if (kind === 'dragon') b.m.rotation.x = b.rx + rx; } };
+    const reach = { x: target.x - ux * 3.8, y: from.y, z: target.z - uz * 3.8 }, yaw = Math.atan2(ux, uz);
+    const base = obj ? { x: obj.position.x, y: obj.position.y, z: obj.position.z } : null;
     this.walkTo = null;
     let shattered = false;
     const a = { t: 0, dur: ev.dur };
     a.step = (u) => {
-      if (u < 0.2) { // run up to it
-        const p = lerp3(from, reach, ease(u / 0.2)); pawn.x = p.x; pawn.y = p.y; pawn.z = p.z; pawn.fx = null;
-      } else if (u < 0.62) { // three hits: lunge, the thing shakes
+      if (u < 0.2) { const p = lerp3(from, reach, ease(u / 0.2)); pawn.x = p.x; pawn.y = p.y; pawn.z = p.z; pawn.fx = null; } // run up to it
+      else if (u < 0.62) { // three hits: lunge, the wall shakes
         const k = (u - 0.2) / 0.42 * 3, f = k - Math.floor(k), lunge = Math.sin(Math.min(1, f * 1.6) * Math.PI);
         pawn.x = reach.x + ux * lunge * 1.3; pawn.z = reach.z + uz * lunge * 1.3; pawn.y = reach.y + lunge * 0.5;
         pawn.fx = { x: pawn.x, y: pawn.y, z: pawn.z, yaw, arms: [-1.6 - lunge * 1.2, -1.6 - lunge * 1.2], tilt: lunge * 0.25 };
-        const sh = f > 0.3 && f < 0.75 ? Math.sin(f * 60) * (kind === 'dragon' ? 0.35 : 0.22) : 0;
-        put(sh, 0, sh * 0.6);
+        const sh = f > 0.3 && f < 0.75 ? Math.sin(f * 60) * 0.35 : 0;
+        if (obj && base) obj.position.set(base.x + sh, base.y, base.z + sh * 0.6);
       } else {
-        if (!shattered) { shattered = true; pawn.fx = null; pawn.x = reach.x; pawn.y = reach.y; pawn.z = reach.z; this.burst(target); if (kind === 'spike') this.burst({ x: target.x, y: target.y + size * 0.8, z: target.z }); }
-        const k = clamp01((u - 0.62) / 0.2); // it crumbles: sinks and tips over, then is gone
-        put(0, -k * 2, 0, -k * 1.2);
-        if (k >= 1) for (const b of bases) b.m.visible = false;
+        if (!shattered) { shattered = true; pawn.fx = null; pawn.x = reach.x; pawn.y = reach.y; pawn.z = reach.z; this.burst(target); }
+        if (obj) { const k = clamp01((u - 0.62) / 0.2); obj.position.y = (base ? base.y : target.y) - k * 2; obj.rotation.x = -k * 1.2; if (k >= 1) obj.visible = false; }
       }
       this.s.place(pawn);
     };
-    a.end = () => {
-      pawn.fx = null;
-      for (const b of bases) { b.m.position.set(b.x, b.y, b.z); b.m.rotation.x = b.rx; b.m.visible = false; }
-      if (o && o.ball && kind === 'spike') o.ball.show(false);
-      this.setBroken(kind); this.release();
-    };
+    a.end = () => { pawn.fx = null; if (obj) { obj.visible = false; obj.rotation.x = 0; if (base) obj.position.set(base.x, base.y, base.z); } this.setBroken(kind); this.release(); };
     return a;
   }
+
+  /** The spike statue as it stands: its stone block (with the head on it), and where it is in the scene. */
+  statueParts() {
+    const o = this.o, T = this.T;
+    if (!o || !o.statue) return null;
+    const body = o.statue.parent && o.statue.parent.isMesh ? o.statue.parent : o.statue; // the block the head sits on
+    if (!body.userData.rest) body.userData.rest = { x: body.position.x, y: body.position.y, z: body.position.z, rx: body.rotation.x, rz: body.rotation.z };
+    if (!body.userData.box && T && T.Box3) {
+      const r = body.userData.rest, pos = body.position, rot = body.rotation, keep = { x: pos.x, y: pos.y, z: pos.z, rx: rot.x, rz: rot.z }, vis = o.statue.visible;
+      pos.set(r.x, r.y, r.z); rot.x = r.rx; rot.z = r.rz; o.statue.visible = true; body.updateWorldMatrix(true, true); // (measured standing)
+      const box = new T.Box3().setFromObject(body);
+      const c = box.getCenter(new T.Vector3());
+      body.userData.box = { min: { ...box.min }, max: { ...box.max }, c: { x: c.x, y: c.y, z: c.z } };
+      pos.set(keep.x, keep.y, keep.z); rot.x = keep.rx; rot.z = keep.rz; o.statue.visible = vis;
+    }
+    return { body, head: o.statue, box: body.userData.box };
+  }
+
+  /**
+   * The base left behind: the block sunk to a broken stump, a little askew, with chunks of it lying round about.
+   * k: 0 standing .. 1 broken. The chunks use the statue's own stone and are placed the same way every time.
+   */
+  statueRubble(k) {
+    const o = this.o, T = this.T, P = this.statueParts();
+    if (!P) return;
+    const { body, box } = P, r = body.userData.rest, SINK = 0.5; // (most of the block is below the cave floor: a little lower, askew, is a stump)
+    let S = o.S || 1; // world units per unit of the block's own space
+    if (body.parent && body.parent.getWorldScale && T && T.Vector3) { const ws = body.parent.getWorldScale(new T.Vector3()); if (ws.y > 0) S = ws.y; }
+    body.visible = true;
+    body.position.set(r.x, r.y - SINK * ease(k) / S, r.z); // (no tilting: the block's own origin is the middle of the map, far from it)
+    if (!box || !T || !T.Mesh) return;
+    if (!o.rubble) {
+      const g = new T.Group(); g.name = 'spike_statue_rubble';
+      const mat = Array.isArray(body.material) ? body.material[0] : body.material;
+      const hx = (box.max.x - box.min.x) / 2, hz = (box.max.z - box.min.z) / 2;
+      let seed = 7; const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+      const face = this.sp.pit.popTo, fa = Math.atan2(face.z - box.c.z, face.x - box.c.x); // mostly out in front, where the cave floor is open
+      for (let i = 0; i < 11; i++) {
+        const a = fa + ((i + rnd() * 0.6) / 11 - 0.5) * Math.PI * 1.4, out = 1.08 + rnd() * 0.55, w = 0.7 + rnd() * 1.0;
+        const m = new T.Mesh(new T.BoxGeometry(w, w * (0.5 + rnd() * 0.5), w * (0.6 + rnd() * 0.6)), mat);
+        m.position.set(box.c.x + Math.cos(a) * hx * out, box.min.y + w * 0.22, box.c.z + Math.sin(a) * hz * out);
+        m.rotation.set(rnd() * 0.8, rnd() * Math.PI, rnd() * 0.8);
+        m.userData.size = 1; g.add(m);
+      }
+      this.root.add(g); o.rubble = g;
+    }
+    o.rubble.visible = k > 0;
+    o.rubble.children.forEach((m, i) => { const s = clamp01(k * 1.6 - i * 0.04); m.scale.setScalar(Math.max(0.001, s)); });
+  }
+
+  /** Put the spike statue back up (a fresh map, or the viewer's reset). */
+  statueStanding() {
+    const o = this.o, P = this.statueParts();
+    if (!P) return;
+    const r = P.body.userData.rest; P.body.position.set(r.x, r.y, r.z); P.body.rotation.x = r.rx; P.body.rotation.z = r.rz; P.body.visible = true; P.head.visible = true;
+    if (o.rubble) o.rubble.visible = false;
+  }
+
+  /**
+   * Smashing the spike statue: the player runs up to its front, stopping clear of it, and hits it three times; it
+   * shakes, the head and the number pillar burst apart, and the block sinks to a broken stump with rubble round it.
+   * The spike ball takes no part.
+   */
+  statueSmash(ev, pawn) {
+    const o = this.o, sp = this.sp, P = this.statueParts();
+    if (o && o.ball) o.ball.show(false);
+    if (o && o.jaws) o.jaws.rest();
+    const box = P && P.box, c = box ? box.c : lerp3(sp.pit.stand, sp.pit.mid, 0.7);
+    const from = { x: pawn.x, y: pawn.y, z: pawn.z };
+    // where to stand: square in front of the statue's face (the way its mouth looks, out at the ledge the ball lands on),
+    // just clear of it, which also keeps clear of the number pillar standing at its front corner
+    const face = sp.pit.popTo;
+    let dx = face.x - c.x, dz = face.z - c.z; const dl = Math.hypot(dx, dz) || 1; dx /= dl; dz /= dl;
+    let t = 2.6;
+    if (box) { const M = 1.7, hx = (box.max.x - box.min.x) / 2 + M, hz = (box.max.z - box.min.z) / 2 + M; t = Math.min(Math.abs(dx) > 1e-4 ? hx / Math.abs(dx) : Infinity, Math.abs(dz) > 1e-4 ? hz / Math.abs(dz) : Infinity); }
+    const reach = { x: c.x + dx * t, y: from.y, z: c.z + dz * t }, yaw = Math.atan2(-dx, -dz);
+    const S = (o && o.S) || 1, plate = (o && o.plate) || [], body = P && P.body;
+    const bases = [body, ...plate].filter(Boolean).map((m) => ({ m, x: m.position.x, y: m.position.y, z: m.position.z }));
+    const shake = (sh) => { for (const b of bases) b.m.position.set(b.x + sh / S, b.y, b.z + sh * 0.6 / S); };
+    this.walkTo = null;
+    let shattered = false;
+    const a = { t: 0, dur: ev.dur };
+    a.step = (u) => {
+      if (u < 0.2) { const p = lerp3(from, reach, ease(u / 0.2)); pawn.x = p.x; pawn.y = p.y; pawn.z = p.z; pawn.fx = { x: p.x, y: p.y, z: p.z, yaw }; } // run up to it
+      else if (u < 0.62) { // three hits: a lunge at it each time, and it shakes
+        const k = (u - 0.2) / 0.42 * 3, f = k - Math.floor(k), lunge = Math.sin(Math.min(1, f * 1.6) * Math.PI);
+        pawn.x = reach.x - dx * lunge * 0.7; pawn.z = reach.z - dz * lunge * 0.7; pawn.y = reach.y + lunge * 0.5;
+        pawn.fx = { x: pawn.x, y: pawn.y, z: pawn.z, yaw, arms: [-1.6 - lunge * 1.2, -1.6 - lunge * 1.2], tilt: lunge * 0.25 };
+        shake(f > 0.3 && f < 0.75 ? Math.sin(f * 60) * 0.2 : 0);
+      } else {
+        if (!shattered) {
+          shattered = true; shake(0); pawn.fx = { x: reach.x, y: reach.y, z: reach.z, yaw }; pawn.x = reach.x; pawn.y = reach.y; pawn.z = reach.z;
+          const ground = box ? box.min.y : c.y; this.burst({ x: c.x, y: ground, z: c.z }); // (the chips fly up from the ground and land on it)
+          if (P) P.head.visible = false;
+          for (const m of plate) m.visible = false;
+          if (o && o.numbers) for (const m of Object.values(o.numbers)) m.visible = false;
+        }
+        this.statueRubble(clamp01((u - 0.62) / 0.22));
+      }
+      this.s.place(pawn);
+    };
+    a.end = () => { pawn.fx = null; shake(0); this.setBroken('spike'); this.release(); };
+    return a;
+  }
+
 
 
   // ------------------------------------------------------------------ what a "space" note shows

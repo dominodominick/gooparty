@@ -351,6 +351,13 @@ The hand-built island is gone. The game now runs on the converted Wii Party map 
   sinks away. The game's "broken" message did not say who broke it, so the scene had no player to animate and
   only waited, then hid the wall.
 
+## Build 64
+
+- Smashing the spike statue: the player stops square in front of the statue's face, clear of it and of the number
+  pillar beside it, and lunges at it from there (they never go inside it). The head and the number pillar burst apart;
+  the stone base stays as a broken stump with chunks of rubble lying in front of it, for the rest of the game
+  (`statueSmash`, `statueRubble`; a fresh map stands it up again with `statueStanding`).
+
 ## Build 63
 
 - Smashing the spike statue: the player runs up to the statue itself (the head and the stone block it sits on) and

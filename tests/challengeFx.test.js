@@ -247,28 +247,45 @@ for (const k of ['vine', 'dragon', 'crates', 'spike']) {
   assert.notEqual(fx.s.camHold, cam, 'once it has dropped into the pit, the count-down cuts to the number'); assert.equal(fx.s.snapCamera, true);
 }
 
-// ---- smashing the spike statue: the player runs up to the statue and smashes it; no spike ball anywhere in it
+// ---- smashing the spike statue: the player stops just outside the statue and smashes it; no spike ball; a broken stump
+// and rubble are left
 {
   const shown = []; const ball = { show(v) { shown.push(v); }, set() { throw new Error('the ball must not move'); }, spin() {} };
-  const part = (x, y, z) => ({ position: { x, y, z, set(a, b, c) { this.x = a; this.y = b; this.z = c; } }, rotation: { x: 0 }, visible: true });
-  const head = part(-1375, 2050, 0), pillar = part(0, 0, 0);
-  const centre = { x: -22, y: 34, z: 0.5 };
-  head.updateWorldMatrix = () => {};
+  const part = (x, y, z) => ({ position: { x, y, z, set(a, b, c) { this.x = a; this.y = b; this.z = c; } }, rotation: { x: 0, z: 0, set(a, b, c) { this.x = a; this.y = b; this.z = c; } }, visible: true, userData: {}, updateWorldMatrix() {} });
+  const block = part(0, 0, 0); block.isMesh = true; block.material = { name: 'mr001m067' };
+  const head = part(-1375, 2050, 0); head.parent = block;
+  const pillar = part(0, 0, 0);
+  const centre = { x: -22.4, y: 34.8, z: 0 }, half = 2.8;
   class V3 { constructor() { this.x = 0; this.y = 0; this.z = 0; } }
-  class Box3 { setFromObject() { this.min = { x: centre.x - 1.5, y: centre.y - 1.5, z: centre.z - 1.5 }; this.max = { x: centre.x + 1.5, y: centre.y + 1.5, z: centre.z + 1.5 }; return this; } getCenter(v) { Object.assign(v, centre); return v; } }
-  const bursts = [];
-  const fx = mk(0, { T: { Box3, Vector3: V3 }, o: { ball, statue: head, plate: [pillar], S: 0.016 }, broken: {}, burst(p) { bursts.push(p); }, setBroken() { this.brokenNow = true; }, release() {} });
+  class Box3 { setFromObject() { this.min = { x: centre.x - half, y: centre.y - 2, z: centre.z - half }; this.max = { x: centre.x + half, y: centre.y + 2, z: centre.z + half }; return this; } union() { return this; } getCenter(v) { Object.assign(v, centre); return v; } }
+  class Group { constructor() { this.children = []; this.visible = true; } add(m) { this.children.push(m); } }
+  class Mesh { constructor() { this.position = { set(a, b, c) { this.x = a; this.y = b; this.z = c; } }; this.rotation = { set() {} }; this.scale = { setScalar(v) { this.v = v; } }; this.userData = {}; } }
+  const bursts = [], root = new Group();
+  const fx = mk(0, { T: { Box3, Vector3: V3, Group, Mesh, BoxGeometry: class {} }, root, o: { ball, statue: head, plate: [pillar], S: 0.016 }, broken: {}, burst(p) { bursts.push(p); }, release() {} });
   fx.s.place = () => {};
   const stand = sp.pit.stand, pawn = { x: stand.x, y: stand.y, z: stand.z };
   const a = fx.brokenAnim({ challenge: 'spike', dur: 2000 }, pawn);
-  let moved = false;
-  for (let i = 0; i <= 100; i++) { a.step(i / 100); if (i > 25 && i < 60 && (head.position.x !== -1375 || pillar.position.x !== 0)) moved = true; }
+  let moved = false, inside = Infinity, worst = Infinity;
+  const outside = (q) => Math.max(Math.abs(q.x - centre.x), Math.abs(q.z - centre.z)) - half; // how far outside the statue's footprint
+  for (let i = 0; i <= 100; i++) {
+    a.step(i / 100);
+    if (i > 25 && i < 60 && (block.position.x !== 0 || pillar.position.x !== 0)) moved = true;
+    if (i >= 20) worst = Math.min(worst, outside(pawn));
+    if (i === 19) inside = outside(pawn);
+  }
   a.end();
   assert.ok(!shown.includes(true), 'the spike ball is never shown');
   assert.ok(moved, 'the statue shakes as it is hit');
-  assert.ok(Math.hypot(pawn.x - centre.x, pawn.z - centre.z) < 3, 'the player smashes the statue, right up against it');
-  assert.ok(bursts.length && Math.hypot(bursts[0].x - centre.x, bursts[0].z - centre.z) < 0.01, 'it bursts at the statue');
-  assert.ok(!head.visible && !pillar.visible && head.position.x === -1375, 'and is gone (put back in place, hidden)');
-  assert.ok(fx.brokenNow, 'broken for good');
+  assert.ok(worst > 0.5, `the player never goes inside the statue (closest ${worst.toFixed(2)} outside it)`);
+  assert.ok(outside(pawn) < 2.2 && inside < 2.5, 'but stands right up against it');
+  const pillarAt = { x: -1624 * 0.016, z: 227 * 0.016 }; // the number panel's middle, from the map
+  assert.ok(Math.hypot(pawn.x - pillarAt.x, pawn.z - pillarAt.z) > 2.2, 'and clear of the number pillar too');
+  assert.ok(pawn.x < centre.x - half, 'in front of the statue\'s face (its mouth looks out towards the ledge)');
+  assert.ok(bursts.length && Math.hypot(bursts[0].x - centre.x, bursts[0].z - centre.z) < 0.01 && bursts[0].y === centre.y - 2, 'it bursts at the statue, chips landing on the ground');
+  assert.ok(!head.visible && !pillar.visible, 'the head and the number pillar are gone');
+  assert.ok(block.visible && block.position.y < -10 && block.position.y > -60, 'the block is left as a broken stump, a little sunk');
+  assert.ok(fx.o.rubble && fx.o.rubble.visible && fx.o.rubble.children.length >= 8, 'with rubble round it');
+  assert.ok(fx.broken.spike, 'broken for good');
+  fx.statueStanding(); assert.ok(head.visible && block.position.y === 0 && !fx.o.rubble.visible, 'and stands again on a fresh map');
 }
 console.log('challengeFx tests passed');
