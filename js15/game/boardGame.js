@@ -31,7 +31,7 @@ const LAVA_SAFE = new Set(['blank', 'start', 'volcano', 'vine', 'dragon', 'crate
 // moveTail: after the last step the counter sits at its final number for a moment.
 // turnIntro: black fade out, the player's name on black, fade back in (then the dice start).
 export const DUR = {
-  diceStop: 3600, walkStep: 250, fastStep: 170, moveTail: 350, fly: 2600, drop: 0, banner: 1100, round: 2600, turnIntro: 2000, flyover: 7000, eruption: 2600, minigame: 2200,
+  diceStop: 3600, walkStep: 185, fastStep: 140, moveTail: 350, fly: 2600, drop: 0, banner: 1100, round: 2600, turnIntro: 2000, flyover: 7000, eruption: 2600, minigame: 2200,
   cross: 1500,   // extra time for a step that crosses a gap (a jump over the pit, over the creek...)
   swing: 2400,   // the vine swing
   vinePause: 1000, // standing on the landing spot after the vine, before walking the rest

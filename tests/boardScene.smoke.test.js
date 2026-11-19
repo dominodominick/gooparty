@@ -722,7 +722,7 @@ assert.ok(DUR.fly >= 2400 && DUR.drop >= 1800);
   sc.exit();
 }
 
-// ---- walking: long strides (one full stride every ~4.3 units) and a full swing at walking speed ----
+// ---- walking: long strides (one full stride every ~5.7 units) and a full swing at walking speed ----
 {
   const bg = new BoardGame({ slots: [0, 1], rng: mulberry32(3), isNpc: () => true }); bg.start(0);
   app.session = makeSession(bg, 0, ['A', 'B']);
@@ -732,9 +732,9 @@ assert.ok(DUR.fly >= 2400 && DUR.drop >= 1800);
   let dist = 0;
   for (let i = 0; i < 120; i++) { g.position.x += v * dt; dist += v * dt; sc.animateLimbs(pawn, dt); }
   const strideLen = dist / (pawn.phase / (2 * Math.PI));
-  assert.ok(strideLen > 4 && strideLen < 4.7, `one stride covers ${strideLen.toFixed(2)} units`);
+  assert.ok(strideLen > 5.3 && strideLen < 6.1, `one stride covers ${strideLen.toFixed(2)} units`);
   assert.ok(pawn.amp > 0.95, 'walking pace gives the full leg swing');
-  assert.ok(stepMs <= 260, `a space takes ${stepMs} ms`);
+  assert.ok(stepMs <= 200, `a space takes ${stepMs} ms`);
   sc.exit();
 }
 

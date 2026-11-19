@@ -351,6 +351,11 @@ The hand-built island is gone. The game now runs on the converted Wii Party map 
   sinks away. The game's "broken" message did not say who broke it, so the scene had no player to animate and
   only waited, then hid the wall.
 
+## Build 53
+
+- Even faster, even longer strides: 185 ms a space when walking (was 250), 140 ms when hurrying (was 170), one full
+  stride every ~5.7 units (was 4.3), with a wider leg and arm swing and more spring.
+
 ## Build 52
 
 - Players walk faster and take longer strides: a space now takes 250 ms when walking (was 340) and 170 ms when hurrying
