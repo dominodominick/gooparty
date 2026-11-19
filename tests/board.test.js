@@ -183,10 +183,10 @@ assert.ok(r.events.some((e) => e.t === 'move' && e.slot === 1 && e.with === true
 g = game(); g.spikeNeeds = 2; g.positions[0] = I(59); roll(g, 3); roll(g, 2);
 assert.ok(g.positions[0].idx > 61, 'needs only 2+ after enough failures');
 g = game(); for (let i = 0; i < SPIKE_START - 1; i++) { g.positions[0] = I(59); g.turn = 0; g.step = null; roll(g, 3); r = roll(g, 1); }
-assert.equal(g.spikeNeeds, 1, 'down to 1+ after four failures');
-assert.ok(r.events.some((e) => e.fx === 'spikeCount' && e.from === 2 && e.to === 1));
-g.positions[0] = I(59); g.turn = 0; g.step = null; roll(g, 3); r = roll(g, 1);
-assert.ok(g.positions[0].idx > 61 || g.broken.spike, 'a 1 gets through then');
+assert.equal(g.spikeNeeds, 2, 'down to 2+ after three failures, and no lower');
+assert.ok(r.events.every((e) => e.fx !== 'spikeCount'), 'at 2 the number stays: no count-down');
+g.positions[0] = I(59); g.turn = 0; g.step = null; roll(g, 3); r = roll(g, 2);
+assert.ok(g.positions[0].idx > 61 || g.broken.spike, 'a 2 gets through then');
 
 // ---------- final challenge ----------
 // arriving: one immediate single die; a 6 wins

@@ -325,7 +325,7 @@ __mods["js15/config.js"] = (() => {
 
 const GAME_TITLE = 'Party Island'; // placeholder name: pick your own
 
-const BUILD = '59'; // shown in the menu and in games; every player must have the same build
+const BUILD = '60'; // shown in the menu and in games; every player must have the same build
 
 const MAX_PLAYERS = 6;
 
@@ -556,7 +556,7 @@ const WIN_ROLL = 6;        // final challenge: needs this or more
 const DRAGON_NEEDS = 4;    // wiki: Dragon Wall needs 4+
 const VOLCANO_NEEDS = 3;   // wiki: Volcano or Not needs 3+
 const SPIKE_START = 5;     // wiki: Spike Ball needs 5+, then 4, 3, 2 after each failure
-const SPIKE_MIN = 1;      // (the game stops at 2; here it goes down to 1)
+const SPIKE_MIN = 2;      // and it stops at 2, as in the game
 const SPIKE_RUNBACK = 11;  // spaces the failing player runs back
 const TORNADO_BACK = [4, 5, 6];  // wiki: the tornado's number die
 const REST_WIN_MOVE = 10;  // wiki: solo player wins the 1vRest minigame -> +10
@@ -2959,45 +2959,20 @@ class ChallengeFX {
 
   /**
    * The number beside the spike statue (map node m001_51): what you need to roll. The map keeps four panels in the same
-   * place, one each for 5, 4, 3 and 2 (materials mr001m086_5 .. _2); only the current one is shown. There is no panel for
-   * 1, so one is made from the 2's picture with a 1 painted on it.
+   * place, one each for 5, 4, 3 and 2 (materials mr001m086_5 .. _2); only the current one is shown. It stops at 2.
    */
   numberPanels(board) {
-    const T = this.T, panels = {};
+    const panels = {};
     board.island.traverse((m) => {
       const n = m.isMesh && m.material && /^mr001m086_([2-5])$/.exec(m.material.name || '');
       if (n && /m001_51/.test((m.parent && m.parent.name || '') + m.name)) panels[+n[1]] = m;
     });
     if (!panels[2]) return null;
     for (const m of Object.values(panels)) if (!m.userData.ownMat) { m.material = m.material.clone(); m.userData.ownMat = true; }
-    if (!panels[1]) {
-      const two = panels[2], one = two.userData.one || new T.Mesh(two.geometry, two.material.clone());
-      if (!two.userData.one) {
-        two.userData.one = one; one.name = 'spike_number_1';
-        one.position.copy(two.position); one.quaternion.copy(two.quaternion); one.scale.copy(two.scale); two.parent.add(one);
-        const img = two.material.map && two.material.map.image;
-        if (img && typeof document !== 'undefined' && document.createElement) {
-          const cv = document.createElement('canvas'), w = cv.width = img.width || 128, h = cv.height = img.height || 128, g = cv.getContext && cv.getContext('2d');
-          if (g) {
-            g.drawImage(img, 0, 0, w, h);
-            const strip = g.getImageData(0, 0, Math.round(w * 0.14), h); // the plain dark edge of the panel, laid over the 2
-            for (let x = Math.round(w * 0.14); x < w * 0.88; x += strip.width) g.putImageData(strip, x, 0);
-            g.font = `900 ${Math.round(h * 0.78)}px "Arial Black", Arial, sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle';
-            g.shadowColor = 'rgba(80,200,255,0.9)'; g.shadowBlur = h * 0.08; g.fillStyle = '#4cc4ff';
-            g.fillText('1', w / 2, h * 0.54); g.shadowBlur = 0; g.fillText('1', w / 2, h * 0.54);
-            const tex = new T.CanvasTexture(cv); const src = two.material.map;
-            tex.flipY = src.flipY; tex.colorSpace = src.colorSpace; tex.wrapS = src.wrapS; tex.wrapT = src.wrapT;
-            tex.repeat.copy(src.repeat); tex.offset.copy(src.offset);
-            one.material.map = tex; one.material.needsUpdate = true;
-          }
-        }
-      }
-      panels[1] = one;
-    }
     return panels;
   }
 
-  /** Show the number n (1..5) beside the spike statue. */
+  /** Show the number n (2..5) beside the spike statue. */
   showSpikeNumber(n) {
     this.spikeNumber = n;
     const P = this.o && this.o.numbers;
@@ -3009,41 +2984,93 @@ class ChallengeFX {
   }
 
   /**
-   * After the spike ball has gone by: the camera pans over to the number beside the statue, the number fades into the
-   * next one down, and the camera goes back.
+   * After the spike ball has gone by: the camera cuts to the number beside the statue, a ripple runs out across the
+   * panel from its middle and the next number down comes up behind the ring, then the camera cuts back.
    */
   countAnim(ev) {
     const o = this.o, P = o && o.numbers, from = ev.from, to = ev.to, s = this.s, T = this.T;
     const a = { t: 0, dur: ev.dur };
     if (!P || !P[from] || !P[to]) { a.end = () => this.showSpikeNumber(to); return a; }
-    // where to look from: in front of the panel, on the path's side
+    // where to look from: square in front of the panel, on the path's side
     const m = P[from]; m.updateWorldMatrix(true, false);
     const g = m.geometry; if (!g.boundingBox) g.computeBoundingBox();
     const c = g.boundingBox.getCenter(new T.Vector3()).applyMatrix4(m.matrixWorld);
     const pos = g.attributes.position, v = (i) => new T.Vector3(pos.getX(i), pos.getY(i), pos.getZ(i)).applyMatrix4(m.matrixWorld);
     const nrm = new T.Vector3().subVectors(v(1), v(0)).cross(new T.Vector3().subVectors(v(2), v(0))); nrm.y = 0; nrm.normalize();
     const stand = this.sp.pit.stand; if ((stand.x - c.x) * nrm.x + (stand.z - c.z) * nrm.z < 0) nrm.negate();
-    const view = { x: c.x + nrm.x * 9, y: c.y + 2.2, z: c.z + nrm.z * 9, tx: c.x, ty: c.y, tz: c.z };
-    let start = s.cam ? { ...s.cam } : null;
-    if (!start && s.camera && s.camera.getWorldDirection) { // (the viewer has no follow camera of its own: start from where it looks)
-      const cp = s.camera.position, d = s.camera.getWorldDirection(new T.Vector3());
-      start = { x: cp.x, y: cp.y, z: cp.z, tx: cp.x + d.x * 20, ty: cp.y + d.y * 20, tz: cp.z + d.z * 20 };
-    }
-    start ||= { ...view };
-    const PAN = 0.28, FADE0 = 0.38, FADE1 = 0.72; // parts of the whole
+    const view = { x: c.x + nrm.x * 6.5, y: c.y + 0.9, z: c.z + nrm.z * 6.5, tx: c.x, ty: c.y, tz: c.z };
+    const ripple = this.rippleFor(P[from], P[to]);
+    const R0 = 0.12, R1 = 0.82; // the part of the whole the ripple takes
     a.fast = true;
     a.step = (u) => {
-      const k = ease(clamp01(u / PAN)), cam = {};
-      for (const key of Object.keys(view)) cam[key] = start[key] + (view[key] - start[key]) * k;
-      if (u < 0.9) s.camHold = cam; else s.camHold = null; // then the follow camera eases back
-      const f = clamp01((u - FADE0) / (FADE1 - FADE0));
-      const A = P[from], B = P[to];
-      A.visible = f < 1; B.visible = f > 0;
-      A.material.transparent = true; A.material.opacity = 1 - f; A.material.polygonOffset = true; A.material.polygonOffsetFactor = -1; A.material.polygonOffsetUnits = -4; A.renderOrder = 2;
-      B.material.transparent = true; B.material.opacity = f; B.renderOrder = 1;
+      if (!a.cut) { a.cut = true; this.counting = true; s.camHold = view; s.snapCamera = true; } // a cut, not a pan
+      else s.camHold = view;
+      const k = clamp01((u - R0) / (R1 - R0));
+      if (ripple) { ripple.set(k); P[from].visible = false; P[to].visible = false; }
+      else { const A = P[from], B = P[to]; A.visible = k < 0.5; B.visible = k >= 0.5; }
     };
-    a.end = () => { if (s.camHold) s.camHold = null; this.showSpikeNumber(to); };
+    a.end = () => { if (ripple) ripple.dispose(); this.counting = false; s.camHold = null; s.snapCamera = true; this.showSpikeNumber(to); }; // and cut back
     return a;
+  }
+
+  /**
+   * The ripple: a finely divided copy of the round number panel (the map's own is a fan of 32 triangles, too coarse to
+   * bend) laid just in front of it. A ring of waves runs out from the middle; the surface rises and falls along the
+   * panel's facing, the picture is bent by the slope and shaded by it, and inside the ring the new number shows.
+   */
+  rippleFor(A, B) {
+    const T = this.T, g = A.geometry, pos = g.attributes.position, uv = g.attributes.uv;
+    if (!pos || !uv || !A.material.map || !B.material.map || !T.ShaderMaterial) return null;
+    // the panel's own frame, from its UVs: the middle (0.5,0.5), and the points at u=1 and v=1
+    const near = (tu, tv) => { let best = 0, bd = Infinity; for (let i = 0; i < uv.count; i++) { const d = (uv.getX(i) - tu) ** 2 + (uv.getY(i) - tv) ** 2; if (d < bd) { bd = d; best = i; } } return new T.Vector3(pos.getX(best), pos.getY(best), pos.getZ(best)); };
+    const C = near(0.5, 0.5), U = near(1, 0.5).sub(C), V = near(0.5, 1).sub(C), N = new T.Vector3().crossVectors(U, V).normalize();
+    // which way is out: towards where players stand
+    A.updateWorldMatrix(true, false);
+    const wc = C.clone().applyMatrix4(A.matrixWorld), wn = C.clone().add(N).applyMatrix4(A.matrixWorld).sub(wc), st = this.sp.pit.stand;
+    if ((st.x - wc.x) * wn.x + (st.z - wc.z) * wn.z < 0) N.negate();
+    const n = 64, verts = [], uvs = [], idx = [];
+    for (let j = 0; j <= n; j++) for (let i = 0; i <= n; i++) {
+      const fu = i / n, fv = j / n, p = C.clone().addScaledVector(U, (fu - 0.5) * 2).addScaledVector(V, (fv - 0.5) * 2).addScaledVector(N, 0.6);
+      verts.push(p.x, p.y, p.z); uvs.push(fu, fv);
+    }
+    for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) { const q = j * (n + 1) + i; idx.push(q, q + 1, q + n + 1, q + 1, q + n + 2, q + n + 1); }
+    const geo = new T.BufferGeometry();
+    geo.setAttribute('position', new T.Float32BufferAttribute(verts, 3)); geo.setAttribute('uv', new T.Float32BufferAttribute(uvs, 2)); geo.setIndex(idx);
+    const amp = U.length() * 0.09; // in the map's units: about a tenth of the panel's radius
+    const mat = new T.ShaderMaterial({
+      uniforms: { mapA: { value: A.material.map }, mapB: { value: B.material.map }, colA: { value: A.material.color ? A.material.color.clone() : new T.Color(1, 1, 1) },
+        k: { value: 0 }, amp: { value: amp }, nrm: { value: N } },
+      vertexShader: `
+        uniform float k; uniform float amp; uniform vec3 nrm;
+        varying vec2 vUv; varying float vSlope; varying float vR; varying vec2 vDir;
+        float wave(float r) { // a ring of a few crests travelling out, dying away as it goes
+          float R = k * 1.35, d = r - R, env = exp(-d * d * 22.0) * (1.0 - k) * (1.0 - k * 0.4);
+          return sin(d * 34.0) * env;
+        }
+        void main() {
+          vUv = uv; vec2 q = uv - 0.5; float r = length(q) * 2.0; vR = r; vDir = r > 0.0001 ? normalize(q) : vec2(0.0);
+          float h = wave(r); vSlope = (wave(r + 0.01) - wave(r - 0.01)) / 0.02;
+          vec3 p = position + nrm * h * amp * smoothstep(1.02, 0.85, r);
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0);
+        }`,
+      fragmentShader: `
+        uniform sampler2D mapA; uniform sampler2D mapB; uniform vec3 colA; uniform float k;
+        varying vec2 vUv; varying float vSlope; varying float vR; varying vec2 vDir;
+        void main() {
+          if (vR > 1.0) discard;
+          vec2 bent = vUv - vDir * vSlope * 0.012;            // the picture bends with the surface
+          float inside = 1.0 - smoothstep(k * 1.35 - 0.12, k * 1.35 + 0.02, vR);
+          vec4 c = mix(texture2D(mapA, bent), texture2D(mapB, bent), inside);
+          float shade = clamp(1.0 + vSlope * 0.06, 0.6, 1.5);   // lit on the slopes facing up, dark on the others
+          float glint = pow(max(0.0, vSlope * 0.05), 3.0) * 0.6;
+          gl_FragColor = vec4(c.rgb * colA * shade + glint, 1.0);
+          #include <colorspace_fragment>
+        }`,
+      side: T.DoubleSide,
+    });
+    const mesh = new T.Mesh(geo, mat); mesh.name = 'spike_number_ripple'; mesh.frustumCulled = false;
+    mesh.position.copy(A.position); mesh.quaternion.copy(A.quaternion); mesh.scale.copy(A.scale); A.parent.add(mesh);
+    return { mesh, set: (k) => { mat.uniforms.k.value = k; }, dispose: () => { mesh.parent && mesh.parent.remove(mesh); geo.dispose(); mat.dispose(); } };
   }
 
   /**
@@ -3163,7 +3190,7 @@ class ChallengeFX {
 
   release() {
     this.active = null; this.walkTo = null; // (a spike ball still rolling keeps rolling)
-    if (this.s.camHold && !this.s.runHold) { this.s.camHold = null; this.s.snapCamera = true; }
+    if (this.s.camHold && !this.s.runHold && !(this.chase && this.chase.cam)) { this.s.camHold = null; this.s.snapCamera = true; } // (the camera on a rolling spike ball stays)
   }
 
   // ------------------------------------------------------------------ broken for good
@@ -3360,6 +3387,28 @@ class ChallengeFX {
     if (this.s.place) this.s.place(pawn);
   }
 
+  /**
+   * While the spike ball rolls down the stretch the camera goes with it: out beside the path, a little behind and above
+   * the ball, looking on down the path at the players running from it. It cuts in when the ball starts rolling, keeps
+   * level with the ball, and stops still to watch it go over the edge.
+   */
+  chaseCamera(c, q, dt) {
+    const s = this.s, r = c.route;
+    if (this.counting) return;
+    if (c.s <= r.sEdge) {
+      const ahead = r.at(c.s + 4), tx = ahead.x - q.x, tz = ahead.z - q.z, tl = Math.hypot(tx, tz) || 1;
+      let ox = q.x, oz = q.z; const ol = Math.hypot(ox, oz) || 1; ox /= ol; oz /= ol; // out from the middle of the island: away from the rock
+      const want = { x: q.x - tx / tl * 8 + ox * 9, y: q.y + 8.5, z: q.z - tz / tl * 8 + oz * 9 };
+      const look = r.at(c.s + 7);
+      if (!c.cam) { c.cam = { ...want }; c.look = { ...look }; s.snapCamera = true; } // the cut
+      else {
+        const k = 1 - Math.exp(-dt * 5);
+        for (const key of ['x', 'y', 'z']) { c.cam[key] += (want[key] - c.cam[key]) * k; c.look[key] += (look[key] - c.look[key]) * k; }
+      }
+    }
+    if (c.cam) s.camHold = { x: c.cam.x, y: c.cam.y, z: c.cam.z, tx: c.look.x, ty: c.look.y - 0.5, tz: c.look.z };
+  }
+
   updateChase(dt) {
     const c = this.chase, o = this.o, s = this.s, p = this.sp.pit, r = c.route, R = p.R;
     this.hidden ||= new Map();
@@ -3378,6 +3427,7 @@ class ChallengeFX {
     const q = r.at(c.s);
     if (c.s > r.sEdge) { c.fall = (c.fall || 0) + dt; q.y -= c.fall * c.fall * 40; } // falling
     o.ball.show(true); o.ball.set(q);
+    this.chaseCamera(c, q, dt);
     for (const pawn of Object.values(s.pawns)) {
       if (!pawn || pawn.track !== 'island' || running.has(pawn.slot) || this.hidden.has(pawn)) continue;
       // already standing on the last space when the ball comes: duck in too
@@ -3392,6 +3442,7 @@ class ChallengeFX {
     if (c.s > r.total || (c.fall || 0) > 1.6) { // long gone: the ball back in the statue's mouth, which shuts (the hiders stay put until the camera has left them)
       for (const pw of c.dodgers.keys()) pw.fx = null;
       this.chase = null;
+      if (c.cam && !this.counting) { s.camHold = null; s.runHold = false; s.snapCamera = true; } // cut back to the follow camera
       if (!(this.broken && this.broken.spike)) { o.ball.goHome(); if (o.jaws && o.jaws.state === 'open') this.jawAnim = { t: 0 }; } else o.ball.show(false);
     }
   }
@@ -4676,7 +4727,8 @@ class BoardScene {
       if (a.cleanup) a.cleanup();
       this.fx.swinging = false;
       if (this.fx.active && this.fx.active.slot === ev.slot) { if (this.fx.active.kind === 'crates') this.fx.restoreCrates(); this.fx.release(); } // the challenge is over: the camera is free again
-      if (this.runHold && !ev.side) { this.runHold = false; this.camHold = null; this.snapCamera = true; const d = this.pathDir(pawn); pawn.faceYaw = Math.atan2(d.x, d.z); } // back to the follow camera, cut
+      if (this.runHold && !ev.side && this.fx.chase && this.fx.chase.cam) this.runHold = false; // (the camera stays on the rolling spike ball)
+      else if (this.runHold && !ev.side) { this.runHold = false; this.camHold = null; this.snapCamera = true; const d = this.pathDir(pawn); pawn.faceYaw = Math.atan2(d.x, d.z); } // back to the follow camera, cut
       this.place(pawn);
       if (!ev.side) { this.setCounter(null); app.ui.querySelector('#fade').style.opacity = '0'; }
       this.refreshHud();
@@ -5660,7 +5712,8 @@ class ViewerScene extends BoardScene {
         if (two) { const o = put(1, from2); this.fx.unhide(o); }
         const main = { ...walk(s, -(s - last), 'fast'), count: { total: s - last, dir: 'back' } }, side = [];
         if (two) { const path = []; for (let i = from2 - 1; i >= last; i--) path.push({ track: 'island', idx: i }); side.push({ t: 'move', slot: 1, mode: 'fast', path, dur: path.length * 190 + 350 + DUR.cross, with: true }); }
-        const n = this.fx.spikeNumber ?? 5, next = Math.max(1, n - 1);
+        if ((this.fx.spikeNumber ?? 5) <= 2) this.fx.showSpikeNumber(5); // (the viewer starts again from 5 once it has reached 2)
+        const n = this.fx.spikeNumber ?? 5, next = Math.max(2, n - 1);
         this.demo.push(() => { this.fx.begin(0); return this.fx.playNote({ fx: 'pit', dur: DUR.pit }, p); }, () => { const a = this.wrapMove(main, this.beginMove(main)); return side.length ? this.together(main, a, side) : a; });
         if (next !== n) this.demo.push(() => this.fx.playNote({ fx: 'spikeCount', from: n, to: next, dur: DUR.spikeCount }, p));
       }],

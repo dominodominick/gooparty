@@ -192,4 +192,20 @@ for (const k of ['vine', 'dragon', 'crates', 'spike']) {
   const attach = src.slice(src.indexOf('  attach(board) {'), src.indexOf('  spikeHead(board) {'));
   assert.ok(/o\.ball = this\.mapBall\(board\)/.test(attach), 'attach() sets up the spike ball');
 }
+
+// ---- the camera on the rolling spike ball: cuts in, stays out beside the path (away from the rock), looks on ahead
+{
+  const fx = mk(0); fx.s.camHold = null; fx.s.snapCamera = false;
+  const route = { sEdge: 100, at: (sd) => ({ x: 20 * Math.cos(sd / 20), y: 30 - sd * 0.1, z: 20 * Math.sin(sd / 20) }) };
+  const c = { s: 10, route }; const q = route.at(10);
+  fx.chaseCamera(c, q, 1 / 60);
+  assert.equal(fx.s.snapCamera, true, 'a cut to the ball');
+  const h = fx.s.camHold; assert.ok(h && Math.hypot(h.x, h.z) > Math.hypot(q.x, q.z) + 4, 'out from the rock');
+  assert.ok(h.y > q.y + 4, 'above the ball');
+  const look = route.at(17); assert.ok(Math.hypot(h.tx - look.x, h.tz - look.z) < 0.5, 'looking on down the path');
+  fx.s.snapCamera = false; c.s = 12; fx.chaseCamera(c, route.at(12), 1 / 60);
+  assert.equal(fx.s.snapCamera, false, 'then it goes along with the ball, no more cuts');
+  fx.counting = true; fx.s.camHold = 'number'; fx.chaseCamera(c, route.at(12), 1 / 60);
+  assert.equal(fx.s.camHold, 'number', 'the number count-down has the camera');
+}
 console.log('challengeFx tests passed');

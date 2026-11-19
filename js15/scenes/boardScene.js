@@ -979,7 +979,8 @@ export class BoardScene {
       if (a.cleanup) a.cleanup();
       this.fx.swinging = false;
       if (this.fx.active && this.fx.active.slot === ev.slot) { if (this.fx.active.kind === 'crates') this.fx.restoreCrates(); this.fx.release(); } // the challenge is over: the camera is free again
-      if (this.runHold && !ev.side) { this.runHold = false; this.camHold = null; this.snapCamera = true; const d = this.pathDir(pawn); pawn.faceYaw = Math.atan2(d.x, d.z); } // back to the follow camera, cut
+      if (this.runHold && !ev.side && this.fx.chase && this.fx.chase.cam) this.runHold = false; // (the camera stays on the rolling spike ball)
+      else if (this.runHold && !ev.side) { this.runHold = false; this.camHold = null; this.snapCamera = true; const d = this.pathDir(pawn); pawn.faceYaw = Math.atan2(d.x, d.z); } // back to the follow camera, cut
       this.place(pawn);
       if (!ev.side) { this.setCounter(null); app.ui.querySelector('#fade').style.opacity = '0'; }
       this.refreshHud();

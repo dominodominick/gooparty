@@ -99,7 +99,8 @@ export class ViewerScene extends BoardScene {
         if (two) { const o = put(1, from2); this.fx.unhide(o); }
         const main = { ...walk(s, -(s - last), 'fast'), count: { total: s - last, dir: 'back' } }, side = [];
         if (two) { const path = []; for (let i = from2 - 1; i >= last; i--) path.push({ track: 'island', idx: i }); side.push({ t: 'move', slot: 1, mode: 'fast', path, dur: path.length * 190 + 350 + DUR.cross, with: true }); }
-        const n = this.fx.spikeNumber ?? 5, next = Math.max(1, n - 1);
+        if ((this.fx.spikeNumber ?? 5) <= 2) this.fx.showSpikeNumber(5); // (the viewer starts again from 5 once it has reached 2)
+        const n = this.fx.spikeNumber ?? 5, next = Math.max(2, n - 1);
         this.demo.push(() => { this.fx.begin(0); return this.fx.playNote({ fx: 'pit', dur: DUR.pit }, p); }, () => { const a = this.wrapMove(main, this.beginMove(main)); return side.length ? this.together(main, a, side) : a; });
         if (next !== n) this.demo.push(() => this.fx.playNote({ fx: 'spikeCount', from: n, to: next, dur: DUR.spikeCount }, p));
       }],

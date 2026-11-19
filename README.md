@@ -351,6 +351,16 @@ The hand-built island is gone. The game now runs on the converted Wii Party map 
   sinks away. The game's "broken" message did not say who broke it, so the scene had no player to animate and
   only waited, then hid the wall.
 
+## Build 60
+
+- Spike ball chase: the camera cuts to the rolling ball and goes along with it, out beside the path, a little behind and
+  above, looking on down the path at the players running from it (`ChallengeFX.chaseCamera`). It stays on the ball
+  through the end of each run and cuts back to the follow camera once the ball has gone over the edge.
+- The number beside the statue stops at 2, as in the game (`SPIKE_MIN = 2`; the painted 1 is gone).
+- The count-down cuts to the number and cuts back (no pans), and the change is a 3D ripple: a finely divided copy of the
+  round panel whose surface waves out from the middle, the next number showing inside the ring (`rippleFor`).
+- Viewer: the spike demo starts again from 5 once the number has reached 2, so the ripple can always be seen.
+
 ## Build 59
 
 - Spike statue: it opens its jaws to spit the spike ball and shuts them once the ball has gone, with the game's own jaw
