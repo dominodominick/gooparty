@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Party Island</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@800&display=swap">
+  <link rel="stylesheet" href="style15.css">
+</head>
+<body>
+  <div id="errbox" style="display:none;position:fixed;z-index:99;left:8px;right:8px;bottom:8px;max-height:40vh;overflow:auto;background:#7a0f1d;color:#fff;font:13px monospace;padding:10px;border-radius:8px;white-space:pre-wrap"></div>
+  <script>
+    (function () {
+      var box = document.getElementById('errbox');
+      function show(m) { box.style.display = 'block'; box.textContent += m + '\n'; }
+      window.addEventListener('error', function (e) { show('Error: ' + e.message + (e.filename ? '  (' + e.filename.split('/').slice(-2).join('/') + ':' + e.lineno + ')' : '')); });
+      window.addEventListener('unhandledrejection', function (e) { show('Error: ' + (e.reason && e.reason.message || e.reason)); });
+    })();
+  </script>
+  <canvas id="stage"></canvas>
+  <canvas id="stage3d"></canvas>
+  <div id="ui"></div>
+
+  <!-- Pinned library builds. These are the only external dependencies. -->
+  <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}</script>
+  <script type="module">import * as THREE from 'three'; window.THREE = THREE;</script>
+  <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
+  <script type="module" src="js15/main.js"></script>
+</body>
+</html>
