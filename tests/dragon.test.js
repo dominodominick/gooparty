@@ -56,4 +56,28 @@ assert.ok(centre(pose(prim.mr001m011_3, balls, 20, { hide: true }), spat).every(
 const s15 = spatBallAt(D, 15); assert.ok(s15[1] > 200 && s15[2] > 50, 'it leaves from the open mouth, high and in front');
 assert.ok(DRAGON_FPS >= 30 && D.spit / DRAGON_FPS < 0.6, 'the ball is spat within the first half second');
 
+// ---- the spike statue's jaws (the same fitting, on the head the page splits off the map's m001_50)
+{
+  const { SPIKE_HEAD: J } = await import('../js15/world/spikeHeadData.js');
+  const { jawMats, jawSecs, JAW_FPS } = await import('../js15/world/spikeHead.js');
+  const ig = fs.readFileSync(new URL('../assets/board-game-island/island.glb', import.meta.url));
+  const il = ig.readUInt32LE(12), IJ = JSON.parse(ig.subarray(20, 20 + il).toString()), ib = 20 + il + 8;
+  const ipos = (acc) => { const a = IJ.accessors[acc], bv = IJ.bufferViews[a.bufferView], o = ib + (bv.byteOffset || 0) + (a.byteOffset || 0);
+    return Float32Array.from({ length: a.count * 3 }, (_, i) => ig.readFloatLE(o + 4 * i)); };
+  const iidx = (acc) => { const a = IJ.accessors[acc], bv = IJ.bufferViews[a.bufferView], o = ib + (bv.byteOffset || 0) + (a.byteOffset || 0);
+    const rd = a.componentType === 5125 ? (i) => ig.readUInt32LE(o + 4 * i) : (i) => ig.readUInt16LE(o + 2 * i); return Array.from({ length: a.count }, (_, i) => rd(i)); };
+  const node = IJ.nodes.find((n) => n.name === 'm001_50' && n.mesh !== undefined), prim = IJ.meshes[node.mesh].primitives.find((p) => IJ.materials[p.material].name === 'mr001m067');
+  const all = ipos(prim.attributes.POSITION), idx = prim.indices !== undefined ? iidx(prim.indices) : null, n = (idx ? idx.length : all.length / 3) / 3;
+  const head = []; // the head's triangles, as the page splits them off (centre within 600 of the model's middle)
+  for (let t = 0; t < n; t++) { const v = [0, 1, 2].map((k) => (idx ? idx[3 * t + k] : 3 * t + k)); if (Math.abs((all[3 * v[0]] + all[3 * v[1]] + all[3 * v[2]]) / 3) < 600) for (const k of v) head.push(all[3 * k], all[3 * k + 1], all[3 * k + 2]); }
+  const rest = Float32Array.from(head), bind = bindDragon(rest, J);
+  assert.equal(bind.matched, rest.length / 3, `every vertex of the statue's head binds (${bind.matched}/${rest.length / 3})`);
+  const pose = (seq, f) => skinDragon(new Float32Array(rest.length), rest, bind, jawMats(J, seq, f));
+  const mv = (a) => { let m = 0; for (let i = 0; i < a.length; i++) m = Math.max(m, Math.abs(a[i] - rest[i])); return m; };
+  assert.ok(mv(pose('open', 0)) < 0.05, 'shut at the start');
+  assert.ok(mv(pose('open', J.open.length - 1)) > 20, 'wide open after the opening');
+  assert.ok(mv(pose('close', J.close.length - 1)) < 0.05, 'shut again at the end of the closing');
+  assert.ok(jawSecs(J, 'open') > 0.2 && jawSecs(J, 'open') < 0.5 && JAW_FPS === 60, 'opens in about a third of a second');
+}
+
 console.log('dragon tests passed');

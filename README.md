@@ -351,6 +351,20 @@ The hand-built island is gone. The game now runs on the converted Wii Party map 
   sinks away. The game's "broken" message did not say who broke it, so the scene had no player to animate and
   only waited, then hid the wall.
 
+## Build 59
+
+- Spike statue: it opens its jaws to spit the spike ball and shuts them once the ball has gone, with the game's own jaw
+  skeleton and animation (`m001_50_1.branm`, read by `tools/extract_spike_head.py` into `js15/world/spikeHeadData.js`,
+  posed by `js15/world/spikeHead.js`). The head now sits exactly where the game's animation puts it (x -1375).
+- Map extractors: a vertex drawn with a single bone's own matrix is stored in that bone's space (the statue's upper jaw).
+- The spike ball rolls the way it is going all the way down (it turns about the level axis across its path), and it stays
+  right behind the hindmost player running from it, then rolls on at full speed once they are out of its way.
+- Everyone on the stretch below the statue runs from the ball at the same time (move events marked `with: true` play
+  alongside the one before them), and each gets their own spot in the tunnel mouth.
+- After a failed roll, the camera pans to the number beside the statue and it fades into the next one down. It now goes
+  down to 1 (the map has panels for 5 to 2; the 1 is painted from the 2's picture).
+- Viewer: "Second player on the spike stretch" toggle; the spike demo uses the game's camera and shows the number going down.
+
 ## Build 58
 
 - Fix: the stray spike balls are gone again (one floating over the pit, one on the path in front of the spike statue).

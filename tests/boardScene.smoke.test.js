@@ -648,6 +648,23 @@ assert.ok(DUR.fly >= 2400 && DUR.drop >= 1800);
     assert.equal(pw.fx, null, 'on their feet at the end');
     mv.end && mv.end();
   }
+  // everyone below the spike ball runs at the same time: a move marked "with" plays alongside the one before it
+  {
+    assert.ok(sc.pawns[1], 'a second player');
+    at(sc.pawns[0], 'island', 61); at(sc.pawns[1], 'island', 56);
+    const run = (from, to) => { const p = []; for (let i = from - 1; i >= to; i--) p.push({ track: 'island', idx: i }); return p; };
+    sc.queue.length = 0; sc.anim = null;
+    sc.queue.push({ t: 'move', slot: 0, mode: 'fast', path: run(61, 50), count: { total: 11, dir: 'back' }, dur: 11 * DUR.fastStep + DUR.moveTail },
+      { t: 'move', slot: 1, mode: 'fast', path: run(56, 50), count: { total: 6, dir: 'back' }, dur: 6 * DUR.fastStep + DUR.moveTail, with: true });
+    sc.startNext();
+    assert.equal(sc.queue.length, 0, 'both taken at once'); assert.ok(sc.anim.slotsMoving.has(0) && sc.anim.slotsMoving.has(1));
+    const x0 = sc.pawns[0].x, x1 = sc.pawns[1].x;
+    sc.anim.step(0.2);
+    assert.ok(sc.pawns[0].x !== x0 && sc.pawns[1].x !== x1, 'both are running');
+    sc.anim.step(1); sc.anim.end(); sc.anim = null;
+    assert.equal(sc.pawns[0].idx, 50); assert.equal(sc.pawns[1].idx, 50);
+    if (sc.fx.hidden) sc.fx.hidden.clear(); sc.pawns[0].fx = sc.pawns[1].fx = null;
+  }
   // dev tools: the dice go away and the player is simply on the spot
   {
     sc.queue.length = 0; sc.anim = null;

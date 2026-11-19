@@ -1,10 +1,15 @@
 // The long steps of the real map: every crossing is one continuous motion that starts and ends where it should.
 import assert from 'node:assert/strict';
 globalThis.window = globalThis; globalThis.document = { createElement: () => ({}), body: { style: {} } };
-const { ChallengeFX, challengeSpecs, FLOATERS } = await import('../js15/scenes/challengeFx.js');
+const { ChallengeFX, challengeSpecs, FLOATERS, CHASE_GAP } = await import('../js15/scenes/challengeFx.js');
 const { islandPositions, islandWorld, terrainHeight } = await import('../js15/game/boardLayout.js');
 const { GAPS, ISLAND } = await import('../js15/game/boardData.js');
 
+// tiny stand-ins for three.js's quaternion and vector (the ball turns as it rolls)
+const Q = class { constructor() { this.x = 0; this.y = 0; this.z = 0; this.w = 1; } identity() { this.x = this.y = this.z = 0; this.w = 1; return this; }
+  setFromAxisAngle(a, ang) { const s2 = Math.sin(ang / 2); this.x = a.x * s2; this.y = a.y * s2; this.z = a.z * s2; this.w = Math.cos(ang / 2); return this; }
+  premultiply(q) { const { x, y, z, w } = this; this.x = q.w * x + q.x * w + q.y * z - q.z * y; this.y = q.w * y - q.x * z + q.y * w + q.z * x; this.z = q.w * z + q.x * y - q.y * x + q.z * w; this.w = q.w * w - q.x * x - q.y * y - q.z * z; return this; } clone() { const c = new Q(); Object.assign(c, this); return c; } };
+const V = class { constructor() { this.x = 0; this.y = 0; this.z = 0; } set(x, y, z) { this.x = x; this.y = y; this.z = z; return this; } };
 const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z);
 const W = islandWorld(), P = islandPositions(), sp = challengeSpecs(W);
 const mk = (idxBefore, extra = {}) => Object.assign(Object.create(ChallengeFX.prototype), { sp, W, s: { idxBefore, pos: { island: P }, camHold: null }, pending: null, ropeTheta: 0, vine: null, swinging: false, active: null, walkTo: null, o: null, debris: [], chips: [] }, extra);
@@ -115,7 +120,7 @@ for (const k of ['vine', 'dragon', 'crates', 'spike']) {
   // the chase never stops; whoever is on the last space ducks in before the ball gets there and stays out of sight
   const pawn = { slot: 0, track: 'island', idx: r.lastIdx, x: last.x, y: last.y, z: last.z };
   const ball = { at: {}, spinX: 0, set(q) { this.at = q; }, spin(a) { this.spinX = a; }, show() {}, goHome() { this.home = true; } };
-  Object.assign(fx, { o: { ball }, hidden: new Map(), broken: {}, chase: { slot: 1, t: 0, s: 0, route: r, speed: 17, dodgers: new Map() } });
+  Object.assign(fx, { o: { ball }, hidden: new Map(), broken: {}, chase: { slot: 1, t: 0, s: 0, v: 0, route: r, dodgers: new Map() } });
   fx.s.pawns = { 0: pawn }; fx.s.anim = null; fx.s.camSlot = 0;
   let prevS = -1, steps = 0, hiddenBeforeBall = null;
   while (fx.chase && steps++ < 3000) {
@@ -128,23 +133,56 @@ for (const k of ['vine', 'dragon', 'crates', 'spike']) {
   fx.s.camSlot = 1; fx.updateHidden();
   assert.equal(pawn.fx, null, 'back on the space once the camera has gone elsewhere (never seen walking back)');
   // the player running back from the statue: the run ends with a leg into the tunnel mouth
-  fx.chase = { slot: 0, t: 0, s: 0, route: r, speed: 17, dodgers: new Map() }; fx.s.camSlot = 0;
+  fx.chase = { slot: 0, t: 0, s: 0, v: 0, route: r, dodgers: new Map() }; fx.s.camSlot = 0;
   const path = []; for (let i = r.lastIdx + 3; i >= r.lastIdx; i--) path.push({ track: 'island', idx: i });
-  const leg = fx.hideLegFor({ path }, last);
+  const leg = fx.hideLegFor({ slot: 0, path }, last);
   assert.ok(leg && leg.kind === 'hide' && leg.steps === 0);
   const end = leg.pose(1); assert.ok(Math.hypot(end.x - p.hide.x, end.z - p.hide.z) < 1, 'the run ends in the tunnel mouth');
   const runner = { slot: 0, x: last.x, y: last.y, z: last.z };
-  assert.equal(fx.endsHidden({ path }, runner), true); assert.ok(fx.hidden.has(runner), 'and stays there');
-  assert.equal(fx.hideLegFor({ path: [{ track: 'island', idx: r.lastIdx + 2 }] }, last), null, 'a run that stops short does not hide');
+  assert.equal(fx.endsHidden({ slot: 0, path }, runner), true); assert.ok(fx.hidden.has(runner), 'and stays there');
+  assert.equal(fx.hideLegFor({ slot: 0, path: [{ track: 'island', idx: r.lastIdx + 2 }] }, last), null, 'a run that stops short does not hide');
+  // two running in at once get a spot each
+  fx.hidden = new Map(); fx.hideSpots = new Map();
+  const l0 = fx.hideLegFor({ slot: 0, path }, last).pose(1), l1 = fx.hideLegFor({ slot: 1, path }, last).pose(1);
+  assert.ok(Math.hypot(l0.x - l1.x, l0.z - l1.z) > 0.5, 'two hiders do not stand in each other');
+}
+// the ball keeps right behind whoever is running from it, and rolls the way it goes
+{
+  const fx = mk(0); fx.s.pos = { island: P };
+  const r = fx.chaseRoute();
+  const ball = { at: {}, set(q) { this.at = q; }, show() {}, goHome() {} };
+  const runner = { slot: 0, track: 'island', idx: 60, x: 0, y: 0, z: 0 };
+  Object.assign(fx, { o: { ball }, hidden: new Map(), broken: {}, chase: { slot: 0, t: 0, s: 0, v: 0, route: r, dodgers: new Map() } });
+  fx.s.pawns = { 0: runner }; fx.s.anim = { slotMoving: 0 };
+  let worst = 0, ahead = Infinity;
+  for (let k = 0; k < 60 * 2.2; k++) { // the runner covers the stretch at about 9 units a second
+    const sr = Math.min(r.sLast, 6 + k / 60 * 9), q = r.at(sr); Object.assign(runner, { x: q.x, y: q.y - sp.pit.R, z: q.z });
+    fx.updateChase(1 / 60);
+    const gap = sr - fx.chase.s;
+    if (k > 60) worst = Math.max(worst, gap);
+    ahead = Math.min(ahead, gap);
+  }
+  assert.ok(worst < 6, `right behind the runner (at most ${worst.toFixed(1)} behind)`);
+  assert.ok(ahead > CHASE_GAP - 1, 'but never on top of them');
+}
+// the map's ball turns about the level axis across the way it rolls
+{
+  const parts = [0, 1].map(() => ({ isMesh: true, material: { name: 'mr001m016_21' }, visible: true, userData: {}, position: { set() {} }, quaternion: { copy(q) { this.q = q.clone ? q.clone() : q; } }, rotation: {}, geometry: { clone() { return { translate() {} }; } } }));
+  const fx = mk(0); fx.T = { Quaternion: Q, Vector3: V };
+  const ball = fx.mapBall({ scale: 0.016, island: { traverse: (fn) => parts.forEach(fn) } });
+  ball.set({ x: ball.at.x + 1, y: ball.at.y, z: ball.at.z }); // rolling +x: it turns about -z
+  assert.ok(ball.quat.z < -0.1 && Math.abs(ball.quat.x) < 1e-9, 'rolling along x turns it about z');
+  ball.goHome(); ball.set({ x: ball.at.x, y: ball.at.y, z: ball.at.z + 1 }); // rolling +z: about +x
+  assert.ok(ball.quat.x > 0.1 && Math.abs(ball.quat.z) < 1e-9, 'rolling along z turns it about x');
 }
 
 // ---- the map's spike ball: the loose copies along its old course (one over the pit, one in front of the statue) are hidden
 {
   const meshes = ['mr001m016', 'mr001m016_2', 'mr001m016_21', 'mr001m016_22', 'mr001m001'].map((name) => ({
-    isMesh: true, material: { name }, visible: true, userData: {}, position: { set() {} }, rotation: {},
+    isMesh: true, material: { name }, visible: true, userData: {}, position: { set() {} }, quaternion: { copy() {} }, rotation: {},
     geometry: { clone() { return { translate() {} }; } } }));
   const board = { scale: 0.016, island: { traverse: (fn) => meshes.forEach(fn) } };
-  const ball = mk(0).mapBall(board);
+  const f0 = mk(0); f0.T = { Quaternion: Q, Vector3: V }; const ball = f0.mapBall(board);
   assert.equal(meshes[0].visible, false); assert.equal(meshes[1].visible, false, 'the loose copies are hidden');
   assert.equal(ball.parts.length, 2, 'the ball itself is the two m016_21/22 parts'); assert.equal(meshes[4].visible, true, 'nothing else is touched');
 }

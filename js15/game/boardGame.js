@@ -20,7 +20,7 @@ export const WIN_ROLL = 6;        // final challenge: needs this or more
 export const DRAGON_NEEDS = 4;    // wiki: Dragon Wall needs 4+
 export const VOLCANO_NEEDS = 3;   // wiki: Volcano or Not needs 3+
 export const SPIKE_START = 5;     // wiki: Spike Ball needs 5+, then 4, 3, 2 after each failure
-export const SPIKE_MIN = 2;
+export const SPIKE_MIN = 1;      // (the game stops at 2; here it goes down to 1)
 export const SPIKE_RUNBACK = 11;  // spaces the failing player runs back
 export const TORNADO_BACK = [4, 5, 6];  // wiki: the tornado's number die
 export const REST_WIN_MOVE = 10;  // wiki: solo player wins the 1vRest minigame -> +10
@@ -38,7 +38,8 @@ export const DUR = {
   wall: 4800,    // hitting a wall three times until it breaks
   fire: 1700,    // the dragon spits the fireball in its mouth at the player
   knock: 1100,   // ...and they are blown back onto the space behind them in one arc
-  pit: 2900,     // the spike ball rolling down at a player who failed
+  pit: 1800,     // the statue opens its jaws and spits the spike ball out at a player who failed
+  spikeCount: 2600, // then the camera pans to the number beside the statue and it fades to the next one down
   swim: 3000,    // a crate breaks and the player swims across
   statueThrow: 13000, // a statue's hands wake up, it throws the player high over the island, they walk off its platform
   ufo: 2600,     // one beam-up or drop-off of the UFO swap (there are four)
@@ -492,18 +493,20 @@ export class BoardGame {
         return true;
       case 'spike': {
         if (d >= this.spikeNeeds) return pass('The statue breaks!', 'spike');
+        const was = this.spikeNeeds;
         this.spikeNeeds = Math.max(SPIKE_MIN, this.spikeNeeds - 1); // easier for the next attempt
         events.push(note(slot, 'The spike ball chases you back!', { fx: 'pit', dur: DUR.pit }));
         this._moveTo(slot, walkBack(pos, SPIKE_RUNBACK), 'fast', events, BACK(SPIKE_RUNBACK));
         const safeIdx = VOLCANO_CHALLENGE_IDX + 1; // the space right after the volcano challenge
-        for (const other of this.players) { // everyone on the stretch below the spike ball gets chased back too
+        for (const other of this.players) { // everyone on the stretch below the spike ball runs from it too, at the same time
           const p = this.positions[other];
           if (other === slot || p.track !== 'island' || p.idx <= safeIdx || p.idx >= SPIKE_IDX) continue;
           const path = [];
           for (let i = p.idx - 1; i >= safeIdx; i--) path.push({ track: 'island', idx: i });
-          events.push(move(other, 'fast', path, BACK(path.length)));
+          events.push({ ...move(other, 'fast', path, BACK(path.length)), with: true });
           this.positions[other] = { track: 'island', idx: safeIdx };
         }
+        if (this.spikeNeeds !== was) events.push(note(slot, `Now roll ${this.spikeNeeds} or more`, { fx: 'spikeCount', from: was, to: this.spikeNeeds, dur: DUR.spikeCount }));
         return true;
       }
       default: return true;

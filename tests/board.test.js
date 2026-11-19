@@ -176,11 +176,17 @@ assert.deepEqual(g.positions[0], I(VOLCANO_CHALLENGE_IDX + 1));
 assert.deepEqual(g.positions[1], I(VOLCANO_CHALLENGE_IDX + 1), 'a player in the ball’s path runs back too');
 assert.deepEqual(g.positions[2], I(70), 'players already past it are safe');
 assert.equal(g.spikeNeeds, SPIKE_START - 1);
-assert.ok(r.events.some((e) => e.t === 'move' && e.slot === 1));
+assert.ok(r.events.some((e) => e.t === 'move' && e.slot === 1 && e.with === true), 'they run at the same time as the roller');
+{ const evs = r.events, mv0 = evs.findIndex((e) => e.t === 'move' && e.slot === 0), mv1 = evs.findIndex((e) => e.t === 'move' && e.slot === 1), cnt = evs.findIndex((e) => e.fx === 'spikeCount');
+  assert.ok(mv1 === mv0 + 1, 'right after the roller\'s run (so they play together)');
+  assert.ok(cnt > mv1 && evs[cnt].from === SPIKE_START && evs[cnt].to === SPIKE_START - 1 && evs[cnt].dur === DUR.spikeCount, 'then the number beside the statue counts down'); }
 g = game(); g.spikeNeeds = 2; g.positions[0] = I(59); roll(g, 3); roll(g, 2);
 assert.ok(g.positions[0].idx > 61, 'needs only 2+ after enough failures');
-g = game(); for (let i = 0; i < 9; i++) { g.positions[0] = I(59); g.turn = 0; g.step = null; roll(g, 3); roll(g, 1); }
-assert.equal(g.spikeNeeds, 2, 'never gets easier than 2+');
+g = game(); for (let i = 0; i < SPIKE_START - 1; i++) { g.positions[0] = I(59); g.turn = 0; g.step = null; roll(g, 3); r = roll(g, 1); }
+assert.equal(g.spikeNeeds, 1, 'down to 1+ after four failures');
+assert.ok(r.events.some((e) => e.fx === 'spikeCount' && e.from === 2 && e.to === 1));
+g.positions[0] = I(59); g.turn = 0; g.step = null; roll(g, 3); r = roll(g, 1);
+assert.ok(g.positions[0].idx > 61 || g.broken.spike, 'a 1 gets through then');
 
 // ---------- final challenge ----------
 // arriving: one immediate single die; a 6 wins

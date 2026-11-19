@@ -31,10 +31,14 @@ MOVERS = ['joint1', 'joint2', 'joint3', 'joint4', 'joint5', 'kazandan', 'kazanda
 slot_of = {by_name[n]: k + 1 for k, n in enumerate(MOVERS)}
 
 # ---- the matrix weights: NodeMix ('mix' = weighted list of bone matrices, 'dup' = one bone)
-mix = {}
+mix, single = {}, {}
 for op in M['defs']['NodeMix']:
     if op[0] == 'mix': mix[op[1]] = [(by_mtx[m], w) for m, w in op[2]]
-    elif op[0] == 'dup': mix[op[1]] = [(op[2], 1.0)]
+    elif op[0] == 'dup': mix[op[1]] = [(op[2], 1.0)]; single[op[1]] = op[2]
+def model_space(pi, mid, P):
+    """A vertex drawn with one bone's own matrix ('dup') is stored in that bone's space; a weighted one in the model's."""
+    if mid in single: W = bones[single[mid]]['W']; return W[:, :3] @ P[pi] + W[:, 3]
+    return P[pi]
 def weights(mid):
     ws = mix.get(mid) or [(by_mtx[mid], 1.0)]
     ws = sorted(ws, key=lambda x: -x[1])[:4]; s = sum(w for _, w in ws)
@@ -71,7 +75,7 @@ for pi, mid in walk(head):
     if pi in seen:
         if seen[pi] != w: print('note: position', pi, 'drawn with two weightings; keeping the first')
         continue
-    seen[pi] = w; pts.append(P[pi]); jnt.append([j for j, _ in w] + [0] * (4 - len(w))); wts.append([x for _, x in w] + [0] * (4 - len(w)))
+    seen[pi] = w; pts.append(model_space(pi, mid, P)); jnt.append([j for j, _ in w] + [0] * (4 - len(w))); wts.append([x for _, x in w] + [0] * (4 - len(w)))
 # the two fireballs: their own bone's space, placed at rest
 for oname, bname in (('polygon2', 'kazandan'), ('polygon0', 'kazandan1')):
     o = objs[oname]; P = M['pos'][o['ids'][0]][1]; W = bones[by_name[bname]]['W']

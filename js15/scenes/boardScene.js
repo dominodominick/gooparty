@@ -516,7 +516,12 @@ export class BoardScene {
         this.setBanner(`${esc(this.nameOf(ev.slot))} wins!`);
         this.anim = { t: 0, dur: ev.dur };
         break;
-      case 'move': this.anim = this.wrapMove(ev, this.beginMove(ev)); break;
+      case 'move': {
+        const main = this.wrapMove(ev, this.beginMove(ev)), side = [];
+        while (this.queue.length && this.queue[0].t === 'move' && this.queue[0].with) side.push(this.queue.shift()); // run at the same time
+        this.anim = side.length ? this.together(ev, main, side) : main;
+        break;
+      }
       case 'ufo': this.anim = this.beginUfo(ev); break;
       case 'devJump': { // dev tools: the dice go away and the player is simply there
         this.control = null; this.stopSent = false; this.clearDice(); this.clearBanner();
@@ -856,7 +861,7 @@ export class BoardScene {
       if (hideLeg) legs.push(hideLeg);
       const total = legs.reduce((x, l) => x + l.ms, 0), moveFrac = Math.min(1, total / Math.max(1, ev.dur));
       if (count) this.setCounter(count, count.total);
-      if (count && count.dir === 'back' && !this.camHold) { // running backwards: cut to a camera in front of the pawn and let it run towards it; nothing spins
+      if (count && count.dir === 'back' && !this.camHold && !ev.side) { // running backwards: cut to a camera in front of the pawn and let it run towards it; nothing spins
         const dx = B.x - A.x, dz = B.z - A.z, dl = Math.hypot(dx, dz) || 1, ux = dx / dl, uz = dz / dl;
         const cx0 = A.x - ux * 8.5 - uz * 3, cz0 = A.z - uz * 8.5 + ux * 3;
         this.camHold = { x: cx0, y: Math.max(A.y, B.y) + 7.5, z: cz0, tx: (A.x + B.x) / 2, ty: (A.y + B.y) / 2 + 1.6, tz: (A.z + B.z) / 2 };
@@ -974,10 +979,9 @@ export class BoardScene {
       if (a.cleanup) a.cleanup();
       this.fx.swinging = false;
       if (this.fx.active && this.fx.active.slot === ev.slot) { if (this.fx.active.kind === 'crates') this.fx.restoreCrates(); this.fx.release(); } // the challenge is over: the camera is free again
-      if (this.runHold) { this.runHold = false; this.camHold = null; this.snapCamera = true; const d = this.pathDir(pawn); pawn.faceYaw = Math.atan2(d.x, d.z); } // back to the follow camera, cut
+      if (this.runHold && !ev.side) { this.runHold = false; this.camHold = null; this.snapCamera = true; const d = this.pathDir(pawn); pawn.faceYaw = Math.atan2(d.x, d.z); } // back to the follow camera, cut
       this.place(pawn);
-      this.setCounter(null);
-      app.ui.querySelector('#fade').style.opacity = '0';
+      if (!ev.side) { this.setCounter(null); app.ui.querySelector('#fade').style.opacity = '0'; }
       this.refreshHud();
     };
     return a;
@@ -1024,6 +1028,7 @@ export class BoardScene {
     if (this.fx && !this.fx.active) this.fx.vine = null;
     if (!this.flying && !this.blackIn) { const f = app.ui.querySelector('#fade'); if (f && f.style.opacity === '1') f.style.opacity = '0'; }
     const b = this.s.board;
+    if (this.fx && b.spikeNeeds && this.fx.spikeNumber !== b.spikeNeeds) this.fx.showSpikeNumber(b.spikeNeeds); // the number beside the spike statue
     for (const key of Object.keys(b.positions)) {
       const pawn = this.pawns[key], at = b.positions[key];
       if (pawn && (pawn.track !== at.track || pawn.idx !== at.idx)) this.snapPawn(pawn, at);
@@ -1177,6 +1182,29 @@ export class BoardScene {
 
   /** (Old quick throw: no longer used; statue throws have their own move.) */
   statueThrow() {}
+
+  /**
+   * Moves played at the same time (everyone on the stretch running from the spike ball): the first one leads (camera,
+   * counter); the others run alongside, without a counter or a camera of their own.
+   */
+  together(ev, main, side) {
+    const subs = [{ ev, a: main }];
+    for (const e of side) { const a = this.beginMove({ ...e, count: null, side: true }); if (a) subs.push({ ev: e, a }); }
+    const all = subs.filter((x) => x.a), dur = Math.max(...all.map((x) => x.a.dur || 0), 1);
+    const slotsMoving = new Set(all.map((x) => x.ev.slot));
+    const comp = { t: 0, dur, slotMoving: ev.slot, slotsMoving, fast: main && main.fast };
+    comp.step = (u) => {
+      const ms = u * dur;
+      for (const x of all) {
+        if (x.done) continue;
+        const v = Math.min(1, ms / Math.max(1, x.a.dur));
+        if (x.a.step) x.a.step(v);
+        if (v >= 1) { x.done = true; slotsMoving.delete(x.ev.slot); if (x.a.end) x.a.end(); }
+      }
+    };
+    comp.end = () => { for (const x of all) if (!x.done) { x.done = true; if (x.a.step) x.a.step(1); if (x.a.end) x.a.end(); } };
+    return comp;
+  }
 
   /** Extra pieces of a move: a statue's hands throwing the player, the volcano's way out lighting up. */
   wrapMove(ev, anim) {

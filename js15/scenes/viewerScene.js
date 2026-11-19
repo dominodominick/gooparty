@@ -94,7 +94,15 @@ export class ViewerScene extends BoardScene {
       ['Blue statue throw', () => { const s = stopOf('statueBlue'); at(s); this.demo.push(move(throwBy(s, 'blue'))); }],
       ['Red statue throw', () => { const s = stopOf('statueRed'); at(s); this.demo.push(move(throwBy(s, 'red'))); }],
       ['Volcano push', () => { const s = stopOf('volcanoOrNot'); at(s); this.demo.push(move({ t: 'move', slot: 0, mode: 'drop', path: [{ track: 'volcano', idx: 0 }], dur: DUR.drop })); }],
-      ['Spike ball chase', () => { const s = stopOf('spike'), p = at(s); this.demo.push(() => this.fx.playNote({ fx: 'pit', dur: DUR.pit }, p), move(walk(s, -11, 'fast'))); }],
+      ['Spike ball chase', () => { // as in a game: the jaws open, the ball chases everyone on the stretch back, then the number goes down
+        const s = stopOf('spike'), p = at(s), last = stopOf('volcanoOrNot') + 1, two = this.secondPlayer, from2 = s - 5;
+        if (two) { const o = put(1, from2); this.fx.unhide(o); }
+        const main = { ...walk(s, -(s - last), 'fast'), count: { total: s - last, dir: 'back' } }, side = [];
+        if (two) { const path = []; for (let i = from2 - 1; i >= last; i--) path.push({ track: 'island', idx: i }); side.push({ t: 'move', slot: 1, mode: 'fast', path, dur: path.length * 190 + 350 + DUR.cross, with: true }); }
+        const n = this.fx.spikeNumber ?? 5, next = Math.max(1, n - 1);
+        this.demo.push(() => { this.fx.begin(0); return this.fx.playNote({ fx: 'pit', dur: DUR.pit }, p); }, () => { const a = this.wrapMove(main, this.beginMove(main)); return side.length ? this.together(main, a, side) : a; });
+        if (next !== n) this.demo.push(() => this.fx.playNote({ fx: 'spikeCount', from: n, to: next, dur: DUR.spikeCount }, p));
+      }],
       ['Smash spike statue', () => { const p = at(stopOf('spike')); this.demo.push(() => this.fx.brokenAnim({ challenge: 'spike', dur: DUR.wall }, p)); }],
       ['Blue spring (+5)', () => { const s = stopOf('plus5'); at(s); this.demo.push(move(spring(0, s, 5, 'blue'))); }],
       ['Red spring (-4)', () => { const s = stopOf('minus4'); at(s); this.demo.push(move(spring(0, s, -4, 'red'))); }],
@@ -167,6 +175,7 @@ export class ViewerScene extends BoardScene {
     for (const [label, v] of this.places()) btn(label, () => { this.follow = false; this.lookAt(v); });
     head('Play');
     for (const [label, fn] of this.demos()) btn(label, () => { if (!this.anim) fn(); }, '#3c7a4a');
+    const second = btn('Second player on the spike stretch: off', () => { this.secondPlayer = !this.secondPlayer; second.textContent = `Second player on the spike stretch: ${this.secondPlayer ? 'on' : 'off'}`; }, '#4a4a7a');
     const slow = btn('Slow motion: off', () => { this.slow = this.slow === 0.15 ? 1 : 0.15; slow.textContent = `Slow motion: ${this.slow < 1 ? 'on' : 'off'}`; }, '#4a4a7a');
     head('');
     btn('Reset everything', () => app.go('viewer'), '#7a5a2a');

@@ -4,9 +4,11 @@
 // The props (vine, guardian, crates, barrels, boulder) are the map's own models; they arrive with attach(board).
 import { ISLAND, gapBetween } from '../game/boardData.js';
 const islandTypeAt = (i) => ISLAND[i] && ISLAND[i].type;
-import { DUR } from '../game/boardGame.js';
+import { DUR, SPIKE_START, SPIKE_MIN } from '../game/boardGame.js';
 import { DRAGON } from '../world/dragonData.js';
 import { rigDragon, spatBallAt, DRAGON_FPS } from '../world/dragon.js';
+import { SPIKE_HEAD } from '../world/spikeHeadData.js';
+import { rigSpikeHead, JAW_FPS, jawSecs } from '../world/spikeHead.js';
 import { islandWorld, legVia, terrainHeight, MAP_SCALE } from '../game/boardLayout.js';
 
 const clamp01 = (v) => Math.min(1, Math.max(0, v));
@@ -39,7 +41,8 @@ function sequence(parts) {
 
 export const SWING_AMP = 0.85;   // how far the vine swings each way (radians)
 const VINE_W = 2.1;
-export const CHASE_SPEED = 17;
+export const CHASE_SPEED = 17;   // world units a second, once nobody is in its way (it can go twice that to keep up)
+export const CHASE_GAP = 3.4;    // how far behind the hindmost runner the ball's centre stays (its radius is 2.5)
 const HIDE_MS = 450;             // ducking into the tunnel mouth   // how fast the spike ball rolls down the stretch (world units per second)              // the vine's rhythm while a player swings on it (radians of phase per second)
 export const FLOATERS = 3;       // crates / barrels in each lane of the pool
 
@@ -117,8 +120,12 @@ export class ChallengeFX {
     // the spike ball statue: a monster head that holds the ball in its open mouth, sitting on a stone block. Both are part
     // of the map (m001_50), but the converted map left the head at the middle of the island, under the ground.
     o.statue = this.spikeHead(board);
+    o.jaws = null;
+    if (o.statue) { try { o.jaws = o.statue.userData.jaws ||= rigSpikeHead(o.statue, SPIKE_HEAD); } catch (e) { o.jaws = null; } }
+    if (o.jaws) o.jaws.rest();
     o.plate = []; board.island.traverse((m) => { if (m.isMesh && /^mr001m0(67|68|86_[2-5])$/.test(m.material && m.material.name || '') && m.parent && /m001_51/.test(m.parent.name + m.name)) o.plate.push(m); });
     o.block = board.island.getObjectByName(sp.volcano.block); o.S = board.scale;
+    o.numbers = this.numberPanels(board); this.showSpikeNumber(this.spikeNumber ?? SPIKE_START);
     // the UFO (m001_82, without its painted-on shadow) and its striped tractor beam (m001_83, 450 tall)
     o.ufo = make('m001_82'); o.ufo.visible = false;
     o.ufo.traverse((m) => { if (m.isMesh && m.material && /^mr001m032/.test(m.material.name || '')) m.visible = false; });
@@ -130,12 +137,103 @@ export class ChallengeFX {
     // the map is loaded once and shared, so a statue smashed earlier (in a game, or the viewer's demo) is put back first
     if (o.statue) o.statue.visible = true;
     for (const m of o.plate) m.visible = true;
+    this.showSpikeNumber(this.spikeNumber ?? SPIKE_START); // (only the current number's panel)
     for (const k of Object.keys(this.broken)) this.setBroken(k);
   }
 
   /**
+   * The number beside the spike statue (map node m001_51): what you need to roll. The map keeps four panels in the same
+   * place, one each for 5, 4, 3 and 2 (materials mr001m086_5 .. _2); only the current one is shown. There is no panel for
+   * 1, so one is made from the 2's picture with a 1 painted on it.
+   */
+  numberPanels(board) {
+    const T = this.T, panels = {};
+    board.island.traverse((m) => {
+      const n = m.isMesh && m.material && /^mr001m086_([2-5])$/.exec(m.material.name || '');
+      if (n && /m001_51/.test((m.parent && m.parent.name || '') + m.name)) panels[+n[1]] = m;
+    });
+    if (!panels[2]) return null;
+    for (const m of Object.values(panels)) if (!m.userData.ownMat) { m.material = m.material.clone(); m.userData.ownMat = true; }
+    if (!panels[1]) {
+      const two = panels[2], one = two.userData.one || new T.Mesh(two.geometry, two.material.clone());
+      if (!two.userData.one) {
+        two.userData.one = one; one.name = 'spike_number_1';
+        one.position.copy(two.position); one.quaternion.copy(two.quaternion); one.scale.copy(two.scale); two.parent.add(one);
+        const img = two.material.map && two.material.map.image;
+        if (img && typeof document !== 'undefined' && document.createElement) {
+          const cv = document.createElement('canvas'), w = cv.width = img.width || 128, h = cv.height = img.height || 128, g = cv.getContext && cv.getContext('2d');
+          if (g) {
+            g.drawImage(img, 0, 0, w, h);
+            const strip = g.getImageData(0, 0, Math.round(w * 0.14), h); // the plain dark edge of the panel, laid over the 2
+            for (let x = Math.round(w * 0.14); x < w * 0.88; x += strip.width) g.putImageData(strip, x, 0);
+            g.font = `900 ${Math.round(h * 0.78)}px "Arial Black", Arial, sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle';
+            g.shadowColor = 'rgba(80,200,255,0.9)'; g.shadowBlur = h * 0.08; g.fillStyle = '#4cc4ff';
+            g.fillText('1', w / 2, h * 0.54); g.shadowBlur = 0; g.fillText('1', w / 2, h * 0.54);
+            const tex = new T.CanvasTexture(cv); const src = two.material.map;
+            tex.flipY = src.flipY; tex.colorSpace = src.colorSpace; tex.wrapS = src.wrapS; tex.wrapT = src.wrapT;
+            tex.repeat.copy(src.repeat); tex.offset.copy(src.offset);
+            one.material.map = tex; one.material.needsUpdate = true;
+          }
+        }
+      }
+      panels[1] = one;
+    }
+    return panels;
+  }
+
+  /** Show the number n (1..5) beside the spike statue. */
+  showSpikeNumber(n) {
+    this.spikeNumber = n;
+    const P = this.o && this.o.numbers;
+    if (!P) return;
+    for (const [k, m] of Object.entries(P)) {
+      m.visible = +k === n && !(this.broken && this.broken.spike);
+      m.material.transparent = false; m.material.opacity = 1; m.material.polygonOffset = false; m.renderOrder = 0;
+    }
+  }
+
+  /**
+   * After the spike ball has gone by: the camera pans over to the number beside the statue, the number fades into the
+   * next one down, and the camera goes back.
+   */
+  countAnim(ev) {
+    const o = this.o, P = o && o.numbers, from = ev.from, to = ev.to, s = this.s, T = this.T;
+    const a = { t: 0, dur: ev.dur };
+    if (!P || !P[from] || !P[to]) { a.end = () => this.showSpikeNumber(to); return a; }
+    // where to look from: in front of the panel, on the path's side
+    const m = P[from]; m.updateWorldMatrix(true, false);
+    const g = m.geometry; if (!g.boundingBox) g.computeBoundingBox();
+    const c = g.boundingBox.getCenter(new T.Vector3()).applyMatrix4(m.matrixWorld);
+    const pos = g.attributes.position, v = (i) => new T.Vector3(pos.getX(i), pos.getY(i), pos.getZ(i)).applyMatrix4(m.matrixWorld);
+    const nrm = new T.Vector3().subVectors(v(1), v(0)).cross(new T.Vector3().subVectors(v(2), v(0))); nrm.y = 0; nrm.normalize();
+    const stand = this.sp.pit.stand; if ((stand.x - c.x) * nrm.x + (stand.z - c.z) * nrm.z < 0) nrm.negate();
+    const view = { x: c.x + nrm.x * 9, y: c.y + 2.2, z: c.z + nrm.z * 9, tx: c.x, ty: c.y, tz: c.z };
+    let start = s.cam ? { ...s.cam } : null;
+    if (!start && s.camera && s.camera.getWorldDirection) { // (the viewer has no follow camera of its own: start from where it looks)
+      const cp = s.camera.position, d = s.camera.getWorldDirection(new T.Vector3());
+      start = { x: cp.x, y: cp.y, z: cp.z, tx: cp.x + d.x * 20, ty: cp.y + d.y * 20, tz: cp.z + d.z * 20 };
+    }
+    start ||= { ...view };
+    const PAN = 0.28, FADE0 = 0.38, FADE1 = 0.72; // parts of the whole
+    a.fast = true;
+    a.step = (u) => {
+      const k = ease(clamp01(u / PAN)), cam = {};
+      for (const key of Object.keys(view)) cam[key] = start[key] + (view[key] - start[key]) * k;
+      if (u < 0.9) s.camHold = cam; else s.camHold = null; // then the follow camera eases back
+      const f = clamp01((u - FADE0) / (FADE1 - FADE0));
+      const A = P[from], B = P[to];
+      A.visible = f < 1; B.visible = f > 0;
+      A.material.transparent = true; A.material.opacity = 1 - f; A.material.polygonOffset = true; A.material.polygonOffsetFactor = -1; A.material.polygonOffsetUnits = -4; A.renderOrder = 2;
+      B.material.transparent = true; B.material.opacity = f; B.renderOrder = 1;
+    };
+    a.end = () => { if (s.camHold) s.camHold = null; this.showSpikeNumber(to); };
+    return a;
+  }
+
+  /**
    * The spike statue's head. In the map it is part of the same mesh as the block it sits on, but it was left at the map's
-   * centre: split it off and put it on its block (centre x -1400, z 0, top 175 above 2050), mouth toward the path, where
+   * centre: split it off and put it on its block (centre x -1375, z 0, top 175 above 2050), mouth toward the path, where
+   * (the game's own animation, m001_50_1, carries it there the same way: tools/extract_spike_head.py),
    * it closes round the floating spike ball.
    */
   spikeHead(board) {
@@ -163,7 +261,7 @@ export class ChallengeFX {
     };
     const mesh = new T.Mesh(pick(head), src.material);
     src.geometry = pick(rest);
-    mesh.position.set(-1400, 2050, 0); mesh.rotation.y = -Math.PI / 2; // in the map's own units, like the mesh it came from
+    mesh.position.set(-1375, 2050, 0); mesh.rotation.y = -Math.PI / 2; // in the map's own units, like the mesh it came from
     mesh.name = 'spike_head';
     src.add(mesh);
     src.userData.spikeHead = mesh;
@@ -183,13 +281,20 @@ export class ChallengeFX {
       if (n === 'mr001m016_21' || n === 'mr001m016_22') parts.push(m);
     });
     for (const m of parts) { if (m.userData.recentred) continue; m.userData.recentred = true; m.geometry = m.geometry.clone(); m.geometry.translate(-home.x / S, -home.y / S, -home.z / S); m.frustumCulled = false; }
+    // it rolls the way it goes: each move turns it about the level axis across its path, by the distance over its radius
+    const T = this.T, R = this.sp.pit.R, turn = new T.Quaternion(), axis = new T.Vector3();
     const ball = {
-      parts, home, at: { ...home }, spinX: 0,
-      set(p) { this.at = { ...p }; for (const m of parts) m.position.set(p.x / S, p.y / S, p.z / S); },
-      spin(a) { this.spinX = a; for (const m of parts) m.rotation.x = a; },
+      parts, home, at: { ...home }, spinX: 0, quat: new T.Quaternion(),
+      set(p, roll = true) {
+        const dx = p.x - this.at.x, dz = p.z - this.at.z, d = Math.hypot(dx, dz);
+        if (roll && d > 1e-6) { axis.set(dz / d, 0, -dx / d); turn.setFromAxisAngle(axis, d / R); this.quat.premultiply(turn); }
+        this.at = { ...p };
+        for (const m of parts) { m.position.set(p.x / S, p.y / S, p.z / S); m.quaternion.copy(this.quat); }
+      },
+      spin(a) { this.spinX = a; }, // (kept for old callers: the ball now turns by itself as it moves)
       show(v) { for (const m of parts) m.visible = v; },
       get visible() { return parts.length ? parts[0].visible : false; },
-      goHome() { this.set(home); this.spin(0); },
+      goHome() { this.quat.identity(); this.set(home, false); },
     };
     ball.goHome();
     return ball;
@@ -249,7 +354,7 @@ export class ChallengeFX {
   setBroken(kind) {
     this.broken[kind] = true;
     if (this.o && kind === 'dragon') { this.o.guard.visible = false; this.o.guardFire.visible = false; }
-    if (this.o && kind === 'spike') { if (this.o.ball) this.o.ball.show(false); if (this.o.statue) this.o.statue.visible = false; for (const m of this.o.plate) m.visible = false; } // the statue is broken for good
+    if (this.o && kind === 'spike') { if (this.o.ball) this.o.ball.show(false); if (this.o.statue) this.o.statue.visible = false; for (const m of this.o.plate) m.visible = false; if (this.o.numbers) for (const m of Object.values(this.o.numbers)) m.visible = false; if (this.o.jaws) this.o.jaws.rest(); } // the statue is broken for good
   }
 
   burst(at, n = 26) {
@@ -336,24 +441,28 @@ export class ChallengeFX {
       a.end = () => { reset(); pawn.fx = null; pawn.x = start.x; pawn.y = start.y; pawn.z = start.z; this.s.place(pawn); };
       return a;
     }
-    if (ev.fx === 'pit') { // the spike ball pops out of the statue's mouth onto the ledge in front of it
-      const p = sp.pit, out = { x: p.popTo.x, y: p.popTo.y, z: p.popTo.z };
-      this.walkTo = null; this.chase = null;
+    if (ev.fx === 'pit') { // the statue opens its jaws and spits the spike ball out onto the ledge in front of it
+      const p = sp.pit, out = { x: p.popTo.x, y: p.popTo.y, z: p.popTo.z }, secs = ev.dur / 1000, jaws = o && o.jaws;
+      this.walkTo = null; this.chase = null; this.jawAnim = null;
+      const OPEN = 0.35, SPIT = 0.4, BOUNCE = 0.2; // seconds: the jaws open / the ball flies out / one bounce
       const a = { t: 0, dur: ev.dur };
       a.step = (u) => {
         if (!o || !o.ball) return;
+        const t = u * secs;
+        if (jaws) { jaws.pose('open', t * JAW_FPS); jaws.state = 'open'; }
         o.ball.show(true);
         let q;
-        if (u < 0.12) { const w = Math.sin(u * 120) * 0.12; q = { x: p.from.x, y: p.from.y + Math.abs(w), z: p.from.z + w }; }  // rattles in the mouth
-        else if (u < 0.45) q = hop(p.from, out, ease((u - 0.12) / 0.33), 1.6);                                         // shoots out
-        else if (u < 0.6) q = hop(out, out, (u - 0.45) / 0.15, 0.7);                                                      // one bounce
+        if (t < OPEN) { const w = Math.sin(t * 60) * 0.1 * (t / OPEN); q = { x: p.from.x, y: p.from.y + Math.abs(w), z: p.from.z + w }; } // rattles as the mouth opens
+        else if (t < OPEN + SPIT) q = hop(p.from, out, ease((t - OPEN) / SPIT), 1.6);                                                      // shoots out
+        else if (t < OPEN + SPIT + BOUNCE) q = hop(out, out, (t - OPEN - SPIT) / BOUNCE, 0.7);                                              // one bounce
         else q = { ...out };
-        o.ball.set(q); o.ball.spin(clamp01(u / 0.6) * 9);
-        if (u > 0.5) { const j = Math.abs(Math.sin((u - 0.5) * 22)) * 0.9; pawn.fx = { x: pawn.x, y: pawn.y + j, z: pawn.z, arms: [-2.8, -2.8] }; } // the player jumps in fright
+        o.ball.set(q);
+        if (t > OPEN + SPIT * 0.6) { const j = Math.abs(Math.sin((t - OPEN) * 14)) * 0.9; pawn.fx = { x: pawn.x, y: pawn.y + j, z: pawn.z, arms: [-2.8, -2.8] }; } // the player jumps in fright
       };
       a.end = () => { pawn.fx = null; this.startChase(pawn.slot); };
       return a;
     }
+    if (ev.fx === 'spikeCount') return this.countAnim(ev);
     return null;
   }
 
@@ -376,15 +485,22 @@ export class ChallengeFX {
       for (let i = 1; i < pts.length; i++) if (d <= cum[i]) return lerp3(pts[i - 1], pts[i], (d - cum[i - 1]) / ((cum[i] - cum[i - 1]) || 1));
       return { ...pts[pts.length - 1] };
     };
-    return { pts, cum, at, total: cum[cum.length - 1], sLast: cum[atLast], sEdge: cum[atLast + 1], lastIdx };
+    const near = (q) => { // how far along the route the point nearest to q is
+      let best = 0, bd = Infinity;
+      for (let i = 1; i <= atLast; i++) {
+        const A = pts[i - 1], B = pts[i], vx = B.x - A.x, vy = B.y - A.y, vz = B.z - A.z, L2 = vx * vx + vy * vy + vz * vz || 1;
+        const k = Math.max(0, Math.min(1, ((q.x - A.x) * vx + (q.y + R - A.y) * vy + (q.z - A.z) * vz) / L2));
+        const d = Math.hypot(A.x + vx * k - q.x, A.y + vy * k - q.y - R, A.z + vz * k - q.z);
+        if (d < bd) { bd = d; best = cum[i - 1] + k * (cum[i] - cum[i - 1]); }
+      }
+      return best;
+    };
+    return { pts, cum, at, near, total: cum[cum.length - 1], sLast: cum[atLast], sEdge: cum[atLast + 1], lastIdx };
   }
 
   startChase(slot) {
     if (!this.o || !this.o.ball) return;
-    const route = this.chaseRoute(), steps = Math.max(1, ISLAND.findIndex((n) => n.type === 'spike') - route.lastIdx);
-    // the ball reaches the bottom only once the player has got there and ducked into the tunnel mouth
-    const arrive = (steps * DUR.fastStep * 1.35 + DUR.moveTail + HIDE_MS) / 1000 + 0.5;
-    this.chase = { slot, t: 0, s: 0, route, speed: Math.min(CHASE_SPEED, route.sLast / arrive), dodgers: new Map() };
+    this.chase = { slot, t: 0, s: 0, v: 0, route: this.chaseRoute(), dodgers: new Map() };
   }
 
   /** Where a player ducks in, and the pose they hold there (looking out at the path). */
@@ -399,7 +515,9 @@ export class ChallengeFX {
     const c = this.chase, last = ev.path[ev.path.length - 1];
     this.hidden ||= new Map();
     if (!c || !last || last.track !== 'island' || last.idx !== c.route.lastIdx) return null;
-    const hp = this.hidePose(this.hidden.size);
+    this.hideSpots ||= new Map(); // everyone running in at once gets their own spot
+    if (!this.hideSpots.has(ev.slot)) this.hideSpots.set(ev.slot, this.hidePose(this.hidden.size + this.hideSpots.size));
+    const hp = this.hideSpots.get(ev.slot);
     return { ms: HIDE_MS, steps: 0, kind: 'hide', pose: (l) => { const q = lerp3(B, hp.at, ease(l)); q.y += Math.sin(Math.PI * l) * 0.6; return { ...q, fx: { yaw: hp.yaw, arms: [-2.6, -2.6] } }; } };
   }
 
@@ -413,7 +531,8 @@ export class ChallengeFX {
   hide(pawn) {
     this.hidden ||= new Map();
     if (this.hidden.has(pawn)) return;
-    const hp = this.hidePose(this.hidden.size);
+    const hp = (this.hideSpots && this.hideSpots.get(pawn.slot)) || this.hidePose(this.hidden.size + (this.hideSpots ? this.hideSpots.size : 0));
+    if (this.hideSpots) this.hideSpots.delete(pawn.slot);
     this.hidden.set(pawn, hp);
     pawn.fx = { x: hp.at.x, y: hp.at.y, z: hp.at.z, yaw: hp.yaw, arms: [0, 0] };
   }
@@ -429,15 +548,24 @@ export class ChallengeFX {
     const c = this.chase, o = this.o, s = this.s, p = this.sp.pit, r = c.route, R = p.R;
     this.hidden ||= new Map();
     c.t += dt;
-    c.s += c.speed * (c.s > r.sEdge ? 1.6 : 1) * dt; // never stops; picks up speed as it goes over the edge
-    const q = r.at(c.s);
-    if (c.s > r.sEdge) q.y -= Math.pow((c.s - r.sEdge) / c.speed, 2) * 9; // falling
-    o.ball.show(true); o.ball.set(q); o.ball.spin(c.s / R);
-    const moving = s.anim && s.anim.slotMoving;
+    // The ball stays right behind whoever is running from it (the hindmost of them), and once they are all out of its
+    // way it rolls on at full speed, over the edge and down.
+    const running = s.anim ? (s.anim.slotsMoving || new Set([s.anim.slotMoving])) : new Set();
+    let behind = Infinity;
     for (const pawn of Object.values(s.pawns)) {
-      if (!pawn || pawn.track !== 'island' || pawn.slot === moving || this.hidden.has(pawn)) continue;
+      if (!pawn || !running.has(pawn.slot) || this.hidden.has(pawn) || (pawn.fx && pawn.fx.hiding)) continue;
+      behind = Math.min(behind, r.near(pawn));
+    }
+    const want = behind < Infinity ? Math.max(0, Math.min(CHASE_SPEED * 2, (behind - CHASE_GAP - c.s) * 5)) : CHASE_SPEED * 1.6;
+    c.v += Math.max(-60 * dt, Math.min(40 * dt, want - c.v)); // no sudden jumps in speed
+    c.s += c.v * (c.s > r.sEdge ? 1.6 : 1) * dt; // picks up speed as it goes over the edge
+    const q = r.at(c.s);
+    if (c.s > r.sEdge) { c.fall = (c.fall || 0) + dt; q.y -= c.fall * c.fall * 40; } // falling
+    o.ball.show(true); o.ball.set(q);
+    for (const pawn of Object.values(s.pawns)) {
+      if (!pawn || pawn.track !== 'island' || running.has(pawn.slot) || this.hidden.has(pawn)) continue;
       // already standing on the last space when the ball comes: duck in too
-      if (pawn.idx === r.lastIdx) { if (c.s > r.sLast - c.speed * 1.2) this.hide(pawn); continue; }
+      if (pawn.idx === r.lastIdx) { if (c.s > r.sLast - 6) this.hide(pawn); continue; }
       // anyone else the ball passes on the stretch hops aside and back
       const near = Math.hypot(pawn.x - q.x, pawn.z - q.z), side = c.s < r.sEdge ? clamp01(1 - (near - 2) / 4) : 0;
       if (side > 0.01) {
@@ -445,10 +573,10 @@ export class ChallengeFX {
         pawn.fx = { x: pawn.x - dz / l * side * 2.6, y: pawn.y + side * 0.6, z: pawn.z + dx / l * side * 2.6, arms: [-2.4, -2.4] }; c.dodgers.set(pawn, true);
       } else if (c.dodgers.has(pawn)) { pawn.fx = null; c.dodgers.delete(pawn); }
     }
-    if (c.s > r.total + c.speed * 1.5) { // long gone: the ball back in the statue's mouth (the hiders stay put until the camera has left them)
+    if (c.s > r.total || (c.fall || 0) > 1.6) { // long gone: the ball back in the statue's mouth, which shuts (the hiders stay put until the camera has left them)
       for (const pw of c.dodgers.keys()) pw.fx = null;
       this.chase = null;
-      if (!(this.broken && this.broken.spike)) o.ball.goHome(); else o.ball.show(false);
+      if (!(this.broken && this.broken.spike)) { o.ball.goHome(); if (o.jaws && o.jaws.state === 'open') this.jawAnim = { t: 0 }; } else o.ball.show(false);
     }
   }
 
@@ -729,6 +857,10 @@ export class ChallengeFX {
     // the spike ball rolling down the whole stretch without stopping, past the players hiding in the tunnel mouth,
     // and over the edge at the end
     if (this.chase && o) this.updateChase(dt);
+    if (this.jawAnim && o && o.jaws) { // the statue shuts its mouth on the new ball
+      const j = this.jawAnim; j.t += dt; o.jaws.pose('close', j.t * JAW_FPS);
+      if (j.t >= jawSecs(SPIKE_HEAD, 'close')) { o.jaws.rest(); this.jawAnim = null; }
+    }
     this.updateHidden();
     // bits flying about
     for (const d of this.debris) {
