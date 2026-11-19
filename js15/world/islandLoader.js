@@ -6,6 +6,8 @@ import { MAP_SCALE } from '../game/boardLayout.js';
 import { waterCanvas, WaterFlow, WATER_FLOW } from './water.js';
 import { addWatasy } from './watasy.js';
 import { WATASY } from './watasyModel.js';
+import { addBirds } from './birds.js';
+import { BIRDS } from './birdsData.js';
 
 const FILES = ['island.glb', 'volcano.glb', 'sky.glb', 'props.glb', 'board.json'];
 let promise = null;
@@ -39,7 +41,10 @@ function calmWater(board) {
   let swim = null;
   try { swim = addWatasy(THREE, board.island, WATASY); } catch (e) { swim = null; } // the dinosaur in the pool by the bridge
   board.watasy = swim;
-  board.tick = (dt) => { flow.update(dt); if (swim) swim(dt); };
+  let birds = null;
+  try { birds = addBirds(THREE, board.island, BIRDS); } catch (e) { birds = null; } // the birds fly their own paths
+  board.birds = birds;
+  board.tick = (dt) => { flow.update(dt); if (swim) swim(dt); if (birds) birds(dt); };
   // the blue water texture, made once for the river (solid) and once for the sea layer (half see-through, over the sea-floor colours)
   const blueWater = (m, kind) => {
     if (!blue[kind]) {

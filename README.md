@@ -351,6 +351,19 @@ The hand-built island is gone. The game now runs on the converted Wii Party map 
   sinks away. The game's "broken" message did not say who broke it, so the scene had no player to animate and
   only waited, then hid the wall.
 
+## Build 55
+
+- The birds over the island fly. The converted map had all 30 frozen in mid-air; now they fly the game's own animation,
+  `files/mr001/map/motion/m001_08.branm.lz` (6000 frames, looping every 100 seconds, about 400,000 keys).
+  - Each bird is two flat wing cards on their own bones (`wing_l_N`, `wing_r_N`) that share a position; birds come in four
+    sizes (0.6, 0.85, 1 and 1.2), as in the game.
+  - `tools/extract_birds.py` samples the animation 30 times a second (every bird's position, every wing's rotation as a
+    quaternion), packs it as gzipped 16-bit deltas and writes `js15/world/birdsData.js` (about 760 KB).
+  - `js15/world/birds.js` unpacks it in the browser and plays it on two instanced meshes (left wings, right wings).
+    Until it is unpacked, or if it cannot be, the frozen birds stay where they are.
+- Tests: `tests/birds.test.js`. Frame 0 matches the map's frozen birds to within 3 map units, and the birds really fly
+  (no jumps, wings flap, the loop joins up).
+
 ## Build 54
 
 - The long-necked dinosaur is back in the pool by the rope bridge, with its ring of ripples moving with it.
