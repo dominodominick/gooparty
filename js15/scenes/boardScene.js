@@ -6,7 +6,9 @@ import { builderMesh } from '../world/worldBuild.js';
 import { buildMii, HAIR, SKINS, MII_NECK, LEG_PIVOT, ARM_PIVOT, PAWN_SCALE } from '../world/miis.js';
 import { tileCanvas } from '../world/tileArt.js';
 import { ChallengeFX } from './challengeFx.js';
-import { spacesToGo, DROP } from '../game/boardGame.js';
+import { spacesToGo, DROP, ERUPTION_STRETCHES } from '../game/boardGame.js';
+import { ERUPTION } from '../world/eruptionData.js';
+import { ERUPTION_FPS, METEOR_LAND, METEOR_SIZE, clipFrame, setMat, burstCanvas, smokeCanvas, eruptionSchedule } from '../world/eruption.js';
 import { esc } from '../util/dom.js';
 import { drawPointer } from '../draw.js';
 import { DUEL_CARD, duelCardCenter, duelCardAt } from '../game/duelLayout.js';
@@ -77,8 +79,8 @@ const STATUE_PLATFORMS = {
 };
 const hop = (a, b, t, h) => ({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t + Math.sin(Math.PI * t) * h, z: a.z + (b.z - a.z) * t });
 const lerp3v = (a, b, t) => ({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t, z: a.z + (b.z - a.z) * t });
-const SPRING_H = 2.4;
-const TORNADO_SIZE = 2; // the game's tornado, twice the map's own scale: a funnel well taller than the player riding its top // how tall the spring stands when fully out
+const SPRING_H = 2.4; // how tall the spring stands when fully out
+const TORNADO_SIZE = 2; // the game's tornado, twice the map's own scale: a funnel well taller than the player riding its top
 const ease01 = (t) => { t = Math.min(1, Math.max(0, t)); return t * t * (3 - 2 * t); };
 const CRATES_IDX = ISLAND.findIndex((n) => n.type === 'crates'); // the crates and barrels stop
 const VON_IDX = ISLAND.findIndex((n) => n.type === 'volcanoOrNot'); // the volcano-or-not stop
@@ -347,6 +349,15 @@ export class BoardScene {
     // the red lava frames under every special space (m001_41, material mr001m109) are the game's eruption overlay, only shown
     // while the volcano erupts in the Wii game; the eruption here paints the spaces themselves, so they are never shown
     board.island.traverse((o) => { if (o.isMesh && o.material && /^mr001m109/.test(o.material.name || '')) o.visible = false; });
+    // the eruption's pieces: the crater on the summit (m001_40) heaves when it blows; the meteor (m001_44) the map keeps
+    // waiting in the air over the summit is never shown as it is, only copies of it, falling
+    this.crater = null; this.meteorTpl = null;
+    board.island.traverse((o) => {
+      if (!o.isMesh) return;
+      const nm = o.name || (o.parent && o.parent.name) || '';
+      if (/^m001_40\b/.test(nm) && !this.crater) this.crater = o;
+      if (/^m001_44\b/.test(nm) && !this.meteorTpl) { this.meteorTpl = o; o.visible = false; }
+    });
     // the statues by their spaces: blue ones send you forward, the red one back
     const sp = (id) => this.pos.island[stopOfSpace(id)];
     this.statues = {};
@@ -373,18 +384,19 @@ export class BoardScene {
     if (!this.board) return;
     const n = this.eruptionCount || 0;
     for (const track of ['island', 'volcano']) {
-      for (const t of this.tiles[track]) {
-        if (!t || t.id == null || t.node.type === 'blank') continue;
-        const lava = n && track === 'island' && !LAVA_TYPES.has(t.node.type);
-        const key = `${t.node.type}|${lava ? n : 0}|${t.dim ? 1 : 0}`;
-        if (t.painted === key) continue;
+      this.tiles[track].forEach((t, i) => {
+        if (!t || t.id == null || t.node.type === 'blank') return;
+        const k = track === 'island' && this.lavaPending && this.lavaPending.has(i) ? n - 1 : n; // (during the eruption: red once a meteor has hit it)
+        const lava = k > 0 && track === 'island' && !LAVA_TYPES.has(t.node.type) ? k : 0;
+        const key = `${t.node.type}|${lava}|${t.dim ? 1 : 0}`;
+        if (t.painted === key) return;
         t.painted = key;
-        const tex = this.tileTex(t.node.type, lava ? `-${4 * n}` : t.label, !!lava);
+        const tex = this.tileTex(t.node.type, lava ? `-${4 * lava}` : t.label, !!lava);
         this.board.setSpaceTexture(track, t.id, tex);
         // the map draws its two volcano-teleport tiles (on spaces 27 and 66) as one extra mesh, space 121, over those spaces
         const warp = track === 'island' && t.node.type === 'skull' && this.board.spaceMeshes && this.board.spaceMeshes.island.get(121);
         if (warp) { this.board.setSpaceTexture('island', 121, tex); const own = this.board.spaceMeshes.island.get(t.id); if (own) own.visible = false; }
-      }
+      });
     }
   }
 
@@ -491,6 +503,7 @@ export class BoardScene {
       case 'turnStart': this.anim = this.beginTurnStart(ev); break;
       case 'flyover': this.anim = this.beginFlyover(ev); break;
       case 'eruption': {
+        if (ev.dur && ev.stretches && this.board) { this.anim = this.eruptionCutscene(ev); break; }
         this.setEruption(ev.active);
         if (ev.dur) { this.shake = ev.dur; this.setBanner('The volcano erupts!<small>Lava turns every special space into a -4 for three turns.</small>'); }
         this.anim = { t: 0, dur: ev.dur, end: () => { this.shake = 0; if (ev.dur) this.clearBanner(); } };
@@ -957,6 +970,8 @@ export class BoardScene {
         if (count) this.setCounter(count, f < 1 ? count.total : 0);
         this.place(pawn);
       };
+    } else if (ev.mode === 'fly' && ev.meteor && pawn.track === 'island') {
+      Object.assign(a, this.meteorHitAnim(ev, pawn, A, B, count));
     } else if (ev.mode === 'fly' && ev.tornado && this.board && pawn.track === 'island') {
       Object.assign(a, this.tornadoAnim(ev, pawn, pts, count));
     } else if (ev.mode === 'fly' && ev.statue && this.statues && this.statues[pawn.idx] && this.statues[pawn.idx].rig) {
@@ -1034,6 +1049,7 @@ export class BoardScene {
     this.drawWheel();
     this.updateCamera(dt);
     this.updatePawnPose(dt);
+    if (this.hidePawns) for (const p of Object.values(this.pawns || {})) { p.group.visible = false; const sh = p.group.userData.shadow; if (sh) sh.visible = false; } // (the eruption's cutscene: nobody on the board)
     this.setBadges(!this.diceGroup.visible);
     for (const f of this.floaters) f.obj.position.y = f.base + Math.sin(this.t * 2) * 0.25;
     this.animateWorld(dt);
@@ -1082,6 +1098,194 @@ export class BoardScene {
     this.hemi.intensity = (cave ? 0.75 : 1.0) * LK; this.hemi.color.set(cave ? 0xffb08a : 0xffffff); this.hemi.groundColor.set(cave ? 0x6a2a1a : 0x9aa890);
     this.sun.intensity = (cave ? 0.2 : 0.7) * LK;
     this.showArea(track);
+  }
+
+  // ===================================================================== the volcano erupts
+  /** Where the crater on the summit is (world): its top middle, and how wide it is. From the map's own piece if it is there. */
+  craterTop() {
+    const S = this.board ? this.board.scale : 0.016, m = this.crater, g = m && m.geometry;
+    if (g && g.computeBoundingBox) {
+      if (!g.boundingBox) g.computeBoundingBox();
+      const b = g.boundingBox;
+      if (b && b.max && isFinite(b.max.y)) return { x: (b.min.x + b.max.x) / 2 * S, y: b.max.y * S, z: (b.min.z + b.max.z) / 2 * S, r: (b.max.x - b.min.x) / 2 * S };
+    }
+    return { x: 2370 * S, y: 1850 * S, z: -5076 * S, r: 1054 * S }; // (the crater's box in the map, Wii units)
+  }
+
+  /** A copy of the game's meteor, in its own group (map units, scaled with the board); a plain dark rock if the map has none. */
+  makeMeteor(parent) {
+    const T = this.T, S = (this.board ? this.board.scale : 0.016) * METEOR_SIZE, grp = new T.Group();
+    let mesh;
+    if (this.meteorTpl && this.meteorTpl.geometry) mesh = new T.Mesh(this.meteorTpl.geometry, this.meteorTpl.material);
+    else { mesh = new T.Mesh(new T.SphereGeometry(60, 10, 8), new T.MeshLambertMaterial({ color: 0x3a2a24 })); mesh.userData.own = true; }
+    mesh.matrixAutoUpdate = false; mesh.frustumCulled = false;
+    grp.add(mesh); grp.scale.setScalar(S); grp.visible = false; parent.add(grp);
+    const out = {
+      grp, mesh,
+      /** Falls (frame 0..METEOR_LAND) onto the ground at P, coming in from the volcano's side. */
+      fall(P, f, fromX, fromZ) {
+        grp.position.set(P.x, P.y, P.z); grp.rotation.y = Math.atan2(-(fromX - P.x), -(fromZ - P.z)); // (the game's meteor comes in along -z)
+        if (mesh.userData.own) { const k = Math.min(1, f / METEOR_LAND); mesh.matrix.makeTranslation(0, 995 * (1 - k) + 20, -1500 * (1 - k)); }
+        else setMat(mesh.matrix, clipFrame(ERUPTION.meteor, f));
+        mesh.matrixWorldNeedsUpdate = true; grp.visible = f < METEOR_LAND + 1;
+      },
+      /** Anywhere else (thrown up out of the crater): its centre at p, turned by `spin`. */
+      at(p, spin) {
+        grp.position.set(p.x, p.y, p.z); grp.rotation.set(spin, spin * 0.7, 0);
+        mesh.matrix.makeTranslation(0, -995, 1500); mesh.matrixWorldNeedsUpdate = true; grp.visible = true; // (its centre on the group's origin)
+      },
+    };
+    return out;
+  }
+
+  /** A sprite (glowing burst or smoke puff) for the eruption's effects. */
+  eruptSprite(parent, kind) {
+    const T = this.T;
+    this.eruptTex ||= {};
+    if (!(kind in this.eruptTex)) { const c = kind === 'smoke' ? smokeCanvas() : burstCanvas(); this.eruptTex[kind] = c ? canvasTex(T, c) : null; }
+    const mat = new T.SpriteMaterial({ map: this.eruptTex[kind], transparent: true, depthWrite: false, fog: false, color: kind === 'smoke' ? 0xffffff : 0xffffff,
+      ...(kind === 'smoke' ? {} : { blending: T.AdditiveBlending }) });
+    const s = new T.Sprite(mat); s.visible = false; s.renderOrder = 6; parent.add(s);
+    return s;
+  }
+
+  /**
+   * The volcano space, as in the Wii game: a cutscene with nobody on the board. A shot of the summit: the crater rumbles,
+   * then blows (the game's own animations of the crater piece), fire and smoke burst out and rocks fly up. Then three
+   * shots of the island (always the stretch past the volcano-or-not pit, and two more the host picked): meteors (the
+   * game's own falling-rock animation) come down out of the sky from the volcano's side onto every special space there,
+   * one after another, and each one turns red (-4) as it is hit.
+   */
+  eruptionCutscene(ev) {
+    const T = this.T, dur = ev.dur, isLava = (i) => ISLAND[i] && !LAVA_TYPES.has(ISLAND[i].type);
+    const plan = eruptionSchedule(dur, ev.stretches, isLava, ERUPTION_STRETCHES), vol = plan[0];
+    const top = this.craterTop(), root = new T.Group(); this.scene3d.add(root);
+    // the tiles: lava everywhere once it is over; until then, the ones no meteor has hit yet stay as they were
+    this.eruptionCount = ev.active; this.lavaPending = new Set(); ISLAND.forEach((n, i) => { if (isLava(i)) this.lavaPending.add(i); }); this.paintTiles();
+    const wasShown = Object.values(this.pawns || {}).map((p) => [p, p.group.visible !== false]);
+    this.hidePawns = true; this.clearDice(); this.setCounter(null);
+    this.setBanner('The volcano erupts!<small>Lava turns every special space into a -4 for three turns.</small>');
+    // the summit shot: from the island's side of the volcano, looking up at the crater
+    const toIsland = { x: -14 - top.x, z: -4 - top.z }, tl = Math.hypot(toIsland.x, toIsland.z) || 1, ux = toIsland.x / tl, uz = toIsland.z / tl;
+    const volCam = (k) => { const d = 46 - 6 * k; return { x: top.x + ux * d - uz * 9, y: top.y + 6 + 2 * k, z: top.z + uz * d + ux * 9, tx: top.x, ty: top.y - 3 + 4 * k, tz: top.z }; };
+    // each stretch's shot: from the lower side of the path, a little ahead, looking along it at the spaces that get hit
+    const shotCam = (sh) => {
+      const ps = []; for (let i = sh.from; i <= sh.to; i++) if (this.pos.island[i]) ps.push(this.pos.island[i]);
+      const hit = sh.idx.map((i) => this.pos.island[i]).filter(Boolean), use = hit.length ? hit : ps;
+      const M = use.reduce((m, p) => ({ x: m.x + p.x / use.length, y: m.y + p.y / use.length, z: m.z + p.z / use.length }), { x: 0, y: 0, z: 0 });
+      const a = ps[0], b = ps[ps.length - 1], dl = Math.hypot(b.x - a.x, b.z - a.z) || 1, dx = (b.x - a.x) / dl, dz = (b.z - a.z) / dl;
+      const span = use.reduce((m, p) => Math.max(m, Math.hypot(p.x - M.x, p.z - M.z)), 0), dist = Math.max(17, span * 1.25 + 9);
+      const side = (sg) => ({ x: M.x - dz * sg * dist - dx * dist * 0.35, z: M.z + dx * sg * dist - dz * dist * 0.35 });
+      const L = side(1), R = side(-1), lo = terrainHeight(L.x, L.z) <= terrainHeight(R.x, R.z) ? L : R;
+      const cy = Math.max(M.y + dist * 0.55, terrainHeight(lo.x, lo.z) + 6);
+      return (k) => ({ x: lo.x + dx * 4 * k, y: cy + 1.5 * (1 - k), z: lo.z + dz * 4 * k, tx: M.x + dx * 2 * k, ty: M.y + 0.5, tz: M.z + dz * 2 * k });
+    };
+    const shots = plan.slice(1).map((sh) => ({ ...sh, cam: shotCam(sh) }));
+    // the pieces: rocks thrown up out of the crater, the meteors, the bursts and the smoke
+    const ups = [0, 1, 2, 3, 4, 5].map((k) => ({ m: this.makeMeteor(root), a: (k / 6) * Math.PI * 2 + 0.4, v: 26 + (k % 3) * 6, s: 0.5 + k * 0.17 }));
+    const blast = this.eruptSprite(root, 'burst'), puffs = [...Array(10)].map((_, k) => ({ s: this.eruptSprite(root, 'smoke'), k }));
+    const hits = shots.flatMap((sh) => sh.hits.map((h) => ({ ...h, shot: sh, m: this.makeMeteor(root), flash: this.eruptSprite(root, 'burst'), dust: this.eruptSprite(root, 'smoke'), done: false })));
+    const fallMs = METEOR_LAND / ERUPTION_FPS * 1000 * 1.25; // (a touch slower than the game's 25 frames, so it reads from further back)
+    const a = { t: 0, dur, fast: true };
+    let shot = null;
+    const cut = (name, cam) => { if (shot !== name) { shot = name; this.snapCamera = true; } this.camHold = cam; };
+    a.step = (u) => {
+      const t = u * dur;
+      // the crater: rumbling, then blowing (the game's own animations)
+      if (this.crater) {
+        const clip = t < vol.blow ? ERUPTION.crater.rumble : ERUPTION.crater.erupt, f = t < vol.blow ? (t / 1000 * ERUPTION_FPS) % (clip.frames - 1) : (t - vol.blow) / 1000 * ERUPTION_FPS;
+        this.crater.matrixAutoUpdate = false; setMat(this.crater.matrix, clipFrame(clip, f)); this.crater.matrixWorldNeedsUpdate = true;
+      }
+      this.shake = t < vol.blow ? 1 : t < vol.t1 ? 1 : 0; // (a rumble the whole time on the summit)
+      const b = (t - vol.blow) / 1000; // seconds since it blew
+      blast.visible = b > 0 && b < 1.4;
+      if (blast.visible) { const k = b / 1.4; blast.position.set(top.x, top.y + 2 + 10 * k, top.z); blast.scale.setScalar(top.r * (1.2 + 2.6 * Math.sqrt(k))); blast.material.opacity = 1 - k * k; }
+      for (const p of puffs) { // smoke: a thin trickle while it rumbles, a big rising column once it has blown
+        const life = 3.2, ph = ((t / 1000 + p.k * life / puffs.length) % life) / life, big = b > 0;
+        p.s.visible = t < vol.t1 + 300;
+        const r = (big ? 0.6 : 0.25) * top.r * (0.5 + ph * 1.6), sway = Math.sin(p.k * 2.1) * top.r * 0.3 * ph;
+        p.s.position.set(top.x + sway, top.y + 1 + ph * (big ? 26 : 9), top.z + Math.cos(p.k * 1.7) * top.r * 0.25 * ph);
+        p.s.scale.setScalar(r); p.s.material.opacity = (big ? 0.85 : 0.45) * Math.sin(Math.PI * ph);
+      }
+      for (const r of ups) { // rocks flung up out of the crater, out of the top of the shot
+        const s = b - 0.08 * r.s;
+        if (s <= 0 || t > vol.t1) { r.m.grp.visible = false; continue; }
+        r.m.at({ x: top.x + Math.cos(r.a) * s * 6, y: top.y + 1 + r.v * s - 4 * s * s, z: top.z + Math.sin(r.a) * s * 6 }, s * 4 + r.a);
+      }
+      // the cameras
+      if (t < vol.t1) cut('volcano', volCam(clamp01(t / vol.t1)));
+      else { const sh = shots.find((x) => t < x.t1) || shots[shots.length - 1]; if (sh) cut('s' + sh.stretch, sh.cam(clamp01((t - sh.t0) / (sh.t1 - sh.t0)))); }
+      // the meteors: each falls in over `fallMs` and lands on its space with a flash and a puff of dust; the space turns red
+      let thud = 0;
+      for (const h of hits) {
+        const P = this.pos.island[h.idx], f = (t - (h.t - fallMs)) / fallMs * METEOR_LAND;
+        if (!P || t < h.shot.t0) { h.m.grp.visible = false; continue; }
+        if (f >= 0 && f <= METEOR_LAND) h.m.fall(P, f, top.x, top.z); else h.m.grp.visible = false;
+        if (!h.done && t >= h.t) { h.done = true; this.lavaPending.delete(h.idx); this.paintTiles(); }
+        const k = (t - h.t) / 650;
+        h.flash.visible = k >= 0 && k < 1 && t < h.shot.t1;
+        if (h.flash.visible) { h.flash.position.set(P.x, P.y + 1.2, P.z); h.flash.scale.setScalar(2.5 + 6 * Math.sqrt(k)); h.flash.material.opacity = 1 - k; thud = Math.max(thud, 1 - k); }
+        const kd = (t - h.t) / 1400;
+        h.dust.visible = kd >= 0 && kd < 1 && t < h.shot.t1;
+        if (h.dust.visible) { h.dust.position.set(P.x, P.y + 1 + kd * 2.5, P.z); h.dust.scale.setScalar(2 + 4 * kd); h.dust.material.opacity = 0.7 * (1 - kd); }
+      }
+      if (t >= vol.t1) this.shake = thud > 0.4 ? 1 : 0; // a jolt at every hit
+    };
+    a.end = () => {
+      this.shake = 0; this.hidePawns = false; this.camHold = null; this.snapCamera = true;
+      for (const [p, v] of wasShown) p.group.visible = v;
+      if (this.crater) { this.crater.matrix.identity(); this.crater.matrixWorldNeedsUpdate = true; }
+      this.scene3d.remove(root);
+      root.traverse((o) => { if (o.material && o.isSprite) o.material.dispose && o.material.dispose(); if (o.userData && o.userData.own && o.geometry) o.geometry.dispose && o.geometry.dispose(); });
+      this.lavaPending = null; this.setEruption(ev.active);
+      this.clearBanner();
+    };
+    a.step(0);
+    return a;
+  }
+
+  /**
+   * Landing on a lava space while the volcano is erupting: instead of a spring, a meteor comes down out of the sky from
+   * the volcano's side straight onto the player, and the blast flings them backwards (tumbling) onto the space they are
+   * knocked back to. Landing on lava again there, the host sends another of these.
+   */
+  meteorHitAnim(ev, pawn, A, B, count) {
+    const T = this.T, dur = ev.dur || 2200, top = this.craterTop(), root = new T.Group(); this.scene3d.add(root);
+    const m = this.makeMeteor(root), flash = this.eruptSprite(root, 'burst'), dust = this.eruptSprite(root, 'smoke');
+    const T1 = 0.3, T2 = 0.8; // the meteor lands at T1; they are in the air until T2, then stagger to their feet
+    const faceYaw = Math.atan2(A.x - B.x, A.z - B.z), lift = 3 + Math.hypot(B.x - A.x, B.z - A.z) * 0.22;
+    const upYaw = Math.atan2(top.x - A.x, top.z - A.z); // (looking up at the meteor coming in from the volcano)
+    const out = { fast: true };
+    if (count) this.setCounter(count, count.total);
+    out.step = (u) => {
+      const f = u / T1 * METEOR_LAND;
+      if (f <= METEOR_LAND) m.fall(A, f, top.x, top.z); else m.grp.visible = false;
+      const k = (u - T1) / 0.3;
+      flash.visible = k >= 0 && k < 1; if (flash.visible) { flash.position.set(A.x, A.y + 1.4, A.z); flash.scale.setScalar(3 + 6 * Math.sqrt(k)); flash.material.opacity = 1 - k; }
+      const kd = (u - T1) / 0.6;
+      dust.visible = kd >= 0 && kd < 1; if (dust.visible) { dust.position.set(A.x, A.y + 1 + kd * 2, A.z); dust.scale.setScalar(2.5 + 4 * kd); dust.material.opacity = 0.75 * (1 - kd); }
+      this.shake = k >= 0 && k < 0.5 ? 1 : 0;
+      if (u < T1) { // standing there, looking up as it comes in
+        const w = clamp01(u / T1);
+        pawn.x = A.x; pawn.y = A.y; pawn.z = A.z;
+        pawn.fx = { x: A.x, y: A.y, z: A.z, yaw: upYaw, arms: [-1.6 * w, -1.6 * w], tilt: -0.25 * w, groundY: A.y };
+      } else if (u < T2) { // blown back, tumbling over
+        const g = clamp01((u - T1) / (T2 - T1)), e = 1 - (1 - g) * (1 - g);
+        const x = A.x + (B.x - A.x) * e, z = A.z + (B.z - A.z) * e, y = A.y + (B.y - A.y) * e + Math.sin(g * Math.PI) * lift;
+        const q = nearestPath(x, z), gy = q && q.d < 2.4 ? q.y + 0.08 : terrainHeight(x, z) + 0.14;
+        pawn.x = x; pawn.y = y; pawn.z = z;
+        pawn.fx = { x, y, z, yaw: faceYaw, tilt: 0.5 + 1.6 * Math.sin(g * Math.PI * 0.9), arms: [-2.8, -2.2], legs: [0.6, -0.5], groundY: gy };
+        if (count) this.setCounter(count, Math.round(count.total * (1 - e)));
+      } else { // down with a bump, and back up
+        const l = clamp01((u - T2) / (1 - T2));
+        pawn.x = B.x; pawn.y = B.y; pawn.z = B.z;
+        pawn.fx = l < 1 ? { x: B.x, y: B.y, z: B.z, yaw: faceYaw, tilt: 0.45 * (1 - l), arms: [-1.4 * (1 - l), -1.4 * (1 - l)] } : null;
+        if (count) this.setCounter(count, 0);
+      }
+      this.place(pawn);
+    };
+    out.cleanup = () => { this.shake = 0; this.scene3d.remove(root); };
+    return out;
   }
 
   /**

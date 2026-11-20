@@ -119,6 +119,14 @@ export class ViewerScene extends BoardScene {
       ['UFO swap', () => { const s = stopOf('ufo'), o = s + 6; at(s); put(1, o);
         const ufo = (ev) => () => this.beginUfo({ t: 'ufo', dur: DUR.ufo, ...ev });
         this.demo.push(ufo({ phase: 'up', slot: 0 }), ufo({ phase: 'up', slot: 1 }), ufo({ phase: 'down', slot: 1, to: { track: 'island', idx: s } }), ufo({ phase: 'down', slot: 0, to: { track: 'island', idx: o } })); }],
+      ['Volcano erupts', () => { // the cutscene: the stretch past the volcano-or-not pit and two others (picked at random, as the host does)
+        const others = [1, 2, 3, 4, 5].sort(() => Math.random() - 0.5); this.setEruption(0);
+        this.demo.push(() => this.eruptionCutscene({ t: 'eruption', active: 1, dur: DUR.eruption, stretches: [0, others[0], others[1]] }), () => ({ t: 0, dur: 1500, end: () => this.setEruption(0) })); }],
+      ['Meteor knockback (chain)', () => { // landing on lava during an eruption: hit by a meteor, back 4 onto more lava, hit again, back 4 onto a blank
+        const s = 34; at(s); this.setEruption(1);
+        const hit = (from) => { const w = walkBack({ track: 'island', idx: from }, 4); return move({ t: 'move', slot: 0, mode: 'fly', meteor: true, path: w.path, count: { total: 4, dir: 'back' }, dur: DUR.meteorHit }); };
+        const w1 = walkBack({ track: 'island', idx: s }, 4), mid = w1.path[w1.path.length - 1].idx;
+        this.demo.push(hit(s), () => ({ t: 0, dur: 500 }), hit(mid), () => ({ t: 0, dur: 1200, end: () => this.setEruption(0) })); }],
       ['Open summit', () => { this.openSummit(); }],
     ];
   }

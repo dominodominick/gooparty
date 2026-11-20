@@ -27,11 +27,14 @@ export const REST_WIN_MOVE = 10;  // wiki: solo player wins the 1vRest minigame 
 export const DUEL_MOVE = 7;       // wiki: 1v1 winner +7, loser -7
 export const ERUPTION_TURNS = 3;  // wiki: eruption lasts three turns, and stacks
 export const LAVA_BACK = 4;       // each active eruption turns spaces into -4
+// The eruption cutscene shows meteors hitting three stretches of the island: always the stretch past the volcano-or-not
+// pit along the cliff (the one the Wii game shows), and two others picked at random. Island space ranges, first..last.
+export const ERUPTION_STRETCHES = [[50, 60], [8, 17], [17, 27], [27, 35], [36, 48], [62, 77]];
 const LAVA_SAFE = new Set(['blank', 'start', 'volcano', 'vine', 'dragon', 'crates', 'volcanoOrNot', 'spike', 'final', 'finish']);
 // moveTail: after the last step the counter sits at its final number for a moment.
 // turnIntro: black fade out, the player's name on black, fade back in (then the dice start).
 export const DUR = {
-  diceStop: 3600, walkStep: 185, fastStep: 140, moveTail: 350, fly: 2600, drop: 0, banner: 1100, round: 2600, turnIntro: 2000, flyover: 7000, eruption: 2600, minigame: 2200,
+  diceStop: 3600, walkStep: 185, fastStep: 140, moveTail: 350, fly: 2600, drop: 0, banner: 1100, round: 2600, turnIntro: 2000, flyover: 7000, eruption: 10000, meteorHit: 2200, minigame: 2200,
   cross: 1500,   // extra time for a step that crosses a gap (a jump over the pit, over the creek...)
   swing: 2400,   // the vine swing
   vinePause: 1000, // standing on the landing spot after the vine, before walking the rest
@@ -639,8 +642,17 @@ export class BoardGame {
     const onIsland = (s) => this.positions[s].track === 'island';
 
     if (end.track === 'island' && node.type !== 'volcano' && this.eruptions.length && !LAVA_SAFE.has(node.type)) {
+      // a meteor knocks them back; landing on another lava space, another one does, until they land somewhere safe
       const n = LAVA_BACK * this.eruptions.length; // every active eruption adds another -4
-      say(`Lava! -${n}`); back(n, 'fast');
+      let at = pos;
+      for (let k = 0; k < 40; k++) {
+        say(k ? `Lava again! -${n}` : `Lava! -${n}`);
+        this._moveTo(slot, walkBack(at, n), 'fly', events, BACK(n));
+        const mv = events[events.length - 1]; if (mv && mv.t === 'move' && mv.slot === slot) { mv.meteor = true; mv.dur = DUR.meteorHit; }
+        at = this.positions[slot];
+        const nd = nodeAt(at);
+        if (at.track !== 'island' || at.idx === pos.idx || nd.type === 'volcano' || LAVA_SAFE.has(nd.type)) break;
+      }
       return false;
     }
 
@@ -672,7 +684,9 @@ export class BoardGame {
       }
       case 'volcano': { // wiki: every non-blank space outside the volcano becomes -4 for three turns; eruptions stack
         this.eruptions.push({ left: ERUPTION_TURNS, fresh: true });
-        events.push({ t: 'eruption', active: this.eruptions.length, dur: DUR.eruption });
+        const others = ERUPTION_STRETCHES.map((_, i) => i).slice(1), hit = [0];
+        while (hit.length < 3) hit.push(others.splice(Math.floor(this.rng() * others.length) % others.length, 1)[0]);
+        events.push({ t: 'eruption', active: this.eruptions.length, dur: DUR.eruption, stretches: hit });
         break;
       }
       case 'mgRest': { // placeholder minigame: the solo player wins with probability 1 / players

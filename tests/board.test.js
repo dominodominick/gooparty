@@ -490,9 +490,16 @@ for (let i = 1; i < V.length; i++) {
   { const bg = make(4, 1), v = at('volcano'), p5 = at('plus5', 1), blank = ISLAND.findIndex((n, i) => n.type === 'blank' && i > 5);
     let { e } = evs(bg, 0, v);
     assert.ok(e.some((x) => x.t === 'eruption' && x.active === 1 && x.dur > 0));
+    { const er = e.find((x) => x.t === 'eruption'); assert.equal(er.stretches.length, 3); assert.equal(er.stretches[0], 0, 'always the stretch the Wii game shows');
+      assert.equal(new Set(er.stretches).size, 3, 'three different stretches'); }
     assert.equal(bg.snapshot().eruptions, 1);
     bg.positions[1] = I(p5); e = []; bg._landing(1, I(p5), e);
-    assert.equal(bg.positions[1].idx, p5 - 4, 'a +5 is now a -4');
+    // a +5 is now a -4; four back is a statue (also lava now), so a second meteor knocks them back again, onto a blank
+    assert.equal(ISLAND[p5 - 4].type, 'statueBlue'); assert.equal(ISLAND[p5 - 8].type, 'blank');
+    assert.equal(bg.positions[1].idx, p5 - 8, 'a +5 is now a -4, and they chain until they land somewhere safe');
+    const hits = e.filter((x) => x.t === 'move' && x.slot === 1);
+    assert.deepEqual(hits.map((x) => [x.mode, x.meteor, x.path[x.path.length - 1].idx]), [['fly', true, p5 - 4], ['fly', true, p5 - 8]], 'each knock-back is a meteor, not a spring');
+    assert.ok(hits.every((x) => x.dur === DUR.meteorHit));
     bg.positions[1] = I(blank); e = []; bg._landing(1, I(blank), e); assert.equal(bg.positions[1].idx, blank, 'blank spaces are unaffected');
     evs(bg, 0, v); // second eruption stacks
     bg.positions[1] = I(p5); e = []; bg._landing(1, I(p5), e); assert.equal(bg.positions[1].idx, p5 - 8, 'two eruptions: -8');

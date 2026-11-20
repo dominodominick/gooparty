@@ -351,6 +351,20 @@ The hand-built island is gone. The game now runs on the converted Wii Party map 
   sinks away. The game's "broken" message did not say who broke it, so the scene had no player to animate and
   only waited, then hid the wall.
 
+## Build 77
+
+- The volcano space plays the Wii game's eruption as a cutscene, with nobody on the board. First the summit: the crater
+  rumbles and then blows (the game's own crater animations, `m001_40_3` and `m001_40_2`), with fire, smoke and rocks
+  thrown up. Then three shots of the island: always the stretch past the volcano-or-not pit (the one in the game's
+  own cutscene) and two more the host picks at random. Meteors (the game's own falling rock, `m001_44`, and its
+  animation) come down from the volcano's side onto every special space there, one after another, and each space turns
+  red as it is hit. `tools/extract_eruption.py` writes the animations to `js15/world/eruptionData.js`; the meteor the
+  map keeps hanging over the summit is no longer shown.
+- Landing on a lava (-4) space during an eruption: a meteor hits the player and the blast throws them back, instead of
+  the red spring. If they land on another lava space, another meteor hits them, and so on until they land on a space
+  that is not lava.
+- Viewer: "Volcano erupts" and "Meteor knockback (chain)".
+
 ## Build 76
 
 - The players are scaled to match the Wii game: a Mii stands a little under two-thirds of a space-to-space step tall

@@ -513,6 +513,35 @@ const fakeCam = () => ({ position: { x: 0, y: 0, z: 0, set(x, y, z) { this.x = x
   assert.equal(sc.eruptionCount, 2);
   sc.onTurn({ events: [{ t: 'eruption', active: 0, dur: 0 }] }); run();
   assert.equal(sc.eruptionCount, 0);
+  { // v77: the volcano space's cutscene: nobody on the board, the summit, then meteors on three stretches turning the spaces red one by one
+    const ps = Object.values(sc.pawns); ps.forEach((p) => { p.group.visible = true; });
+    sc.onTurn({ events: [{ t: 'eruption', active: 1, dur: 10000, stretches: [0, 2, 4] }] });
+    sc.update(1 / 60);
+    assert.ok(sc.anim && sc.hidePawns && ps.every((p) => p.group.visible === false), 'the players are not shown in the cutscene');
+    assert.ok(sc.camHold && sc.lavaPending && sc.lavaPending.size > 10, 'its own cameras; no space is lava until a meteor hits it');
+    const before = sc.lavaPending.size, inStretch = (i) => i >= 50 && i <= 60;
+    assert.ok([...sc.lavaPending].some(inStretch), 'the stretch past the pit is waiting for its meteors');
+    for (let i = 0; i < 60 * 5.5; i++) sc.update(1 / 60); // (summit shot, then the first stretch)
+    assert.ok(ps.every((p) => p.group.visible === false), 'still nobody on the board');
+    assert.ok(sc.lavaPending.size < before && ![...sc.lavaPending].some(inStretch), 'the first stretch has been hit: its spaces are lava');
+    run();
+    assert.ok(!sc.hidePawns && !sc.lavaPending && !sc.camHold && sc.eruptionCount === 1, 'over: lava everywhere, the camera back');
+    assert.ok(ps.every((p) => p.group.visible === true), 'and the players are back');
+    sc.onTurn({ events: [{ t: 'eruption', active: 0, dur: 0 }] }); run();
+  }
+  { // landing on lava: a meteor hits them and they are flung back (no spring); a chain is one hit per move
+    const p = sc.pawns[1]; sc.snapPawn(p, { track: 'island', idx: 34 });
+    sc.onTurn({ events: [{ t: 'move', slot: 1, mode: 'fly', meteor: true, path: [33, 32, 31, 30].map((idx) => ({ track: 'island', idx })), count: { total: 4, dir: 'back' }, dur: 2200 },
+      { t: 'move', slot: 1, mode: 'fly', meteor: true, path: [29, 28, 27, 26].map((idx) => ({ track: 'island', idx })), count: { total: 4, dir: 'back' }, dur: 2200 }] });
+    sc.update(1 / 60); const A = { x: p.x, z: p.z }; let up = 0, moved = false;
+    for (let i = 0; i < 38; i++) { sc.update(1 / 60); moved ||= Math.hypot(p.x - A.x, p.z - A.z) > 0.01; }
+    assert.ok(!moved, 'stands still while the meteor comes in');
+    for (let i = 0; i < 60; i++) { sc.update(1 / 60); up = Math.max(up, p.y - sc.pos.island[34].y); }
+    assert.ok(up > 2, `blown up and back by the blast (${up.toFixed(1)})`);
+    assert.ok(!Object.values(sc.springs || {}).some((x) => x.group.visible === true), 'no spring');
+    for (let i = 0; i < 2000 && (sc.anim || sc.queue.length); i++) sc.update(1 / 60); // (not run(): idle would put them back where this game has them)
+    assert.ok(p.idx === 26 && Math.hypot(p.x - sc.pos.island[26].x, p.z - sc.pos.island[26].z) < 1.2, 'two hits: on the space after the second');
+  }
   // a move of someone else's pawn pans the camera to that pawn
   sc.camSlot = 0;
   sc.onTurn({ events: [{ t: 'move', slot: 1, mode: 'fly', follow: true, path: [{ track: 'island', idx: 5 }], dur: 800 }] }); run();
