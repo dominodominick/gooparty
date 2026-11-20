@@ -351,6 +351,13 @@ The hand-built island is gone. The game now runs on the converted Wii Party map 
   sinks away. The game's "broken" message did not say who broke it, so the scene had no player to animate and
   only waited, then hid the wall.
 
+## Build 71
+
+- The red frames under every special space are gone. They were the game's eruption overlay (map piece m001_41,
+  material mr001m109): red lava squares under each special space that the Wii game shows only while the volcano
+  erupts. Here an eruption repaints the spaces themselves, so the overlay is never shown.
+- Test: in `boardScene.smoke.test.js`.
+
 ## Build 70
 
 - UFO space: pressing Stop no longer makes the wheel vanish. It stays and slows onto the player you swap with. (It was

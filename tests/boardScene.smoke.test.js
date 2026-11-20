@@ -47,6 +47,9 @@ const fakeBoard = { scale: 0.016, island: stub(), volcano: stub(), sky: stub(), 
   spaceMeshes: { island: { get: (id) => ({ set visible(v) { if (!v) hiddenTiles.push(id); } }) }, volcano: { get: () => null } },
   setSpaceTexture(area, id, tex) { this.painted.push([area, id]); return true; } };
 app.loadBoard = () => ({ then(fn) { fn(fakeBoard); return { catch() {} }; } });
+// two meshes of the island: the path, and one of the red lava frames the game shows under special spaces during an eruption
+const islandMeshes = [{ isMesh: true, visible: true, material: { name: 'mr001m007r' } }, { isMesh: true, visible: true, material: { name: 'mr001m109' } }];
+fakeBoard.island.traverse = (fn) => islandMeshes.forEach(fn);
 
 function makeSession(bg, mySlot, names) {
   const roster = { players: names.map((n, i) => ({ slot: i, name: n, kind: i === mySlot ? 'human' : 'npc', wasHuman: i === mySlot, connected: i === mySlot })) };
@@ -935,6 +938,9 @@ for (const type of ['plus5', 'minus4', 'ufo', 'tornado', 'skull', 'volcano', 'mg
   a.step(1); assert.ok(Math.hypot(pawn.x - 12, pawn.z - 3) < 0.01 && Math.abs(pawn.y - 6) < 0.01 && pawn.fx === null, 'dropped on the space, standing');
   a.cleanup();
 }
+
+// no red lava frames under the special spaces; the path is untouched
+{ const sc = new BoardScene(); sc.enter(); assert.equal(islandMeshes[1].visible, false, 'the lava frames are hidden'); assert.equal(islandMeshes[0].visible, true); sc.exit(); }
 
 // the statue throws, played on the map's own statue meshes with the game's animations (a small stand-in for three's maths)
 {

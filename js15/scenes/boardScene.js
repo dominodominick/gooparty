@@ -342,6 +342,9 @@ export class BoardScene {
     { const fin = this.pos.island[ISLAND.findIndex((n) => n.type === 'final')]; this.gate = place('m001_60', H.gate, faceTo(H.gate, fin)); }
     // the white path markers are the game's own route points: never shown in the game
     board.island.traverse((o) => { if (o.isMesh && o.material && o.material.name === 'tms_mat') o.visible = false; });
+    // the red lava frames under every special space (m001_41, material mr001m109) are the game's eruption overlay, only shown
+    // while the volcano erupts in the Wii game; the eruption here paints the spaces themselves, so they are never shown
+    board.island.traverse((o) => { if (o.isMesh && o.material && /^mr001m109/.test(o.material.name || '')) o.visible = false; });
     // the statues by their spaces: blue ones send you forward, the red one back
     const sp = (id) => this.pos.island[stopOfSpace(id)];
     this.statues = {};
