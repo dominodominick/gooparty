@@ -401,7 +401,7 @@ export class ChallengeFX {
   /** A challenge roll or choice is starting: the pawn takes its place and the camera stays put. */
   begin(slot) {
     const pawn = this.s.pawns[slot];
-    if (!pawn || pawn.track !== 'island') return;
+    if (!pawn || pawn.track !== 'island' || pawn.across) return; // (someone already past a challenge, on the spot after it, just rolls)
     const kind = ISLAND[pawn.idx].type;
     if (!['vine', 'dragon', 'crates', 'spike'].includes(kind) || this.broken[kind]) return;
     if (this.active && this.active.slot === slot && this.active.kind === kind) return;

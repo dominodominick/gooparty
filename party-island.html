@@ -325,7 +325,7 @@ __mods["js15/config.js"] = (() => {
 
 const GAME_TITLE = 'Party Island'; // placeholder name: pick your own
 
-const BUILD = '74'; // shown in the menu and in games; every player must have the same build
+const BUILD = '75'; // shown in the menu and in games; every player must have the same build
 
 const MAX_PLAYERS = 6;
 
@@ -649,7 +649,7 @@ function spacesToGo(pos, returnTo = null) {
 
 // count = { total, dir }: the number shown at the top while the player travels ("9", then 8, 7...).
 const crossings = (start, path) => { // how many steps cross a gap (they are long: a bridge, a gorge, a tunnel, stairs)
-  let n = 0, prev = start;
+  let n = 0, prev = start && start.across ? null : start; // (from a spot past a challenge the gap is already crossed)
   for (const p of path) { if (prev && prev.track === 'island' && p.track === 'island') { const g = gapBetween(prev.idx, p.idx); if (g) n++; } prev = p; }
   return n;
 };
@@ -3229,7 +3229,7 @@ class ChallengeFX {
   /** A challenge roll or choice is starting: the pawn takes its place and the camera stays put. */
   begin(slot) {
     const pawn = this.s.pawns[slot];
-    if (!pawn || pawn.track !== 'island') return;
+    if (!pawn || pawn.track !== 'island' || pawn.across) return; // (someone already past a challenge, on the spot after it, just rolls)
     const kind = ISLAND[pawn.idx].type;
     if (!['vine', 'dragon', 'crates', 'spike'].includes(kind) || this.broken[kind]) return;
     if (this.active && this.active.slot === slot && this.active.kind === kind) return;
@@ -5167,7 +5167,7 @@ class BoardScene {
         cum[k + 1] = cum[k] + (isChallenge(type) || type === 'exit' ? 0 : 1);
       });
       // the move is cut into legs: ordinary steps, jumps over gaps, the vine swing, the crates on the river
-      this.idxBefore = pawn.track === ev.path[0].track ? pawn.idx : null;
+      this.idxBefore = pawn.track === ev.path[0].track && !pawn.across ? pawn.idx : null; // (from a spot past a challenge: already across, just walk on to the space)
       const legs = this.fx.buildLegs(ev, pts, stepMs, pawn);
       const hideLeg = this.fx.hideLegFor(ev, B); // running from the spike ball: the run ends ducked into the tunnel mouth
       if (hideLeg) legs.push(hideLeg);
@@ -5637,7 +5637,7 @@ class BoardScene {
       want = { x: c.x - d.x * 12, y: pawn.y + 6.8, z: c.z - d.z * 12, tx: c.x + d.x * 7, ty: pawn.y + 1.8, tz: c.z + d.z * 7 }; // well back, the roller in the middle
     }
     // volcano or not: stand back and look at the rock face, the block and the player in front of it (as in the Wii game)
-    const vn = this.fx && this.fx.sp && this.fx.sp.volcano, onV = !volcano && ISLAND[pawn.idx] && ISLAND[pawn.idx].type === 'volcanoOrNot';
+    const vn = this.fx && this.fx.sp && this.fx.sp.volcano, onV = !volcano && !pawn.across && ISLAND[pawn.idx] && ISLAND[pawn.idx].type === 'volcanoOrNot'; // (not someone already past it)
     const vView = vn && onV && !this.camHold && (this.rolling || this.pushing);
     if (vView) { const st = vn.star, d = vn.dir; want = { x: st.x + d.x * 11, y: st.y + 5.2, z: st.z + d.z * 11, tx: st.x - d.x * 0.6, ty: st.y + 2.2, tz: st.z - d.z * 0.6 }; }
     if (this.camHold) want = { ...this.camHold };

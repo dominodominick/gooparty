@@ -962,6 +962,14 @@ for (const type of ['plus5', 'minus4', 'ufo', 'tornado', 'skull', 'volcano', 'mg
     sc.onTurn({ events: [{ t: 'move', slot: 0, mode: 'drop', path: [{ track: 'island', idx: vi, across: true }], dur: 400 }] });
     for (let i = 0; i < 2000 && (sc.anim || sc.queue.length); i++) sc.update(1 / 60);
     assert.ok(p.idx === vi && p.across && Math.hypot(p.x - spot.x, p.z - spot.z) < 0.3, 'out of the volcano: reappears on that spot');
+    // their next roll: no volcano-or-not camera, no set piece; the walk goes straight on to the next space (not back through the tunnel)
+    sc.fx.active = null; sc.fx.begin(0); assert.equal(sc.fx.active, null, 'no challenge set piece for a player already past it');
+    sc.onTurn({ events: [{ t: 'move', slot: 0, mode: 'walk', path: [{ track: 'island', idx: vi + 1 }, { track: 'island', idx: vi + 2 }], dur: 1100 }] });
+    let far = 0, nx2 = sc.pos.island[vi + 1], reached = 0;
+    for (let i = 0; i < 2000 && (sc.anim || sc.queue.length); i++) { sc.update(1 / 60); const d = Math.hypot(p.x - nx2.x, p.z - nx2.z); if (d < 0.5 && !reached) reached = i / 60; if (!reached) far = Math.max(far, d); }
+    assert.ok(reached && reached < 0.6, `an ordinary step onto the next space, not a slow slide through the tunnel crossing (${reached.toFixed(2)} s)`);
+    assert.ok(p.idx === vi + 2 && !p.across, 'walked on');
+    assert.ok(far < Math.hypot(spot.x - nx2.x, spot.z - nx2.z) + 0.5, `never back toward the pit on the way (${far.toFixed(1)})`);
   }
   sc.snapPawn(p, { track: 'island', idx: ci }); assert.ok(!p.across && Math.hypot(p.x - sc.pos.island[ci].x, p.z - sc.pos.island[ci].z) < 0.01, 'someone who just reached the crates stands before the pool');
   sc.exit();

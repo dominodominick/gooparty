@@ -113,7 +113,7 @@ export function spacesToGo(pos, returnTo = null) {
 
 // count = { total, dir }: the number shown at the top while the player travels ("9", then 8, 7...).
 const crossings = (start, path) => { // how many steps cross a gap (they are long: a bridge, a gorge, a tunnel, stairs)
-  let n = 0, prev = start;
+  let n = 0, prev = start && start.across ? null : start; // (from a spot past a challenge the gap is already crossed)
   for (const p of path) { if (prev && prev.track === 'island' && p.track === 'island') { const g = gapBetween(prev.idx, p.idx); if (g) n++; } prev = p; }
   return n;
 };

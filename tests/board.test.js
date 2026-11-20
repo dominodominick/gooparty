@@ -189,6 +189,9 @@ assert.deepEqual(g.positions[1], { ...I(VOLCANO_CHALLENGE_IDX), across: true }, 
 for (const sl of [0, 1]) { const mv = r.events.find((e) => e.t === 'move' && e.slot === sl);
   assert.ok(mv.stopShort && mv.to.across && mv.path[mv.path.length - 1].idx === VOLCANO_CHALLENGE_IDX + 1, 'the run goes past that space and stops on the spot'); }
 assert.equal(walkForward(g.positions[0], 1).end.idx, VOLCANO_CHALLENGE_IDX + 1, 'the next roll counts that space first');
+{ // and that walk is an ordinary one: no extra time for the tunnel it has already come through
+  const h = game(); h.positions[0] = { ...I(VOLCANO_CHALLENGE_IDX), across: true }; const res = roll(h, 2), mv = res.events.find((e) => e.t === 'move' && e.slot === 0);
+  assert.equal(mv.dur, 2 * DUR.walkStep + DUR.moveTail, 'two plain steps from the spot past the pit'); }
 assert.deepEqual(g.positions[2], I(70), 'players already past it are safe');
 assert.equal(g.spikeNeeds, SPIKE_START - 1);
 assert.ok(r.events.some((e) => e.t === 'move' && e.slot === 1 && e.with === true), 'they run at the same time as the roller');

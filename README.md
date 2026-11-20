@@ -351,6 +351,15 @@ The hand-built island is gone. The game now runs on the converted Wii Party map 
   sinks away. The game's "broken" message did not say who broke it, so the scene had no player to animate and
   only waited, then hid the wall.
 
+## Build 75
+
+- A player standing on a spot past a challenge (past the volcano-or-not pit, or on the crates' far bank) is just
+  another player when their turn comes: the camera stays on them (it used to swing over to the volcano-or-not block,
+  the "pusher"), no challenge set piece starts, and their first step is an ordinary walk onto the next space (it used
+  to be played as the long tunnel crossing they had already made, so they slid slowly onto the space). The game no
+  longer adds crossing time for that step either.
+- Tests: in `board.test.js` and `boardScene.smoke.test.js` (the step's timing fails on build 74).
+
 ## Build 74
 
 - The spot past the volcano-or-not pit, just short of the next space (the map's path point there), works like the

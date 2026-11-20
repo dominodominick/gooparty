@@ -887,7 +887,7 @@ export class BoardScene {
         cum[k + 1] = cum[k] + (isChallenge(type) || type === 'exit' ? 0 : 1);
       });
       // the move is cut into legs: ordinary steps, jumps over gaps, the vine swing, the crates on the river
-      this.idxBefore = pawn.track === ev.path[0].track ? pawn.idx : null;
+      this.idxBefore = pawn.track === ev.path[0].track && !pawn.across ? pawn.idx : null; // (from a spot past a challenge: already across, just walk on to the space)
       const legs = this.fx.buildLegs(ev, pts, stepMs, pawn);
       const hideLeg = this.fx.hideLegFor(ev, B); // running from the spike ball: the run ends ducked into the tunnel mouth
       if (hideLeg) legs.push(hideLeg);
@@ -1357,7 +1357,7 @@ export class BoardScene {
       want = { x: c.x - d.x * 12, y: pawn.y + 6.8, z: c.z - d.z * 12, tx: c.x + d.x * 7, ty: pawn.y + 1.8, tz: c.z + d.z * 7 }; // well back, the roller in the middle
     }
     // volcano or not: stand back and look at the rock face, the block and the player in front of it (as in the Wii game)
-    const vn = this.fx && this.fx.sp && this.fx.sp.volcano, onV = !volcano && ISLAND[pawn.idx] && ISLAND[pawn.idx].type === 'volcanoOrNot';
+    const vn = this.fx && this.fx.sp && this.fx.sp.volcano, onV = !volcano && !pawn.across && ISLAND[pawn.idx] && ISLAND[pawn.idx].type === 'volcanoOrNot'; // (not someone already past it)
     const vView = vn && onV && !this.camHold && (this.rolling || this.pushing);
     if (vView) { const st = vn.star, d = vn.dir; want = { x: st.x + d.x * 11, y: st.y + 5.2, z: st.z + d.z * 11, tx: st.x - d.x * 0.6, ty: st.y + 2.2, tz: st.z - d.z * 0.6 }; }
     if (this.camHold) want = { ...this.camHold };
