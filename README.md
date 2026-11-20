@@ -351,6 +351,16 @@ The hand-built island is gone. The game now runs on the converted Wii Party map 
   sinks away. The game's "broken" message did not say who broke it, so the scene had no player to animate and
   only waited, then hid the wall.
 
+## Build 68
+
+- The wooden signs have their pictures again: the arrow at the start, the blue 4, and the blue 3 at the volcano push.
+  In the game these are a second layer of the sign material (mr001m023), cut from one atlas (mr001_t023b) by each
+  sign's second UV set; the converted map had only the wood. `tools/extract_sign_decals.py` reads both from the game's
+  map.brres into `js15/world/signDecals.js`; `js15/world/signs.js` draws them over each sign.
+- Smashing the spike statue: the sign beside it stays standing; its number fades away to a blank panel (made from the
+  panel's own picture with the number painted out) and stays blank for the rest of the game.
+- Tests: `tests/signs.test.js`, and the blank fade in `challengeFx.test.js`.
+
 ## Build 67
 
 - Red statue: back where the map puts it, over its own shadow by the track (it had been pushed 4.2 back).

@@ -138,7 +138,7 @@ export class ChallengeFX {
     }));
     // the map is loaded once and shared, so a statue smashed earlier (in a game, or the viewer's demo) is put back first
     if (o.statue) this.statueStanding();
-    for (const m of o.plate) m.visible = true;
+    for (const m of o.plate) m.visible = true; if (o.blank) { o.blank.visible = false; o.blank.material.opacity = 0; }
     this.showSpikeNumber(this.spikeNumber ?? SPIKE_START); // (only the current number's panel)
     for (const k of Object.keys(this.broken)) this.setBroken(k);
   }
@@ -167,6 +167,44 @@ export class ChallengeFX {
       m.visible = +k === n && !(this.broken && this.broken.spike);
       m.material.transparent = false; m.material.opacity = 1; m.material.polygonOffset = false; m.renderOrder = 0;
     }
+    this.numberBlank(this.broken && this.broken.spike ? 1 : 0);
+  }
+
+  /**
+   * The number panel with no number on it (the statue is gone: the sign stays, blank). Made once from the panel's own
+   * picture: the number and its glow are painted out with the panel's own dark ground. Returns null where there is no
+   * canvas to paint on.
+   */
+  blankPanel() {
+    const o = this.o, P = o && o.numbers;
+    if (!P) return null;
+    if (o.blank !== undefined) return o.blank;
+    o.blank = null;
+    const src = P[5] || Object.values(P)[0], img = src && src.material.map && src.material.map.image, T = this.T;
+    if (!img || typeof document === 'undefined' || !T.CanvasTexture) return null;
+    try {
+      const w = img.width, h = img.height, c = document.createElement('canvas'); c.width = w; c.height = h;
+      const g = c.getContext('2d'); g.drawImage(img, 0, 0); const d = g.getImageData(0, 0, w, h), px = d.data;
+      const at = (x, y) => (Math.floor(y) * w + Math.floor(x)) * 4, b = at(w * 0.2, h * 0.5), bg = [px[b], px[b + 1], px[b + 2]];
+      for (let i = 0; i < px.length; i += 4) { // how much brighter and greener than the ground this pixel is: that much number
+        const k = Math.min(1, Math.max(0, (px[i + 1] - bg[1] - 6) / 60));
+        for (let j = 0; j < 3; j++) px[i + j] = px[i + j] + (bg[j] - px[i + j]) * k;
+      }
+      g.putImageData(d, 0, 0);
+      const t = new T.CanvasTexture(c), sm = src.material.map; t.flipY = sm.flipY; t.colorSpace = sm.colorSpace; t.wrapS = sm.wrapS; t.wrapT = sm.wrapT;
+      const mat = src.material.clone(); mat.map = t; mat.transparent = true; mat.opacity = 0; mat.polygonOffset = true; mat.polygonOffsetFactor = -1; mat.polygonOffsetUnits = -2;
+      const m = new T.Mesh(src.geometry, mat); m.name = 'spike_number_blank'; m.position.copy(src.position); m.quaternion.copy(src.quaternion); m.scale.copy(src.scale);
+      m.renderOrder = 2; m.visible = false; src.parent.add(m); o.blank = m;
+    } catch (e) { o.blank = null; }
+    return o.blank;
+  }
+
+  /** The blank panel over the number: 0 not there .. 1 all blank (the number under it is hidden then). */
+  numberBlank(k) {
+    const o = this.o, m = k > 0 ? this.blankPanel() : (o && o.blank);
+    if (!m) { if (k >= 1 && o && o.numbers) for (const n of Object.values(o.numbers)) n.visible = false; return; }
+    m.visible = k > 0; m.material.opacity = Math.min(1, k); m.material.transparent = k < 1;
+    if (k >= 1 && o.numbers) for (const n of Object.values(o.numbers)) n.visible = false;
   }
 
   /**
@@ -385,7 +423,7 @@ export class ChallengeFX {
   setBroken(kind) {
     this.broken[kind] = true;
     if (this.o && kind === 'dragon') { this.o.guard.visible = false; this.o.guardFire.visible = false; }
-    if (this.o && kind === 'spike') { if (this.o.ball) this.o.ball.show(false); if (this.o.statue) { this.o.statue.visible = false; this.statueRubble(1); } /* a broken stump and rubble stay */ for (const m of this.o.plate) m.visible = false; if (this.o.numbers) for (const m of Object.values(this.o.numbers)) m.visible = false; if (this.o.jaws) this.o.jaws.rest(); } // the statue is broken for good
+    if (this.o && kind === 'spike') { if (this.o.ball) this.o.ball.show(false); if (this.o.statue) { this.o.statue.visible = false; this.statueRubble(1); } /* a broken stump and rubble stay */ /* the sign stays, blank */ this.numberBlank(1); if (this.o.jaws) this.o.jaws.rest(); } // the statue is broken for good
   }
 
   burst(at, n = 26) {
@@ -484,7 +522,8 @@ export class ChallengeFX {
 
   /**
    * Smashing the spike statue: the player runs up to its front, stopping clear of it, and hits it three times; it
-   * shakes, the head and the number pillar burst apart, and the block sinks to a broken stump with rubble round it.
+   * shakes, the head bursts apart, the block sinks to a broken stump with rubble round it, and the number on the sign
+   * beside it fades to blank (the sign stays).
    * The spike ball takes no part.
    */
   statueSmash(ev, pawn) {
@@ -518,10 +557,9 @@ export class ChallengeFX {
           shattered = true; shake(0); pawn.fx = { x: reach.x, y: reach.y, z: reach.z, yaw }; pawn.x = reach.x; pawn.y = reach.y; pawn.z = reach.z;
           const ground = box ? box.min.y : c.y; this.burst({ x: c.x, y: ground, z: c.z }); // (the chips fly up from the ground and land on it)
           if (P) P.head.visible = false;
-          for (const m of plate) m.visible = false;
-          if (o && o.numbers) for (const m of Object.values(o.numbers)) m.visible = false;
         }
         this.statueRubble(clamp01((u - 0.62) / 0.22));
+        this.numberBlank(clamp01((u - 0.68) / 0.25)); // the sign stays; its number fades away
       }
       this.s.place(pawn);
     };

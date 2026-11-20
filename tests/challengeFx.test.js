@@ -338,10 +338,26 @@ for (const k of ['vine', 'dragon', 'crates', 'spike']) {
   assert.ok(Math.hypot(pawn.x - pillarAt.x, pawn.z - pillarAt.z) > 2.2, 'and clear of the number pillar too');
   assert.ok(pawn.x < centre.x - half, 'in front of the statue\'s face (its mouth looks out towards the ledge)');
   assert.ok(bursts.length && Math.hypot(bursts[0].x - centre.x, bursts[0].z - centre.z) < 0.01 && bursts[0].y === centre.y - 2, 'it bursts at the statue, chips landing on the ground');
-  assert.ok(!head.visible && !pillar.visible, 'the head and the number pillar are gone');
+  assert.ok(!head.visible && pillar.visible, 'the head is gone; the sign beside it stays');
   assert.ok(block.visible && block.position.y < -10 && block.position.y > -60, 'the block is left as a broken stump, a little sunk');
   assert.ok(fx.o.rubble && fx.o.rubble.visible && fx.o.rubble.children.length >= 8, 'with rubble round it');
   assert.ok(fx.broken.spike, 'broken for good');
   fx.statueStanding(); assert.ok(head.visible && block.position.y === 0 && !fx.o.rubble.visible, 'and stands again on a fresh map');
+}
+
+// ---- the spike statue's sign: when the statue is smashed the number fades to blank; the sign stays
+{
+  const num = (k) => ({ visible: k === 5, material: { transparent: false, opacity: 1, polygonOffset: false } });
+  const numbers = { 5: num(5), 4: num(4), 3: num(3), 2: num(2) };
+  const blank = { visible: false, material: { opacity: 0, transparent: true } };
+  const fx = mk(0, { o: { numbers, blank }, broken: {} });
+  fx.numberBlank(0.5);
+  assert.ok(blank.visible && blank.material.opacity === 0.5 && numbers[5].visible, 'half way: the number shows through the blank');
+  fx.numberBlank(1);
+  assert.ok(blank.visible && blank.material.opacity === 1 && Object.values(numbers).every((m) => !m.visible), 'then all blank');
+  fx.broken.spike = true; fx.showSpikeNumber(5);
+  assert.ok(blank.visible && !numbers[5].visible, 'and it stays blank for the rest of the game');
+  fx.broken.spike = false; fx.showSpikeNumber(5);
+  assert.ok(!blank.visible && numbers[5].visible, 'a fresh game shows the number again');
 }
 console.log('challengeFx tests passed');

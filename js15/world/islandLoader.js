@@ -7,6 +7,8 @@ import { waterCanvas, WaterFlow, WATER_FLOW } from './water.js';
 import { addWatasy } from './watasy.js';
 import { WATASY } from './watasyModel.js';
 import { addBirds } from './birds.js';
+import { addSignDecals } from './signs.js';
+import { SIGN_DECALS } from './signDecals.js';
 import { BIRDS } from './birdsData.js';
 
 const FILES = ['island.glb', 'volcano.glb', 'sky.glb', 'props.glb', 'board.json'];
@@ -44,6 +46,7 @@ function calmWater(board) {
   let birds = null;
   try { birds = addBirds(THREE, board.island, BIRDS); } catch (e) { birds = null; } // the birds fly their own paths
   board.birds = birds;
+  try { board.signs = addSignDecals(THREE, board.island, SIGN_DECALS); } catch (e) { board.signs = {}; } // the arrow, the 4 and the 3 on the wooden signs
   board.tick = (dt) => { flow.update(dt); if (swim) swim(dt); if (birds) birds(dt); };
   // the blue water texture, made once for the river (solid) and once for the sea layer (half see-through, over the sea-floor colours)
   const blueWater = (m, kind) => {
