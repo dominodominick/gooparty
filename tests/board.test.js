@@ -172,6 +172,13 @@ assert.deepEqual(g.positions[0], { ...I(42), across: true }, 'broke: swims to th
     const w = walkForward(h.positions[0], 1); assert.equal(w.end.idx, 43, 'one step from the bank is the next space'); }
 assert.equal(g.current(), 1);
 
+{ // which crate (or barrel) breaks on a wrong pick is random: every one of the three comes up
+  const seen = new Set();
+  for (let seed = 1; seed < 80; seed++) { const h = game(); h.positions[0] = I(40); roll(h, 3); h.update(h.readyAt + 1); h.requestChoice(0, 0); h.rng = mulberry32(seed);
+    const res = h.update(h.readyAt + 2), n = res && res.events.find((e) => e.fx === 'crates' && !e.safe); if (n) seen.add(n.hit); }
+  assert.deepEqual([...seen].sort(), [0, 1, 2], 'any of the three can be the one that breaks');
+}
+
 // Spike ball: needs 5+ first, then easier; failing sends the roller AND everyone below back
 g = game([0, 1, 2]); g.positions[0] = I(59); g.positions[1] = I(55); g.positions[2] = I(70);
 roll(g, 3);                                            // 60, spike(61) with 2 left

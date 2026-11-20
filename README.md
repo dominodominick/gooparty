@@ -351,6 +351,13 @@ The hand-built island is gone. The game now runs on the converted Wii Party map 
   sinks away. The game's "broken" message did not say who broke it, so the scene had no player to animate and
   only waited, then hid the wall.
 
+## Build 73
+
+- Crates and barrels: on a wrong pick, which of the three crates (or barrels) breaks is now random (the host rolls it,
+  so everyone sees the same one). It used to follow a fixed formula, so it looked like the same one every time.
+- Viewer: the "Crates: wrong pick" demo picks a random lane and crate too.
+- Test: in `board.test.js` (all three come up).
+
 ## Build 72
 
 - Losing the crates and barrels: the player swims to the far bank of the pool and stands there, short of the next

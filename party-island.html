@@ -325,7 +325,7 @@ __mods["js15/config.js"] = (() => {
 
 const GAME_TITLE = 'Party Island'; // placeholder name: pick your own
 
-const BUILD = '72'; // shown in the menu and in games; every player must have the same build
+const BUILD = '73'; // shown in the menu and in games; every player must have the same build
 
 const MAX_PLAYERS = 6;
 
@@ -870,13 +870,14 @@ class BoardGame {
     const picked = this.choice ?? Math.floor(this.rng() * 2);
     this.choice = null;
     const safe = Math.floor(this.rng() * 2); // the safe path is decided only now, so nobody can peek
+    const hit = Math.min(2, Math.floor(this.rng() * 3)); // which of the three crates (or barrels) gives way, if it is the wrong path
     events.push({ t: 'choiceStop', slot, picked, dur: 0 }); // screens remove the Crates/Barrels buttons
     let endTurn;
     if (picked === safe) {
-      events.push(note(slot, 'Safe! You hop across.', { fx: 'crates', picked, safe: true, hit: (this.round * 5 + slot * 3 + picked) % 3 }));
+      events.push(note(slot, 'Safe! You hop across.', { fx: 'crates', picked, safe: true, hit }));
       endTurn = this._pass(slot, step.remaining, events);
     } else {
-      events.push(note(slot, 'Crack! A crate breaks and you swim across.', { fx: 'crates', picked, safe: false, hit: (this.round * 5 + slot * 3 + picked) % 3 }));
+      events.push(note(slot, 'Crack! A crate breaks and you swim across.', { fx: 'crates', picked, safe: false, hit }));
       // wiki: leftover spaces become 0. They swim to the far bank and stand there, short of the next space: that spot is
       // not a space and does not count (the next roll's first step is the space after the pool)
       const at = this.positions[slot], next = walkForward(at, 1);
@@ -6297,7 +6298,7 @@ class ViewerScene extends BoardScene {
       ['Red statue throw', () => { const s = stopOf('statueRed'); at(s); this.demo.push(move(throwBy(s, 'red'))); }],
       ['Tornado (back 5)', () => { const s = stopOf('tornado') + 3; at(s); const w = walkBack({ track: 'island', idx: s }, 5); this.demo.push(move({ t: 'move', slot: 0, mode: 'fly', tornado: true, follow: true, path: w.path, count: { total: 5, dir: 'back' }, dur: DUR.tornado })); }], // a player a little past the tornado space is blown back 5
       ['Crates: wrong pick', () => { const s = stopOf('crates'), p = at(s); this.fx.begin(0); // a crate breaks, they swim to the far bank and stand there
-        this.demo.push(() => { this.fx.playNote({ fx: 'crates', picked: 0, safe: false, hit: 1 }, p); return { t: 0, dur: 700 }; },
+        this.demo.push(() => { this.fx.playNote({ fx: 'crates', picked: Math.floor(Math.random() * 2), safe: false, hit: Math.floor(Math.random() * 3) }, p); return { t: 0, dur: 700 }; },
           move({ t: 'move', slot: 0, mode: 'fast', path: [{ track: 'island', idx: s + 1 }], swim: true, stopShort: true, to: { track: 'island', idx: s, across: true }, dur: DUR.swim })); }],
       ['Volcano push', () => { const s = stopOf('volcanoOrNot'); at(s); this.demo.push(move({ t: 'move', slot: 0, mode: 'drop', path: [{ track: 'volcano', idx: 0 }], dur: DUR.drop })); }],
       ['Spike ball chase', () => { // as in a game: the jaws open, the ball chases everyone on the stretch back, then the number goes down

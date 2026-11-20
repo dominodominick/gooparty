@@ -334,13 +334,14 @@ export class BoardGame {
     const picked = this.choice ?? Math.floor(this.rng() * 2);
     this.choice = null;
     const safe = Math.floor(this.rng() * 2); // the safe path is decided only now, so nobody can peek
+    const hit = Math.min(2, Math.floor(this.rng() * 3)); // which of the three crates (or barrels) gives way, if it is the wrong path
     events.push({ t: 'choiceStop', slot, picked, dur: 0 }); // screens remove the Crates/Barrels buttons
     let endTurn;
     if (picked === safe) {
-      events.push(note(slot, 'Safe! You hop across.', { fx: 'crates', picked, safe: true, hit: (this.round * 5 + slot * 3 + picked) % 3 }));
+      events.push(note(slot, 'Safe! You hop across.', { fx: 'crates', picked, safe: true, hit }));
       endTurn = this._pass(slot, step.remaining, events);
     } else {
-      events.push(note(slot, 'Crack! A crate breaks and you swim across.', { fx: 'crates', picked, safe: false, hit: (this.round * 5 + slot * 3 + picked) % 3 }));
+      events.push(note(slot, 'Crack! A crate breaks and you swim across.', { fx: 'crates', picked, safe: false, hit }));
       // wiki: leftover spaces become 0. They swim to the far bank and stand there, short of the next space: that spot is
       // not a space and does not count (the next roll's first step is the space after the pool)
       const at = this.positions[slot], next = walkForward(at, 1);
