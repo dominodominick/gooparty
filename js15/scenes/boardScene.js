@@ -81,6 +81,7 @@ const SPRING_H = 2.4;
 const TORNADO_SIZE = 2; // the game's tornado, twice the map's own scale: a funnel well taller than the player riding its top // how tall the spring stands when fully out
 const ease01 = (t) => { t = Math.min(1, Math.max(0, t)); return t * t * (3 - 2 * t); };
 const CRATES_IDX = ISLAND.findIndex((n) => n.type === 'crates'); // the crates and barrels stop
+const VON_IDX = ISLAND.findIndex((n) => n.type === 'volcanoOrNot'); // the volcano-or-not stop
 const LAVA_TYPES = new Set(['blank', 'start', 'volcano', 'vine', 'dragon', 'crates', 'volcanoOrNot', 'spike', 'final', 'finish']); // same list as the host's LAVA_SAFE
 const clamp01 = (v) => Math.min(1, Math.max(0, v));
 /** A texture drawn on a canvas holds ordinary (sRGB) colours. */
@@ -417,7 +418,7 @@ export class BoardScene {
 
   nodeXYZ(track, idx, slot, centre = false) {
     const own = this.pawns && this.pawns[slot];
-    if (track === 'island' && idx === CRATES_IDX && own && own.across && own.idx === idx) { const q = this.farBank(); return { x: q.x, y: q.y + 0.05, z: q.z }; }
+    if (track === 'island' && own && own.across && own.idx === idx && this.farBank(idx)) { const q = this.farBank(idx); return { x: q.x, y: q.y + 0.05, z: q.z }; }
     const p = this.pos[track][idx], a = slot * (Math.PI / 3);
     if (track === 'island' && idx === 0) { // a row across the path, in front of the gate's posts
       const row = this.startSlots(), r = (row.indexOf(slot) - (row.length - 1) / 2) * START_SPACING, lx = -p.dir.z, lz = p.dir.x;
@@ -434,11 +435,20 @@ export class BoardScene {
     pawn.group.scale.set(pawn.scale, pawn.scale, pawn.scale);
   }
 
-  /** Where a player who lost the crates and barrels stands: on the far bank of the pool, short of the next space (not a space). */
-  farBank() { return (this.fx && this.fx.sp && this.fx.sp.crates.out) || this.pos.island[CRATES_IDX]; }
+  /**
+   * The spots past a challenge that are not spaces (players stand there, but the way on counts the next space first):
+   * the far bank of the crates-and-barrels pool, where a player who picked wrong swims to; and the way past the
+   * volcano-or-not pit (the map's path point just short of the next space), where players come back out of the volcano
+   * and where everyone chased by the spike ball ends up.
+   */
+  farBank(idx = CRATES_IDX) {
+    if (idx === CRATES_IDX) return (this.fx && this.fx.sp && this.fx.sp.crates.out) || this.pos.island[CRATES_IDX];
+    if (idx === VON_IDX) return islandWorld().aux['702'] || this.pos.island[VON_IDX + 1];
+    return null;
+  }
 
-  /** The middle of where a pawn rests: its space's centre, or the far bank of the pool. */
-  restCentre(pawn) { return pawn.across && pawn.track === 'island' && pawn.idx === CRATES_IDX ? this.farBank() : this.pos[pawn.track][pawn.idx]; }
+  /** The middle of where a pawn rests: its space's centre, or the spot past a challenge it stands on. */
+  restCentre(pawn) { return pawn.across && pawn.track === 'island' && this.farBank(pawn.idx) ? this.farBank(pawn.idx) : this.pos[pawn.track][pawn.idx]; }
 
   snapPawn(pawn, at) {
     pawn.across = !!at.across; pawn.idx = at.idx; pawn.track = at.track;
@@ -860,8 +870,9 @@ export class BoardScene {
     // start from where they are shown (they may have stepped aside) and walk down the middle of every space
     const shownX = pawn.x + (pawn.ox || 0), shownZ = pawn.z + (pawn.oz || 0);
     pawn.x = shownX; pawn.z = shownZ; pawn.ox = 0; pawn.oz = 0;
-    const pts = [{ x: pawn.x, y: pawn.y, z: pawn.z }, ...ev.path.map((n) => this.nodeXYZ(n.track, n.idx, ev.slot, true))];
-    if (ev.stopShort) { const q = this.farBank(); pts[pts.length - 1] = { x: q.x, y: q.y + 0.05, z: q.z }; } // lost the crates: swims to the far bank and stops there
+    const bankXYZ = (idx) => { const q = this.farBank(idx); return { x: q.x, y: q.y + 0.05, z: q.z }; };
+    const pts = [{ x: pawn.x, y: pawn.y, z: pawn.z }, ...ev.path.map((n) => (n.across && this.farBank(n.idx) ? bankXYZ(n.idx) : this.nodeXYZ(n.track, n.idx, ev.slot, true)))];
+    if (ev.stopShort && ev.to && this.farBank(ev.to.idx)) pts[pts.length - 1] = bankXYZ(ev.to.idx); // ends on a spot past a challenge, short of the space: stops there
     const last = ev.stopShort && ev.to ? ev.to : ev.path[ev.path.length - 1], B = pts[pts.length - 1], A = pts[0];
     const a = { t: 0, dur: ev.dur, slotMoving: ev.slot };
     const count = ev.count;
@@ -984,7 +995,7 @@ export class BoardScene {
           pawn.x = A.x; pawn.y = A.y; pawn.z = A.z; pawn.scale = ms < t1 ? 1 - ms / t1 : 0;
           fade.style.opacity = ms < t2 ? '0' : String(clamp01((ms - t2) / D.fadeOut));
         } else {
-          if (!a.switched) { a.switched = true; pawn.fx = null; pawn.track = last.track; pawn.idx = last.idx; this.snapCamera = true; this.clearDice(); }
+          if (!a.switched) { a.switched = true; pawn.fx = null; pawn.track = last.track; pawn.idx = last.idx; pawn.across = !!last.across; this.snapCamera = true; this.clearDice(); }
           pawn.x = B.x; pawn.y = B.y; pawn.z = B.z;
           if (last.track === 'volcano') { // into the volcano: they come falling down from above
             const k = clamp01((ms - t4) / (total - t4)); pawn.scale = ms < t4 ? 0 : 1;
@@ -998,7 +1009,7 @@ export class BoardScene {
     a.end = () => {
       pawn.x = B.x; pawn.y = B.y; pawn.z = B.z; pawn.scale = 1; pawn.groundY = null; pawn.fx = null;
       if (this.fx && this.fx.endsHidden(ev, pawn)) { /* stays in the tunnel mouth (on the space as far as the game goes) */ }
-      pawn.track = last.track; pawn.idx = last.idx; pawn.across = !!ev.stopShort; pawn.liveAt = null; this.pushing = false;
+      pawn.track = last.track; pawn.idx = last.idx; pawn.across = !!last.across; pawn.liveAt = null; this.pushing = false;
       if (a.cleanup) a.cleanup();
       this.fx.swinging = false;
       if (this.fx.active && this.fx.active.slot === ev.slot) { if (this.fx.active.kind === 'crates') this.fx.restoreCrates(); this.fx.release(); } // the challenge is over: the camera is free again

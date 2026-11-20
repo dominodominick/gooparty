@@ -101,8 +101,9 @@ export class ViewerScene extends BoardScene {
       ['Spike ball chase', () => { // as in a game: the jaws open, the ball chases everyone on the stretch back, then the number goes down
         const s = stopOf('spike'), p = at(s), last = stopOf('volcanoOrNot') + 1, two = this.secondPlayer, from2 = s - 5;
         if (two) { const o = put(1, from2); this.fx.unhide(o); }
-        const main = { ...walk(s, -(s - last), 'fast'), count: { total: s - last, dir: 'back' } }, side = [];
-        if (two) { const path = []; for (let i = from2 - 1; i >= last; i--) path.push({ track: 'island', idx: i }); side.push({ t: 'move', slot: 1, mode: 'fast', path, dur: path.length * 190 + 350 + DUR.cross, with: true }); }
+        const bank = { track: 'island', idx: last - 1, across: true }; // (they end on the spot past the volcano pit, short of the space)
+        const main = { ...walk(s, -(s - last), 'fast'), count: { total: s - last, dir: 'back' }, stopShort: true, to: bank }, side = [];
+        if (two) { const path = []; for (let i = from2 - 1; i >= last; i--) path.push({ track: 'island', idx: i }); side.push({ t: 'move', slot: 1, mode: 'fast', path, dur: path.length * 190 + 350 + DUR.cross, with: true, stopShort: true, to: bank }); }
         if ((this.fx.spikeNumber ?? 5) <= 2) this.fx.showSpikeNumber(5); // (the viewer starts again from 5 once it has reached 2)
         const n = this.fx.spikeNumber ?? 5, next = Math.max(2, n - 1);
         this.demo.push(() => { this.fx.begin(0); return this.fx.playNote({ fx: 'pit', dur: DUR.pit }, p); }, () => { const a = this.wrapMove(main, this.beginMove(main)); return side.length ? this.together(main, a, side) : a; });

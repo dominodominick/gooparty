@@ -145,8 +145,8 @@ g = game(); g.positions[0] = I(47); roll(g, 3);        // 48, volcano challenge(
 assert.equal(g.step.purpose, 'volcanoOrNot');
 roll(g, 2);
 assert.deepEqual(g.positions[0], { track: 'volcano', idx: 0 });
-assert.deepEqual(g.volcanoReturn[0], I(VOLCANO_CHALLENGE_IDX + 1), 'pushed into the pit: they come back out past it');
-assert.equal(spacesToGo(g.positions[0], g.volcanoReturn[0]), spacesToGo(I(VOLCANO_CHALLENGE_IDX + 1)) + 9);
+assert.deepEqual(g.volcanoReturn[0], { ...I(VOLCANO_CHALLENGE_IDX), across: true }, 'pushed into the pit: they come back out past it, on the spot short of the next space');
+assert.equal(spacesToGo(g.positions[0], g.volcanoReturn[0]), spacesToGo(I(VOLCANO_CHALLENGE_IDX + 1)) + 1 + 9, 'that spot is not a space: the space after it is still to go');
 g = game(); g.positions[0] = I(47); roll(g, 3); roll(g, 3);
 assert.ok(g.positions[0].track === 'island' && g.positions[0].idx > 49, 'pass: keep going');
 
@@ -184,8 +184,11 @@ g = game([0, 1, 2]); g.positions[0] = I(59); g.positions[1] = I(55); g.positions
 roll(g, 3);                                            // 60, spike(61) with 2 left
 assert.equal(g.step.purpose, 'spike'); assert.equal(g.spikeNeeds, SPIKE_START);
 r = roll(g, 4);                                        // 4 < 5: fail
-assert.deepEqual(g.positions[0], I(VOLCANO_CHALLENGE_IDX + 1));
-assert.deepEqual(g.positions[1], I(VOLCANO_CHALLENGE_IDX + 1), 'a player in the ball’s path runs back too');
+assert.deepEqual(g.positions[0], { ...I(VOLCANO_CHALLENGE_IDX), across: true }, 'chased back to the spot past the volcano pit, short of the space after it');
+assert.deepEqual(g.positions[1], { ...I(VOLCANO_CHALLENGE_IDX), across: true }, 'a player in the ball’s path runs back too');
+for (const sl of [0, 1]) { const mv = r.events.find((e) => e.t === 'move' && e.slot === sl);
+  assert.ok(mv.stopShort && mv.to.across && mv.path[mv.path.length - 1].idx === VOLCANO_CHALLENGE_IDX + 1, 'the run goes past that space and stops on the spot'); }
+assert.equal(walkForward(g.positions[0], 1).end.idx, VOLCANO_CHALLENGE_IDX + 1, 'the next roll counts that space first');
 assert.deepEqual(g.positions[2], I(70), 'players already past it are safe');
 assert.equal(g.spikeNeeds, SPIKE_START - 1);
 assert.ok(r.events.some((e) => e.t === 'move' && e.slot === 1 && e.with === true), 'they run at the same time as the roller');

@@ -351,6 +351,16 @@ The hand-built island is gone. The game now runs on the converted Wii Party map 
   sinks away. The game's "broken" message did not say who broke it, so the scene had no player to animate and
   only waited, then hid the wall.
 
+## Build 74
+
+- The spot past the volcano-or-not pit, just short of the next space (the map's path point there), works like the
+  crates' far bank: it is not a space and does not count. Players pushed into the pit come back out of the volcano
+  there, and everyone chased back by the spike ball ends up there (they still duck into the tunnel mouth while the ball
+  goes by, then stand on that spot). The game keeps them on the volcano-or-not stop, marked as across, so their next
+  roll counts the space after the pit first.
+- Viewer: the spike ball chase demo ends there too.
+- Tests: in `board.test.js` and `boardScene.smoke.test.js`.
+
 ## Build 73
 
 - Crates and barrels: on a wrong pick, which of the three crates (or barrels) breaks is now random (the host rolls it,

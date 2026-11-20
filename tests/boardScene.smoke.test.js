@@ -955,6 +955,14 @@ for (const type of ['plus5', 'minus4', 'ufo', 'tornado', 'skull', 'volcano', 'mg
   assert.ok(p.idx === ci && p.across && Math.hypot(p.x - bank.x, p.z - bank.z) < 0.3, `stands on the far bank (${Math.hypot(p.x - bank.x, p.z - bank.z).toFixed(2)} off)`);
   // joining later (or after a resync): the snapshot's spot puts them on the bank too
   sc.snapPawn(p, { track: 'island', idx: ci, across: true }); assert.ok(Math.hypot(p.x - bank.x, p.z - bank.z) < 0.01);
+  { // the spot past the volcano-or-not pit, short of the next space: out of the volcano, and the end of the spike ball chase
+    const vi = ISLAND.findIndex((n) => n.type === 'volcanoOrNot'), spot = sc.farBank(vi), nx = sc.pos.island[vi + 1];
+    assert.ok(spot && Math.hypot(spot.x - nx.x, spot.z - nx.z) > 3 && Math.hypot(spot.x - nx.x, spot.z - nx.z) < 6, 'a few steps short of the space after the pit');
+    sc.snapPawn(p, { track: 'island', idx: vi, across: true }); assert.ok(Math.hypot(p.x - spot.x, p.z - spot.z) < 0.01, 'stands there');
+    sc.onTurn({ events: [{ t: 'move', slot: 0, mode: 'drop', path: [{ track: 'island', idx: vi, across: true }], dur: 400 }] });
+    for (let i = 0; i < 2000 && (sc.anim || sc.queue.length); i++) sc.update(1 / 60);
+    assert.ok(p.idx === vi && p.across && Math.hypot(p.x - spot.x, p.z - spot.z) < 0.3, 'out of the volcano: reappears on that spot');
+  }
   sc.snapPawn(p, { track: 'island', idx: ci }); assert.ok(!p.across && Math.hypot(p.x - sc.pos.island[ci].x, p.z - sc.pos.island[ci].z) < 0.01, 'someone who just reached the crates stands before the pool');
   sc.exit();
 }

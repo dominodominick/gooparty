@@ -496,22 +496,26 @@ export class BoardGame {
       case 'volcanoOrNot':
         if (d >= VOLCANO_NEEDS) return pass('You dodge the volcano!');
         events.push(note(slot, 'Into the volcano!'));
-        this._intoVolcano(slot, { track: 'island', idx: VOLCANO_CHALLENGE_IDX + 1 }, events); // they come back out past the pit
+        this._intoVolcano(slot, { track: 'island', idx: VOLCANO_CHALLENGE_IDX, across: true }, events); // they come back out past the pit, short of the next space (not a space)
         return true;
       case 'spike': {
         if (d >= this.spikeNeeds) return pass('The statue breaks!', 'spike');
         const was = this.spikeNeeds;
         this.spikeNeeds = Math.max(SPIKE_MIN, this.spikeNeeds - 1); // easier for the next attempt
         events.push(note(slot, 'The spike ball chases you back!', { fx: 'pit', dur: DUR.pit }));
+        // everyone who runs from it ends past the space after the volcano challenge, on the spot just short of it (not a
+        // space: the way on counts that space first)
+        const bank = { track: 'island', idx: VOLCANO_CHALLENGE_IDX, across: true };
         this._moveTo(slot, walkBack(pos, SPIKE_RUNBACK), 'fast', events, BACK(SPIKE_RUNBACK));
+        { const mv = events[events.length - 1]; if (mv.t === 'move' && mv.slot === slot && this.positions[slot].idx === VOLCANO_CHALLENGE_IDX + 1) { mv.stopShort = true; mv.to = { ...bank }; this.positions[slot] = { ...bank }; } }
         const safeIdx = VOLCANO_CHALLENGE_IDX + 1; // the space right after the volcano challenge
         for (const other of this.players) { // everyone on the stretch below the spike ball runs from it too, at the same time
           const p = this.positions[other];
           if (other === slot || p.track !== 'island' || p.idx <= safeIdx || p.idx >= SPIKE_IDX) continue;
           const path = [];
           for (let i = p.idx - 1; i >= safeIdx; i--) path.push({ track: 'island', idx: i });
-          events.push({ ...move(other, 'fast', path, BACK(path.length)), with: true });
-          this.positions[other] = { track: 'island', idx: safeIdx };
+          events.push({ ...move(other, 'fast', path, BACK(path.length)), with: true, stopShort: true, to: { ...bank } });
+          this.positions[other] = { ...bank };
         }
         if (this.spikeNeeds !== was) events.push(note(slot, `Now roll ${this.spikeNeeds} or more`, { fx: 'spikeCount', from: was, to: this.spikeNeeds, dur: DUR.spikeCount }));
         return true;
@@ -575,7 +579,7 @@ export class BoardGame {
 
   /** Down into the volcano; `back` is the island spot they will come back out at. */
   _intoVolcano(slot, back, events) {
-    this.volcanoReturn[slot] = { track: 'island', idx: back.idx };
+    this.volcanoReturn[slot] = { track: 'island', idx: back.idx, ...(back.across ? { across: true } : {}) };
     this._teleport(slot, { track: 'volcano', idx: 0 }, 'drop', events);
   }
 
