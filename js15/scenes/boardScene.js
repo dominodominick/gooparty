@@ -80,6 +80,7 @@ const lerp3v = (a, b, t) => ({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * 
 const SPRING_H = 2.4;
 const TORNADO_SIZE = 2; // the game's tornado, twice the map's own scale: a funnel well taller than the player riding its top // how tall the spring stands when fully out
 const ease01 = (t) => { t = Math.min(1, Math.max(0, t)); return t * t * (3 - 2 * t); };
+const CRATES_IDX = ISLAND.findIndex((n) => n.type === 'crates'); // the crates and barrels stop
 const LAVA_TYPES = new Set(['blank', 'start', 'volcano', 'vine', 'dragon', 'crates', 'volcanoOrNot', 'spike', 'final', 'finish']); // same list as the host's LAVA_SAFE
 const clamp01 = (v) => Math.min(1, Math.max(0, v));
 /** A texture drawn on a canvas holds ordinary (sRGB) colours. */
@@ -415,6 +416,8 @@ export class BoardScene {
   startSlots() { return Object.keys(this.s.board.positions).map(Number).sort((a, b) => a - b); }
 
   nodeXYZ(track, idx, slot, centre = false) {
+    const own = this.pawns && this.pawns[slot];
+    if (track === 'island' && idx === CRATES_IDX && own && own.across && own.idx === idx) { const q = this.farBank(); return { x: q.x, y: q.y + 0.05, z: q.z }; }
     const p = this.pos[track][idx], a = slot * (Math.PI / 3);
     if (track === 'island' && idx === 0) { // a row across the path, in front of the gate's posts
       const row = this.startSlots(), r = (row.indexOf(slot) - (row.length - 1) / 2) * START_SPACING, lx = -p.dir.z, lz = p.dir.x;
@@ -431,7 +434,14 @@ export class BoardScene {
     pawn.group.scale.set(pawn.scale, pawn.scale, pawn.scale);
   }
 
+  /** Where a player who lost the crates and barrels stands: on the far bank of the pool, short of the next space (not a space). */
+  farBank() { return (this.fx && this.fx.sp && this.fx.sp.crates.out) || this.pos.island[CRATES_IDX]; }
+
+  /** The middle of where a pawn rests: its space's centre, or the far bank of the pool. */
+  restCentre(pawn) { return pawn.across && pawn.track === 'island' && pawn.idx === CRATES_IDX ? this.farBank() : this.pos[pawn.track][pawn.idx]; }
+
   snapPawn(pawn, at) {
+    pawn.across = !!at.across; pawn.idx = at.idx; pawn.track = at.track;
     const p = this.nodeXYZ(at.track, at.idx, pawn.slot);
     pawn.track = at.track; pawn.idx = at.idx; pawn.x = p.x; pawn.y = p.y; pawn.z = p.z; pawn.scale = 1;
     this.place(pawn);
@@ -534,7 +544,7 @@ export class BoardScene {
       case 'devJump': { // dev tools: the dice go away and the player is simply there
         this.control = null; this.stopSent = false; this.clearDice(); this.clearBanner();
         const pawn = this.pawns[ev.slot];
-        if (pawn) { const q = this.nodeXYZ(ev.to.track, ev.to.idx, ev.slot, true); Object.assign(pawn, { track: ev.to.track, idx: ev.to.idx, x: q.x, y: q.y, z: q.z, liveAt: null, fx: null, scale: 1 }); pawn.group.visible = true; this.place(pawn); }
+        if (pawn) { pawn.across = false; const q = this.nodeXYZ(ev.to.track, ev.to.idx, ev.slot, true); Object.assign(pawn, { track: ev.to.track, idx: ev.to.idx, x: q.x, y: q.y, z: q.z, liveAt: null, fx: null, scale: 1 }); pawn.group.visible = true; this.place(pawn); }
         this.camSlot = ev.slot; this.snapCamera = true; this.refreshHud();
         this.anim = { t: 0, dur: ev.dur };
         break;
@@ -813,8 +823,9 @@ export class BoardScene {
     if (!pawn) return { t: 0, dur: 1 };
     this.clearDice();
     if (ev.phase === 'down') { // they arrive at their new spot: put them there (out of sight), and look there
-      const to = ev.to, q = this.nodeXYZ(to.track, to.idx, ev.slot);
-      pawn.track = to.track; pawn.idx = to.idx; pawn.x = q.x; pawn.y = q.y; pawn.z = q.z; pawn.liveAt = null;
+      const to = ev.to; pawn.track = to.track; pawn.idx = to.idx; pawn.across = !!to.across; // (swapped with someone on the pool's far bank: lands there)
+      const q = this.nodeXYZ(to.track, to.idx, ev.slot);
+      pawn.x = q.x; pawn.y = q.y; pawn.z = q.z; pawn.liveAt = null;
     }
     if (this.camSlot !== ev.slot || ev.phase === 'down') this.snapCamera = true; // a cut
     this.camSlot = ev.slot;
@@ -850,7 +861,8 @@ export class BoardScene {
     const shownX = pawn.x + (pawn.ox || 0), shownZ = pawn.z + (pawn.oz || 0);
     pawn.x = shownX; pawn.z = shownZ; pawn.ox = 0; pawn.oz = 0;
     const pts = [{ x: pawn.x, y: pawn.y, z: pawn.z }, ...ev.path.map((n) => this.nodeXYZ(n.track, n.idx, ev.slot, true))];
-    const last = ev.path[ev.path.length - 1], B = pts[pts.length - 1], A = pts[0];
+    if (ev.stopShort) { const q = this.farBank(); pts[pts.length - 1] = { x: q.x, y: q.y + 0.05, z: q.z }; } // lost the crates: swims to the far bank and stops there
+    const last = ev.stopShort && ev.to ? ev.to : ev.path[ev.path.length - 1], B = pts[pts.length - 1], A = pts[0];
     const a = { t: 0, dur: ev.dur, slotMoving: ev.slot };
     const count = ev.count;
     if (ev.follow) { this.camSlot = ev.slot; a.fast = true; } // someone else's pawn is flying: the camera pans over to it
@@ -986,7 +998,7 @@ export class BoardScene {
     a.end = () => {
       pawn.x = B.x; pawn.y = B.y; pawn.z = B.z; pawn.scale = 1; pawn.groundY = null; pawn.fx = null;
       if (this.fx && this.fx.endsHidden(ev, pawn)) { /* stays in the tunnel mouth (on the space as far as the game goes) */ }
-      pawn.track = last.track; pawn.idx = last.idx; pawn.liveAt = null; this.pushing = false;
+      pawn.track = last.track; pawn.idx = last.idx; pawn.across = !!ev.stopShort; pawn.liveAt = null; this.pushing = false;
       if (a.cleanup) a.cleanup();
       this.fx.swinging = false;
       if (this.fx.active && this.fx.active.slot === ev.slot) { if (this.fx.active.kind === 'crates') this.fx.restoreCrates(); this.fx.release(); } // the challenge is over: the camera is free again
@@ -1043,7 +1055,7 @@ export class BoardScene {
     if (this.fx && b.spikeNeeds && this.fx.spikeNumber !== b.spikeNeeds) this.fx.showSpikeNumber(b.spikeNeeds); // the number beside the spike statue
     for (const key of Object.keys(b.positions)) {
       const pawn = this.pawns[key], at = b.positions[key];
-      if (pawn && (pawn.track !== at.track || pawn.idx !== at.idx)) this.snapPawn(pawn, at);
+      if (pawn && (pawn.track !== at.track || pawn.idx !== at.idx || !!pawn.across !== !!at.across)) this.snapPawn(pawn, at);
     }
     if (b.over) this.setBanner(`${esc(this.nameOf(b.winner))} wins!<small>The host can return everyone to the lobby.</small>`);
     this.refreshHud();
@@ -1330,7 +1342,7 @@ export class BoardScene {
     let want = { x: pawn.x - way.x * dist, y: pawn.y + height, z: pawn.z - way.z * dist, tx: pawn.x + way.x * 3.5, ty: pawn.y + 1.6, tz: pawn.z + way.z * 3.5 };
     this.rolling = this.diceGroup.visible; // dice on screen: get close to the roller and look the way they will go
     if (this.rolling || this.staged) {
-      const d = this.pathDir(pawn), c = (pawn.track === 'island' && pawn.idx === 0) ? pawn : (this.pos[pawn.track][pawn.idx] || pawn); // aim at the space's centre (at the start: at the roller)
+      const d = this.pathDir(pawn), c = (pawn.track === 'island' && pawn.idx === 0) ? pawn : (this.restCentre(pawn) || pawn); // aim at the space's centre (at the start: at the roller)
       want = { x: c.x - d.x * 12, y: pawn.y + 6.8, z: c.z - d.z * 12, tx: c.x + d.x * 7, ty: pawn.y + 1.8, tz: c.z + d.z * 7 }; // well back, the roller in the middle
     }
     // volcano or not: stand back and look at the rock face, the block and the player in front of it (as in the Wii game)
@@ -1393,8 +1405,8 @@ export class BoardScene {
       }
       // space-mates of the roller step aside (the roller stands on the space's centre)
       let tox = 0, toz = 0, toh = 0;
-      if (spot && pawn.track === spot.track && pawn.idx === spot.idx) {
-        const c = this.pos[pawn.track][pawn.idx];
+      if (spot && pawn.track === spot.track && pawn.idx === spot.idx && !!pawn.across === !!spot.across) {
+        const c = this.restCentre(pawn);
         if (spot.track === 'island' && spot.idx === 0) { /* everybody keeps their place in the start row */ }
         else if (pawn === spot) { if (!(this.fx.active && this.fx.active.slot === Number(key))) { tox = c.x - pawn.x; toz = c.z - pawn.z; } } else {
           const n = peers.indexOf(Number(key));

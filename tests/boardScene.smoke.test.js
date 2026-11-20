@@ -942,6 +942,23 @@ for (const type of ['plus5', 'minus4', 'ufo', 'tornado', 'skull', 'volcano', 'mg
 // no red lava frames under the special spaces; the path is untouched
 { const sc = new BoardScene(); sc.enter(); assert.equal(islandMeshes[1].visible, false, 'the lava frames are hidden'); assert.equal(islandMeshes[0].visible, true); sc.exit(); }
 
+// losing the crates and barrels: the swim ends on the pool's far bank, short of the next space, and the player rests there
+{
+  const bg = new BoardGame({ slots: [0, 1], rng: mulberry32(6), isNpc: () => true });
+  bg.start(0); const ci = ISLAND.findIndex((n) => n.type === 'crates');
+  bg.positions[0] = { track: 'island', idx: ci }; app.session = makeSession(bg, 0, ['A', 'B']);
+  const sc = new BoardScene(); sc.enter(); sc.update(1 / 60);
+  const bank = sc.farBank(), p = sc.pawns[0], next = sc.pos.island[ci + 1];
+  assert.ok(Math.hypot(bank.x - next.x, bank.z - next.z) > 2, 'the bank is short of the next space');
+  sc.onTurn({ events: [{ t: 'move', slot: 0, mode: 'fast', path: [{ track: 'island', idx: ci + 1 }], swim: true, stopShort: true, to: { track: 'island', idx: ci, across: true }, dur: 3000 }] });
+  for (let i = 0; i < 2000 && (sc.anim || sc.queue.length); i++) sc.update(1 / 60);
+  assert.ok(p.idx === ci && p.across && Math.hypot(p.x - bank.x, p.z - bank.z) < 0.3, `stands on the far bank (${Math.hypot(p.x - bank.x, p.z - bank.z).toFixed(2)} off)`);
+  // joining later (or after a resync): the snapshot's spot puts them on the bank too
+  sc.snapPawn(p, { track: 'island', idx: ci, across: true }); assert.ok(Math.hypot(p.x - bank.x, p.z - bank.z) < 0.01);
+  sc.snapPawn(p, { track: 'island', idx: ci }); assert.ok(!p.across && Math.hypot(p.x - sc.pos.island[ci].x, p.z - sc.pos.island[ci].z) < 0.01, 'someone who just reached the crates stands before the pool');
+  sc.exit();
+}
+
 // the statue throws, played on the map's own statue meshes with the game's animations (a small stand-in for three's maths)
 {
   const fs = await import('node:fs');

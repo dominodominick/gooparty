@@ -164,7 +164,12 @@ assert.ok(g.positions[0].idx > 43, 'safe: crossed and kept moving');
 g = game(); g.positions[0] = I(40); roll(g, 3); g.update(g.readyAt + 1);
 g.requestChoice(0, 0); g.rng = scripted(0.9);          // safe path = 1 -> picked wrong
 g.update(g.readyAt + 2);
-assert.deepEqual(g.positions[0], I(43), 'broke: swim to the next space, rest wasted');
+assert.deepEqual(g.positions[0], { ...I(42), across: true }, 'broke: swims to the far bank and stands there, short of the next space; the rest is wasted');
+{ const h = game(); h.positions[0] = I(40); roll(h, 3); h.update(h.readyAt + 1); h.requestChoice(0, 0); h.rng = scripted(0.9);
+    const res = h.update(h.readyAt + 2), mv = res.events.find((e) => e.t === 'move' && e.slot === 0);
+    assert.ok(mv && mv.swim && mv.stopShort && mv.path.length === 1 && mv.path[0].idx === 43 && mv.to.idx === 42 && mv.to.across && !mv.count, 'the swim heads for the next space but stops on the bank; no space is counted');
+    // next turn: the first step is the space after the pool, and it counts
+    const w = walkForward(h.positions[0], 1); assert.equal(w.end.idx, 43, 'one step from the bank is the next space'); }
 assert.equal(g.current(), 1);
 
 // Spike ball: needs 5+ first, then easier; failing sends the roller AND everyone below back

@@ -351,6 +351,15 @@ The hand-built island is gone. The game now runs on the converted Wii Party map 
   sinks away. The game's "broken" message did not say who broke it, so the scene had no player to animate and
   only waited, then hid the wall.
 
+## Build 72
+
+- Losing the crates and barrels: the player swims to the far bank of the pool and stands there, short of the next
+  space. That spot is not a space and does not count: the game keeps them on the crates stop (marked as across), so
+  their next roll's first step is the space after the pool. The scene stands them on the bank (the map's own point
+  there), including after a resync or a UFO swap.
+- Viewer: a "Crates: wrong pick" demo.
+- Tests: in `board.test.js` and `boardScene.smoke.test.js`.
+
 ## Build 71
 
 - The red frames under every special space are gone. They were the game's eruption overlay (map piece m001_41,

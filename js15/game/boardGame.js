@@ -341,8 +341,11 @@ export class BoardGame {
       endTurn = this._pass(slot, step.remaining, events);
     } else {
       events.push(note(slot, 'Crack! A crate breaks and you swim across.', { fx: 'crates', picked, safe: false, hit: (this.round * 5 + slot * 3 + picked) % 3 }));
-      this._moveTo(slot, walkForward(this.positions[slot], 1), 'fast', events, FWD(1)); // wiki: leftover spaces become 0
-      events[events.length - 1].dur = DUR.swim; events[events.length - 1].swim = true;
+      // wiki: leftover spaces become 0. They swim to the far bank and stand there, short of the next space: that spot is
+      // not a space and does not count (the next roll's first step is the space after the pool)
+      const at = this.positions[slot], next = walkForward(at, 1);
+      events.push({ ...move(slot, 'fast', next.path, null, false, { ...at }), dur: DUR.swim, swim: true, stopShort: true, to: { ...at, across: true } });
+      this.positions[slot] = { ...at, across: true };
       endTurn = true;
     }
     return this._commit(now, events, endTurn);

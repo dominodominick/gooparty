@@ -94,6 +94,9 @@ export class ViewerScene extends BoardScene {
       ['Blue statue throw', () => { const s = stopOf('statueBlue'); at(s); this.demo.push(move(throwBy(s, 'blue'))); }],
       ['Red statue throw', () => { const s = stopOf('statueRed'); at(s); this.demo.push(move(throwBy(s, 'red'))); }],
       ['Tornado (back 5)', () => { const s = stopOf('tornado') + 3; at(s); const w = walkBack({ track: 'island', idx: s }, 5); this.demo.push(move({ t: 'move', slot: 0, mode: 'fly', tornado: true, follow: true, path: w.path, count: { total: 5, dir: 'back' }, dur: DUR.tornado })); }], // a player a little past the tornado space is blown back 5
+      ['Crates: wrong pick', () => { const s = stopOf('crates'), p = at(s); this.fx.begin(0); // a crate breaks, they swim to the far bank and stand there
+        this.demo.push(() => { this.fx.playNote({ fx: 'crates', picked: 0, safe: false, hit: 1 }, p); return { t: 0, dur: 700 }; },
+          move({ t: 'move', slot: 0, mode: 'fast', path: [{ track: 'island', idx: s + 1 }], swim: true, stopShort: true, to: { track: 'island', idx: s, across: true }, dur: DUR.swim })); }],
       ['Volcano push', () => { const s = stopOf('volcanoOrNot'); at(s); this.demo.push(move({ t: 'move', slot: 0, mode: 'drop', path: [{ track: 'volcano', idx: 0 }], dur: DUR.drop })); }],
       ['Spike ball chase', () => { // as in a game: the jaws open, the ball chases everyone on the stretch back, then the number goes down
         const s = stopOf('spike'), p = at(s), last = stopOf('volcanoOrNot') + 1, two = this.secondPlayer, from2 = s - 5;
