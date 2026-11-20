@@ -177,7 +177,7 @@ export class ViewerScene extends BoardScene {
     head('Play');
     for (const [label, fn] of this.demos()) btn(label, () => { if (!this.anim) fn(); }, '#3c7a4a');
     const second = btn('Second player on the spike stretch: off', () => { this.secondPlayer = !this.secondPlayer; second.textContent = `Second player on the spike stretch: ${this.secondPlayer ? 'on' : 'off'}`; }, '#4a4a7a');
-    const slow = btn('Slow motion: off', () => { this.slow = this.slow === 0.15 ? 1 : 0.15; slow.textContent = `Slow motion: ${this.slow < 1 ? 'on' : 'off'}`; }, '#4a4a7a');
+    const slow = btn('Slow motion: off', () => { this.slow = this.slow === 0.15 ? 0.04 : this.slow === 0.04 ? 1 : 0.15; slow.textContent = `Slow motion: ${this.slow === 0.04 ? 'very slow' : this.slow < 1 ? 'on' : 'off'}`; }, '#4a4a7a'); // off -> on -> very slow -> off
     head('');
     btn('Reset everything', () => app.go('viewer'), '#7a5a2a');
     btn('Back to menu', () => { app.session = null; app.go('menu'); }, '#7a2a3a');

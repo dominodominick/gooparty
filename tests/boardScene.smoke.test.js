@@ -569,7 +569,7 @@ assert.ok(DUR.fly >= 2400 && DUR.drop >= 1800);
 {
   const R128 = new Set(['Mesh', 'MeshLambertMaterial', 'MeshBasicMaterial', 'Group', 'BufferAttribute', 'BufferGeometry', 'CanvasTexture', 'PlaneGeometry',
     'PointLight', 'HemisphereLight', 'DirectionalLight', 'Fog', 'Color', 'Scene', 'PerspectiveCamera', 'WebGLRenderer', 'Sprite', 'SpriteMaterial',
-    'SphereGeometry', 'CircleGeometry', 'BoxGeometry', 'CylinderGeometry', 'TubeGeometry', 'CatmullRomCurve3', 'Raycaster', 'AdditiveBlending', 'ConeGeometry', 'Quaternion', 'Euler', 'Vector3', 'DoubleSide', 'REVISION', 'SRGBColorSpace']);
+    'SphereGeometry', 'CircleGeometry', 'BoxGeometry', 'CylinderGeometry', 'TubeGeometry', 'CatmullRomCurve3', 'Raycaster', 'AdditiveBlending', 'ConeGeometry', 'Quaternion', 'Euler', 'Vector3', 'Matrix4', 'DoubleSide', 'REVISION', 'SRGBColorSpace']);
   const odd = [...usedThree].filter((n) => !R128.has(n));
   assert.deepEqual(odd, [], `unknown THREE names: ${odd.join(', ')}`);
   const bg = new BoardGame({ slots: [0, 1, 2], rng: mulberry32(5), isNpc: () => true });
@@ -891,11 +891,92 @@ for (const type of ['plus5', 'minus4', 'ufo', 'tornado', 'skull', 'volcano', 'mg
   const meshes = ['mr001m048', 'mr001m048_2', 'mr001m031', 'mr001m032'].map((n) => ({ isMesh: true, visible: true, material: mat(n), geometry: { index: null }, userData: {} }));
   const g = { traverse: (fn) => meshes.forEach(fn) };
   const shared = meshes[1].material;
-  const st = sc.splitStatueHands(g);
+  const st = sc.setupStatue(g, 'm001_31');
   assert.equal(meshes[2].visible, false); assert.equal(meshes[3].visible, false, 'no glare cards');
   assert.ok(st.eyes === meshes[1] && meshes[1].material !== shared, 'its own eye material (the two blue statues share the model)');
   assert.ok(st.eyes.material.color.v < 0.3, 'eyes and gem dark while it sleeps');
   sc.statueEyes(st, 1); assert.equal(st.eyes.material.color.v, 1, 'lit once it wakes');
+}
+
+
+// a pawn the statue's hands turned over (fx.quat) is upright again once it lets go: no roll is left behind
+{
+  const bg = new BoardGame({ slots: [0, 1], rng: mulberry32(3), isNpc: () => true });
+  bg.start(0); app.session = makeSession(bg, 0, ['A', 'B']);
+  const sc = new BoardScene(); sc.enter(); sc.update(1 / 60);
+  const p = sc.pawns[0]; let copied = null;
+  p.group.quaternion = { copy(q) { copied = q; p.group.rotation.z = Math.PI; } }; // (an upside-down turn leaves a roll in the Euler angles)
+  p.fx = { x: p.x, y: p.y, z: p.z, yaw: 0, quat: { tag: 'hands' } }; sc.updatePawnPose(1 / 60);
+  assert.equal(copied && copied.tag, 'hands', 'carried: turned with the hands');
+  p.fx = { x: p.x, y: p.y + 30, z: p.z, yaw: 1, tilt: 0.3 }; sc.updatePawnPose(1 / 60);
+  assert.equal(p.group.rotation.z, 0, 'flying free: no roll left from the hands');
+  sc.exit();
+}
+
+// the statue throws, played on the map's own statue meshes with the game's animations (a small stand-in for three's maths)
+{
+  const fs = await import('node:fs');
+  const { rigStatue, statueTimeline } = await import('../js15/world/statueRig.js');
+  const { STATUES } = await import('../js15/world/statueData.js');
+  class V3 { constructor(x = 0, y = 0, z = 0) { this.x = x; this.y = y; this.z = z; } set(x, y, z) { this.x = x; this.y = y; this.z = z; return this; }
+    applyMatrix4(m) { const e = m.elements, { x, y, z } = this; this.x = e[0] * x + e[4] * y + e[8] * z + e[12]; this.y = e[1] * x + e[5] * y + e[9] * z + e[13]; this.z = e[2] * x + e[6] * y + e[10] * z + e[14]; return this; } }
+  class M4 { constructor() { this.elements = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]; }
+    set(a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p) { this.elements = [a, e, i, m, b, f, j, n, c, g, k, o, d, h, l, p]; return this; } }
+  class Q { constructor(x = 0, y = 0, z = 0, w = 1) { Object.assign(this, { x, y, z, w }); } clone() { return new Q(this.x, this.y, this.z, this.w); } copy(q) { Object.assign(this, { x: q.x, y: q.y, z: q.z, w: q.w }); return this; }
+    setFromAxisAngle(a, t) { const s = Math.sin(t / 2); return this.copy({ x: a.x * s, y: a.y * s, z: a.z * s, w: Math.cos(t / 2) }); }
+    multiply(q) { const { x, y, z, w } = this; return this.copy({ x: w * q.x + x * q.w + y * q.z - z * q.y, y: w * q.y - x * q.z + y * q.w + z * q.x, z: w * q.z + x * q.y - y * q.x + z * q.w, w: w * q.w - x * q.x - y * q.y - z * q.z }); }
+    setFromRotationMatrix(m) { const e = m.elements, [m11, m12, m13, m21, m22, m23, m31, m32, m33] = [e[0], e[4], e[8], e[1], e[5], e[9], e[2], e[6], e[10]], tr = m11 + m22 + m33;
+      if (tr > 0) { const s = 0.5 / Math.sqrt(tr + 1); return this.copy({ w: 0.25 / s, x: (m32 - m23) * s, y: (m13 - m31) * s, z: (m21 - m12) * s }); }
+      if (m11 > m22 && m11 > m33) { const s = 2 * Math.sqrt(1 + m11 - m22 - m33); return this.copy({ w: (m32 - m23) / s, x: 0.25 * s, y: (m12 + m21) / s, z: (m13 + m31) / s }); }
+      if (m22 > m33) { const s = 2 * Math.sqrt(1 + m22 - m11 - m33); return this.copy({ w: (m13 - m31) / s, x: (m12 + m21) / s, y: 0.25 * s, z: (m23 + m32) / s }); }
+      const s = 2 * Math.sqrt(1 + m33 - m11 - m22); return this.copy({ w: (m21 - m12) / s, x: (m13 + m31) / s, y: (m23 + m32) / s, z: 0.25 * s }); } }
+  const up = (q) => ({ x: 2 * (q.x * q.y - q.w * q.z), y: 1 - 2 * (q.x * q.x + q.z * q.z), z: 2 * (q.y * q.z + q.w * q.x) }); // where the player's head points
+  const glb = fs.readFileSync(new URL('../assets/board-game-island/props.glb', import.meta.url));
+  const jl = glb.readUInt32LE(12), J = JSON.parse(glb.subarray(20, 20 + jl).toString()), bin = 20 + jl + 8;
+  const positions = (acc) => { const a = J.accessors[acc], bv = J.bufferViews[a.bufferView], o = bin + (bv.byteOffset || 0) + (a.byteOffset || 0);
+    return Float32Array.from({ length: a.count * 3 }, (_, i) => glb.readFloatLE(o + 4 * i)); };
+  for (const color of ['blue', 'red']) {
+    const model = color === 'blue' ? 'm001_30' : 'm001_31', mesh = J.meshes[J.nodes.find((n) => n.name === model && n.mesh !== undefined).mesh];
+    const meshes = mesh.primitives.map((p) => { const arr = positions(p.attributes.POSITION), mk = () => ({ attributes: { position: { count: arr.length / 3, array: Float32Array.from(arr) } }, clone: mk });
+      return { isMesh: true, material: { name: J.materials[p.material].name }, geometry: mk() }; });
+    const rig = rigStatue({ traverse: (fn) => meshes.forEach(fn) }, STATUES, model);
+    assert.ok(rig, `${color}: the statue rigs`);
+    // placed like the map does: 10.4 behind its space, turned to face it, at map scale
+    const at = { x: 12, y: 5, z: -30 }, yaw = 0.6, S = 0.016, c = Math.cos(yaw), s = Math.sin(yaw);
+    rig.mesh.matrixWorld = new M4().set(c * S, 0, s * S, at.x, 0, S, 0, at.y, -s * S, 0, c * S, at.z, 0, 0, 0, 1);
+    rig.mesh.updateWorldMatrix = () => {}; rig.mesh.getWorldQuaternion = (q) => q.setFromAxisAngle({ x: 0, y: 1, z: 0 }, yaw);
+    const A = { x: at.x + s * 10.4, y: at.y, z: at.z + c * 10.4 }, B = { x: 30, y: 3, z: 40 };
+    const shots = [], eyes = { material: { color: { v: 1, setScalar(v) { this.v = v; } } }, userData: {} }, st = { rig, eyes }, pawn = { x: A.x, y: A.y, z: A.z };
+    const fake = { T: { Vector3: V3, Quaternion: Q, Matrix4: M4 }, place() {}, setCounter() {}, statueEyes: BoardScene.prototype.statueEyes,
+      set camHold(v) { if (v && this.snapCamera) { shots.push(v); this.snapCamera = false; } this._h = v; }, get camHold() { return this._h; } };
+    const anim = BoardScene.prototype.statueThrowAnim.call(fake, { statue: color, dur: 13000 }, pawn, st, A, B, null);
+    const TL = statueTimeline(color, 13000), at_ = (ms) => { anim.step(ms / 13000); return { ...pawn, fx: pawn.fx && { ...pawn.fx } }; };
+    const d2 = (p, q) => Math.hypot(p.x - q.x, p.z - q.z);
+    const p0 = at_(0); assert.ok(d2(p0, A) < 0.01 && Math.abs(p0.y - A.y) < 0.01, `${color}: starts on the space`);
+    assert.ok(eyes.material.color.v < 0.3, `${color}: asleep at first`);
+    at_(TL.lightUp + 50); assert.ok(eyes.material.color.v > 0.95, `${color}: eyes lit once it has woken`);
+    if (color === 'blue') {
+      const mid = at_(TL.hop[0] - 50); assert.ok(d2(mid, A) < 0.01, 'blue: waits on the space while the hands come round');
+      const on = at_(TL.lift - 30), hands = { x: at.x + s * 450 * S, y: at.y + 100 * S, z: at.z + c * 450 * S };
+      assert.ok(d2(on, hands) < 0.05 && Math.abs(on.y - hands.y) < 0.05, `blue: hopped onto the flat hands (${d2(on, hands).toFixed(2)} off)`);
+      const dip = at_(TL.lift + 57 / 60 * 1000); assert.ok(dip.y < on.y - 0.5 && dip.fx.quat, 'blue: rides the hands down, turned with them');
+    } else {
+      const grab = at_(TL.grab + 200); assert.ok(d2(grab, A) < 0.05, 'red: grabbed where it stands');
+      const over = at_(312 / 60 * 1000), axis = d2(over, at);
+      assert.ok(over.y > at.y + 7 && axis < 2.5, `red: lifted right over the statue's head (${(over.y - at.y).toFixed(1)} up, ${axis.toFixed(1)} off its middle)`);
+      const behind = at_(336 / 60 * 1000), toA = { x: A.x - at.x, z: A.z - at.z };
+      assert.ok((behind.x - at.x) * toA.x + (behind.z - at.z) * toA.z < -50, 'red: and down behind it');
+      assert.ok(up(behind.fx.quat).y < -0.5, 'red: upside down over its back, turned with the hands');
+    }
+    const go = at_(TL.release - 1); assert.ok(go.y > at.y + 4, `${color}: let go high above the statue (${(go.y - at.y).toFixed(1)})`);
+    const fly = at_((TL.release + TL.land) / 2); assert.ok(fly.y > go.y + 20, `${color}: high over the island`);
+    assert.ok(rig.clip !== null, `${color}: the statue still holds its pose while the player is in the air`);
+    at_(TL.land + 100); assert.equal(rig.clip, null, `${color}: asleep again once the camera is over the platform`); assert.ok(eyes.material.color.v < 0.3);
+    const end = at_(13000); assert.ok(d2(end, B) < 0.01 && pawn.fx === null, `${color}: walks off onto the space`);
+    const names = shots.map((h) => (h === shots[0] ? 'wide' : h.y > A.y + 40 ? 'sky' : 'other'));
+    assert.ok(names[0] === 'wide' && names.includes('sky') && shots.length === 4, `${color}: wide, by the statue, sky, platform (${shots.length} cuts)`);
+    anim.cleanup(); assert.equal(rig.clip, null); assert.equal(fake.camHold, null);
+  }
 }
 
 console.log('board scene smoke tests passed');

@@ -351,6 +351,26 @@ The hand-built island is gone. The game now runs on the converted Wii Party map 
   sinks away. The game's "broken" message did not say who broke it, so the scene had no player to animate and
   only waited, then hid the wall.
 
+## Build 69
+
+- The throwing statues now play the game's own animations instead of the hands flying up and tumbling.
+  `tools/extract_statues.py` reads the statue models (m001_30 blue, m001_31 red) from the game's map.brres and their
+  motions (files/mr001/map/motion/m001_30_1, m001_30_2, m001_31_1) into `js15/world/statueData.js`: which bone each
+  vertex of the map's statue mesh is on, and the bones' tracks and show/hide frames. `js15/world/statueRig.js` poses
+  the map's own statue meshes from them, 60 frames a second.
+- Both statues wake up as before: the body rattles, the side hands jiggle in place, and the eyes and gem light up.
+- Blue: its side hands swing round to the front and lie flat for the player, nodding all the while. The player hops
+  from the space onto the flat hands, and the nodding stops. A cut to the statue's side: the hands sink with the
+  player, then fling them up and over, and they fly across the island to the platform as before.
+- Red: it opens its mouth as its hands swing round and grab the player. A cut to the side: it shuts its mouth, lifts
+  the player over its head and down behind it, then swings them forward over its head and throws them across the
+  island. (The game's own data keeps the mouth open the whole time; here it shuts while lifting.)
+- The side shot sits on whichever side of the statue has lower ground, high enough to see over the ruins and platforms.
+- Fixed: a player the statue turned upside down stayed upside down in the air after being let go.
+- Viewer: the slow motion button has a third setting, very slow.
+- Tests: `tests/statues.test.js` (the data, the poses, the nodding, the mouth, the timing), and the throw itself and the
+  upright-after-letting-go check in `boardScene.smoke.test.js`.
+
 ## Build 68
 
 - The wooden signs have their pictures again: the arrow at the start, the blue 4, and the blue 3 at the volcano push.
