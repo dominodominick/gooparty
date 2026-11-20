@@ -351,6 +351,14 @@ The hand-built island is gone. The game now runs on the converted Wii Party map 
   sinks away. The game's "broken" message did not say who broke it, so the scene had no player to animate and
   only waited, then hid the wall.
 
+## Build 67
+
+- Red statue: back where the map puts it, over its own shadow by the track (it had been pushed 4.2 back).
+- The glints on the statues were two see-through glare cards in front of each statue's face (mr001m031/032); they are
+  no longer shown.
+- Both statues: the eyes and the gem stay dark until the hands wake up; they light up as the hands start to rattle
+  and go dark again once the hands are home (`statueEyes`). Each statue has its own eye material.
+
 ## Build 66
 
 - Spike ball chase: at the end the camera no longer rises and looks down into the pit. It holds still, out beyond the

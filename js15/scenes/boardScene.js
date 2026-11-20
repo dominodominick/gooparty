@@ -346,7 +346,7 @@ export class BoardScene {
     };
     statue('m001_30', H.iwao_b1, 26);
     statue('m001_30', H.iwao_b2, 28);
-    statue('m001_31', H.iwao_r1, 42, 4.2); // the red statue's hands reach further: set it back so they stop short of its space
+    statue('m001_31', H.iwao_r1, 42); // where the map puts it: over its own shadow, by the track
     // the rope bridge's planks
     for (const pl of BRIDGE_PLANKS) place('m001_22', pl, pl.yaw);
     // the clouds sit well away from the island, so they never come between the camera and the board
@@ -1078,7 +1078,22 @@ export class BoardScene {
       };
       out.hands = { L: piece(left), R: piece(right), space: m.parent };
     });
+    // the eyes and the gem (…_2) stay dark until the statue wakes; the two see-through glare cards in front of its face
+    // (mr001m031/032) are not shown
+    g.traverse((m) => {
+      if (!m.isMesh || !m.material) return;
+      const n = m.material.name || '';
+      if (/^mr001m03[12]$/.test(n)) m.visible = false;
+      if (/^mr001m0(30|48)_2$/.test(n)) { m.material = m.material.clone(); out.eyes = m; }
+    });
+    this.statueEyes(out, 0);
     return out;
+  }
+
+  /** How lit a statue's eyes and gem are: 0 dark (asleep) .. 1 glowing. */
+  statueEyes(st, k) {
+    if (!st || !st.eyes || !st.eyes.material.color) return;
+    st.eyes.material.color.setScalar(0.22 + 0.78 * clamp01(k)); st.eyes.userData.lit = k;
   }
 
   /**
@@ -1124,7 +1139,8 @@ export class BoardScene {
       if (u < LAUNCH + 0.12) { const f = ease01((u - LAUNCH) / 0.12); return { p: arc(flung, rest, f, 80), rx: flat * 0.6 * (1 - f), rz: 0 }; }
       return { p: { ...rest }, rx: 0, rz: 0 };
     };
-    const placeHands = (u) => { for (const k of [-1, 1]) { const h = k < 0 ? H.L : H.R, q = handAt(u, k); h.g.position.set(q.p.x, q.p.y, q.p.z); h.g.rotation.set(q.rx, 0, q.rz); } };
+    const eyesAt = (u) => (u < WAKE ? u / WAKE : u < LAUNCH + 0.12 ? 1 : 1 - clamp01((u - LAUNCH - 0.12) / 0.05)); // light up as the hands wake, go dark once they are home
+    const placeHands = (u) => { this.statueEyes(st, eyesAt(u)); for (const k of [-1, 1]) { const h = k < 0 ? H.L : H.R, q = handAt(u, k); h.g.position.set(q.p.x, q.p.y, q.p.z); h.g.rotation.set(q.rx, 0, q.rz); } };
     const riding = (u) => { // the player on (blue) or between (red) the hands, in local units
       const l = handAt(u, -1).p, r = handAt(u, 1).p, m = { x: (l.x + r.x) / 2, y: (l.y + r.y) / 2, z: (l.z + r.z) / 2 };
       return red ? { ...m, y: m.y - hh / 2 - 4 } : { ...m, y: m.y + 34 };
@@ -1177,7 +1193,7 @@ export class BoardScene {
       else if (u < FLY1 - 0.03) cut('sky', { ...sky, tx: pawn.x, ty: pawn.y, tz: pawn.z });
       else cut('platform', { ...over, tx: pawn.x, ty: pawn.y + 1, tz: pawn.z });
     };
-    out.cleanup = () => { placeHands(1); this.camHold = null; this.snapCamera = true; };
+    out.cleanup = () => { placeHands(1); this.statueEyes(st, 0); this.camHold = null; this.snapCamera = true; };
     return out;
   }
 

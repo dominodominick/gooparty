@@ -883,5 +883,20 @@ for (const type of ['plus5', 'minus4', 'ufo', 'tornado', 'skull', 'volcano', 'mg
   sc.exit();
 }
 
+// the throwing statues: the glare cards in front of the face are hidden, and the eyes and gem stay dark until it wakes
+{
+  const sc = new BoardScene();
+  const color = () => ({ v: 1, setScalar(x) { this.v = x; } });
+  const mat = (name) => ({ name, color: color(), clone() { return { name, color: color(), clone: this.clone }; } });
+  const meshes = ['mr001m048', 'mr001m048_2', 'mr001m031', 'mr001m032'].map((n) => ({ isMesh: true, visible: true, material: mat(n), geometry: { index: null }, userData: {} }));
+  const g = { traverse: (fn) => meshes.forEach(fn) };
+  const shared = meshes[1].material;
+  const st = sc.splitStatueHands(g);
+  assert.equal(meshes[2].visible, false); assert.equal(meshes[3].visible, false, 'no glare cards');
+  assert.ok(st.eyes === meshes[1] && meshes[1].material !== shared, 'its own eye material (the two blue statues share the model)');
+  assert.ok(st.eyes.material.color.v < 0.3, 'eyes and gem dark while it sleeps');
+  sc.statueEyes(st, 1); assert.equal(st.eyes.material.color.v, 1, 'lit once it wakes');
+}
+
 console.log('board scene smoke tests passed');
 process.exit(0);
