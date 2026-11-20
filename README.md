@@ -351,6 +351,14 @@ The hand-built island is gone. The game now runs on the converted Wii Party map 
   sinks away. The game's "broken" message did not say who broke it, so the scene had no player to animate and
   only waited, then hid the wall.
 
+## Build 76
+
+- The players are scaled to match the Wii game: a Mii stands a little under two-thirds of a space-to-space step tall
+  (`PAWN_SCALE` = 0.8 in `js15/world/miis.js`, so 2.7 world units head to toe, from 3.35). The player numbers above
+  them keep their size, and the vine grip follows the new height.
+- Viewer: a page can be opened that plays one set piece over and over (`window.__VIEW_AT = 'play-<name>'`), or every
+  set piece in turn (`'play-all'`), with its name in the corner, for checking them all by eye.
+
 ## Build 75
 
 - A player standing on a spot past a challenge (past the volcano-or-not pit, or on the crates' far bank) is just

@@ -9,6 +9,9 @@ export const HAIR = [
   { c: '#a0442a', style: 'bun' }, { c: '#2a2a35', style: 'long' }, { c: '#8d8d96', style: 'short' },
 ];
 export const MII_HEIGHT = 3.35;
+// How big the players stand on the board: matched to the Wii game, where a Mii is a little under two-thirds of the way
+// from one space's centre to the next, head to toe (MII_HEIGHT x PAWN_SCALE = 2.7 world units; spaces ~4.3 apart).
+export const PAWN_SCALE = 0.8;
 export const MII_NECK = 1.85; // head pivot height
 
 export const LEG_PIVOT = { x: 0.27, y: 0.9, z: 0 };   // hips (x is mirrored)

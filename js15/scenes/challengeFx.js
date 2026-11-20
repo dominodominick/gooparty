@@ -2,6 +2,7 @@
 // on the waterfall pool, and the spiked boulder. Also every "long step" of the route (rope bridge, cave tunnel, temple
 // stairs), which is walked through the map's own waypoints.
 // The props (vine, guardian, crates, barrels, boulder) are the map's own models; they arrive with attach(board).
+import { PAWN_SCALE } from '../world/miis.js';
 import { ISLAND, gapBetween } from '../game/boardData.js';
 const islandTypeAt = (i) => ISLAND[i] && ISLAND[i].type;
 import { DUR, SPIKE_START, SPIKE_MIN } from '../game/boardGame.js';
@@ -57,7 +58,7 @@ export function challengeSpecs(W = islandWorld()) {
   const L = pivot.y - (near.y + far.y) / 2;   // the vine reaches down to the level of the two banks
   const swing = { g: gap('swing'), near, far, pivot, u, L, riverY: H.river.y };
   swing.tip = (th) => ({ x: pivot.x + u.x * Math.sin(th) * L, y: pivot.y - Math.cos(th) * L, z: pivot.z + u.z * Math.sin(th) * L });
-  swing.hang = (th) => { const t = swing.tip(th); return { x: t.x, y: t.y - 3.9, z: t.z }; }; // the pawn's feet when its hands hold the end
+  swing.hang = (th) => { const t = swing.tip(th); return { x: t.x, y: t.y - 3.9 * PAWN_SCALE, z: t.z }; }; // the pawn's feet when its hands hold the end
   // ---- the dragon wall: the challenger stands on the star, facing the dragon
   const wall = { g: gap('wall'), at: H.enemy, stand: H.star1 };
   wall.yaw = Math.atan2(wall.stand.x - wall.at.x, wall.stand.z - wall.at.z);

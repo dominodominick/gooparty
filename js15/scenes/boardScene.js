@@ -3,7 +3,7 @@ import { PLAYER_COLORS, VIRTUAL, BUILD } from '../config.js';
 import { ISLAND, VOLCANO, LABELS, TILE_COLORS, isChallenge, EXIT_POS } from '../game/boardData.js';
 import { islandPositions, volcanoPositions, legVia, islandWorld, VOLCANO_CENTER, VOLCANO_OFFSET, BRIDGE_PLANKS, SPACE_IDS, stopOfSpace, terrainHeight, nearestPath } from '../game/boardLayout.js';
 import { builderMesh } from '../world/worldBuild.js';
-import { buildMii, HAIR, SKINS, MII_NECK, LEG_PIVOT, ARM_PIVOT } from '../world/miis.js';
+import { buildMii, HAIR, SKINS, MII_NECK, LEG_PIVOT, ARM_PIVOT, PAWN_SCALE } from '../world/miis.js';
 import { tileCanvas } from '../world/tileArt.js';
 import { ChallengeFX } from './challengeFx.js';
 import { spacesToGo, DROP } from '../game/boardGame.js';
@@ -155,8 +155,8 @@ function makePawn(T, slot) {
   g.userData.shadow = shadow;
   const tex = labelTexture(T, String(slot + 1), { bg: c.hex, fg: c.ink, border: '#16324f' });
   const sprite = new T.Sprite(new T.SpriteMaterial({ map: tex, depthTest: false }));
-  sprite.scale.set(1.8, 1.8, 1);
-  sprite.position.set(0, 4.7, 0);
+  sprite.scale.set(1.8 / PAWN_SCALE, 1.8 / PAWN_SCALE, 1); // (the player's number keeps its size; the pawn group is scaled)
+  sprite.position.set(0, 4.75, 0);
   g.add(sprite);
   g.userData.badge = sprite; // hidden while the dice are on screen so it never draws over them
   return g;
@@ -432,7 +432,7 @@ export class BoardScene {
 
   place(pawn) {
     pawn.group.position.set(pawn.x, pawn.y, pawn.z);
-    pawn.group.scale.set(pawn.scale, pawn.scale, pawn.scale);
+    pawn.group.scale.setScalar(pawn.scale * PAWN_SCALE);
   }
 
   /**
@@ -1442,7 +1442,7 @@ export class BoardScene {
       }
       pawn.group.rotation.x = pawn.fx && pawn.fx.tilt ? pawn.fx.tilt : 0;
       pawn.group.rotation.z = 0; // (only a statue's hands roll the pawn, through fx.quat below; nothing keeps that roll afterwards)
-      pawn.group.scale.set(pawn.scale, pawn.scale, pawn.scale);
+      pawn.group.scale.setScalar(pawn.scale * PAWN_SCALE);
       this.animateLimbs(pawn, dt);
 
       let target = pawn.faceYaw;

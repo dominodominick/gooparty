@@ -22,6 +22,8 @@ export class ViewerScene extends BoardScene {
     const want = (typeof window !== 'undefined' && window.__VIEW_AT) || ((typeof location !== 'undefined' && location.hash) || '').slice(1), slug = (t) => t.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
     const hit = want && this.places().find(([label]) => slug(label) === want);
     if (hit) this.lookAt(hit[1]);
+    // ... or play one of the set pieces over and over: #play-tornado-back-5, #play-red-statue-throw ...
+    this.loopDemo = want && want.startsWith('play-') ? want.slice(5) : null; this.loopWait = 4;
   }
 
   exit() {
@@ -126,6 +128,13 @@ export class ViewerScene extends BoardScene {
   syncIdle() { this.idle = true; }
 
   tickAnim(dt) {
+    if (this.loopDemo && !this.anim && !this.demo.length && this.board && this.pawns && this.pawns[0] && (this.loopWait -= dt) <= 0) {
+      const slug = (t) => t.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''), all = this.demos();
+      const d = this.loopDemo === 'all' ? all[(this.loopIdx = ((this.loopIdx ?? -1) + 1) % all.length)] : all.find(([n]) => slug(n) === this.loopDemo); // ('all': each in turn)
+      if (d) { d[1](); if (typeof document !== 'undefined' && document.body) { this.loopTag ||= Object.assign(document.createElement('div'), { style: 'position:fixed;left:8px;top:8px;z-index:99;background:#000a;color:#fff;font:bold 16px sans-serif;padding:4px 8px;border-radius:6px' }); this.loopTag.textContent = d[0]; if (!this.loopTag.parentNode) document.body.appendChild(this.loopTag); } }
+      else this.loopDemo = null;
+      this.loopWait = 2;
+    }
     if (!this.anim && this.demo.length) { this.anim = this.demo.shift()() || { t: 0, dur: 1 }; this.idle = false; }
     if (!this.anim) return;
     const a = this.anim; a.t += dt * 1000 * (this.slow || 1); // (slow motion: the viewer's own toggle)

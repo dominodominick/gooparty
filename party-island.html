@@ -325,7 +325,7 @@ __mods["js15/config.js"] = (() => {
 
 const GAME_TITLE = 'Party Island'; // placeholder name: pick your own
 
-const BUILD = '75'; // shown in the menu and in games; every player must have the same build
+const BUILD = '76'; // shown in the menu and in games; every player must have the same build
 
 const MAX_PLAYERS = 6;
 
@@ -2509,6 +2509,9 @@ const HAIR = [
   { c: '#a0442a', style: 'bun' }, { c: '#2a2a35', style: 'long' }, { c: '#8d8d96', style: 'short' },
 ];
 const MII_HEIGHT = 3.35;
+// How big the players stand on the board: matched to the Wii game, where a Mii is a little under two-thirds of the way
+// from one space's centre to the next, head to toe (MII_HEIGHT x PAWN_SCALE = 2.7 world units; spaces ~4.3 apart).
+const PAWN_SCALE = 0.8;
 const MII_NECK = 1.85; // head pivot height
 
 const LEG_PIVOT = { x: 0.27, y: 0.9, z: 0 };   // hips (x is mirrored)
@@ -2576,7 +2579,7 @@ function addMii(builder, o, look, rng) {
   builder.add(head, { ...o, y: (o.y || 0) + MII_NECK * s, ry });
 }
 
-return { SKINS, HAIR, MII_HEIGHT, MII_NECK, LEG_PIVOT, ARM_PIVOT, buildMii, addMii };
+return { SKINS, HAIR, MII_HEIGHT, PAWN_SCALE, MII_NECK, LEG_PIVOT, ARM_PIVOT, buildMii, addMii };
 })();
 __mods["js15/world/tileArt.js"] = (() => {
 // Canvas art for the board spaces and signs (rounded, glossy tiles with bold icons).
@@ -2830,6 +2833,7 @@ __mods["js15/scenes/challengeFx.js"] = (() => {
 // on the waterfall pool, and the spiked boulder. Also every "long step" of the route (rope bridge, cave tunnel, temple
 // stairs), which is walked through the map's own waypoints.
 // The props (vine, guardian, crates, barrels, boulder) are the map's own models; they arrive with attach(board).
+const { PAWN_SCALE } = __mods["js15/world/miis.js"];
 const { ISLAND, gapBetween } = __mods["js15/game/boardData.js"];
 const islandTypeAt = (i) => ISLAND[i] && ISLAND[i].type;
 const { DUR, SPIKE_START, SPIKE_MIN } = __mods["js15/game/boardGame.js"];
@@ -2885,7 +2889,7 @@ function challengeSpecs(W = islandWorld()) {
   const L = pivot.y - (near.y + far.y) / 2;   // the vine reaches down to the level of the two banks
   const swing = { g: gap('swing'), near, far, pivot, u, L, riverY: H.river.y };
   swing.tip = (th) => ({ x: pivot.x + u.x * Math.sin(th) * L, y: pivot.y - Math.cos(th) * L, z: pivot.z + u.z * Math.sin(th) * L });
-  swing.hang = (th) => { const t = swing.tip(th); return { x: t.x, y: t.y - 3.9, z: t.z }; }; // the pawn's feet when its hands hold the end
+  swing.hang = (th) => { const t = swing.tip(th); return { x: t.x, y: t.y - 3.9 * PAWN_SCALE, z: t.z }; }; // the pawn's feet when its hands hold the end
   // ---- the dragon wall: the challenger stands on the star, facing the dragon
   const wall = { g: gap('wall'), at: H.enemy, stand: H.star1 };
   wall.yaw = Math.atan2(wall.stand.x - wall.at.x, wall.stand.z - wall.at.z);
@@ -4283,7 +4287,7 @@ const { PLAYER_COLORS, VIRTUAL, BUILD } = __mods["js15/config.js"];
 const { ISLAND, VOLCANO, LABELS, TILE_COLORS, isChallenge, EXIT_POS } = __mods["js15/game/boardData.js"];
 const { islandPositions, volcanoPositions, legVia, islandWorld, VOLCANO_CENTER, VOLCANO_OFFSET, BRIDGE_PLANKS, SPACE_IDS, stopOfSpace, terrainHeight, nearestPath } = __mods["js15/game/boardLayout.js"];
 const { builderMesh } = __mods["js15/world/worldBuild.js"];
-const { buildMii, HAIR, SKINS, MII_NECK, LEG_PIVOT, ARM_PIVOT } = __mods["js15/world/miis.js"];
+const { buildMii, HAIR, SKINS, MII_NECK, LEG_PIVOT, ARM_PIVOT, PAWN_SCALE } = __mods["js15/world/miis.js"];
 const { tileCanvas } = __mods["js15/world/tileArt.js"];
 const { ChallengeFX } = __mods["js15/scenes/challengeFx.js"];
 const { spacesToGo, DROP } = __mods["js15/game/boardGame.js"];
@@ -4435,8 +4439,8 @@ function makePawn(T, slot) {
   g.userData.shadow = shadow;
   const tex = labelTexture(T, String(slot + 1), { bg: c.hex, fg: c.ink, border: '#16324f' });
   const sprite = new T.Sprite(new T.SpriteMaterial({ map: tex, depthTest: false }));
-  sprite.scale.set(1.8, 1.8, 1);
-  sprite.position.set(0, 4.7, 0);
+  sprite.scale.set(1.8 / PAWN_SCALE, 1.8 / PAWN_SCALE, 1); // (the player's number keeps its size; the pawn group is scaled)
+  sprite.position.set(0, 4.75, 0);
   g.add(sprite);
   g.userData.badge = sprite; // hidden while the dice are on screen so it never draws over them
   return g;
@@ -4712,7 +4716,7 @@ class BoardScene {
 
   place(pawn) {
     pawn.group.position.set(pawn.x, pawn.y, pawn.z);
-    pawn.group.scale.set(pawn.scale, pawn.scale, pawn.scale);
+    pawn.group.scale.setScalar(pawn.scale * PAWN_SCALE);
   }
 
   /**
@@ -5722,7 +5726,7 @@ class BoardScene {
       }
       pawn.group.rotation.x = pawn.fx && pawn.fx.tilt ? pawn.fx.tilt : 0;
       pawn.group.rotation.z = 0; // (only a statue's hands roll the pawn, through fx.quat below; nothing keeps that roll afterwards)
-      pawn.group.scale.set(pawn.scale, pawn.scale, pawn.scale);
+      pawn.group.scale.setScalar(pawn.scale * PAWN_SCALE);
       this.animateLimbs(pawn, dt);
 
       let target = pawn.faceYaw;
@@ -6240,6 +6244,8 @@ class ViewerScene extends BoardScene {
     const want = (typeof window !== 'undefined' && window.__VIEW_AT) || ((typeof location !== 'undefined' && location.hash) || '').slice(1), slug = (t) => t.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
     const hit = want && this.places().find(([label]) => slug(label) === want);
     if (hit) this.lookAt(hit[1]);
+    // ... or play one of the set pieces over and over: #play-tornado-back-5, #play-red-statue-throw ...
+    this.loopDemo = want && want.startsWith('play-') ? want.slice(5) : null; this.loopWait = 4;
   }
 
   exit() {
@@ -6344,6 +6350,13 @@ class ViewerScene extends BoardScene {
   syncIdle() { this.idle = true; }
 
   tickAnim(dt) {
+    if (this.loopDemo && !this.anim && !this.demo.length && this.board && this.pawns && this.pawns[0] && (this.loopWait -= dt) <= 0) {
+      const slug = (t) => t.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''), all = this.demos();
+      const d = this.loopDemo === 'all' ? all[(this.loopIdx = ((this.loopIdx ?? -1) + 1) % all.length)] : all.find(([n]) => slug(n) === this.loopDemo); // ('all': each in turn)
+      if (d) { d[1](); if (typeof document !== 'undefined' && document.body) { this.loopTag ||= Object.assign(document.createElement('div'), { style: 'position:fixed;left:8px;top:8px;z-index:99;background:#000a;color:#fff;font:bold 16px sans-serif;padding:4px 8px;border-radius:6px' }); this.loopTag.textContent = d[0]; if (!this.loopTag.parentNode) document.body.appendChild(this.loopTag); } }
+      else this.loopDemo = null;
+      this.loopWait = 2;
+    }
     if (!this.anim && this.demo.length) { this.anim = this.demo.shift()() || { t: 0, dur: 1 }; this.idle = false; }
     if (!this.anim) return;
     const a = this.anim; a.t += dt * 1000 * (this.slow || 1); // (slow motion: the viewer's own toggle)
