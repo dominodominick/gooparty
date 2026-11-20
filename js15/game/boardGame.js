@@ -42,6 +42,7 @@ export const DUR = {
   spikeCount: 2600, // then the camera pans to the number beside the statue and it fades to the next one down
   swim: 3000,    // a crate breaks and the player swims across
   statueThrow: 13000, // a statue's hands wake up, it throws the player high over the island, they walk off its platform
+  tornado: 7000, // the tornado forms round the player, carries them back along the path, dies away and drops them
   ufo: 2600,     // one beam-up or drop-off of the UFO swap (there are four)
   spring: 2400,  // a big spring pops up and bounces the player forward or back in one jump
 };
@@ -436,8 +437,10 @@ export class BoardGame {
       const v = rollDie(this.rng, 0), n = 4 + (v - 1) % 3; // the red die shows 4, 5, 6, 4, 5, 6
       events.push({ t: 'diceStop', slot, dice: [{ v, kind: 'tornado' }], total: n, doubles: false, wheel: { target: victim }, dur: DUR.diceStop });
       events.push(note(slot, `{${victim}} is swept back ${n} spaces!`));
-      const vp = this.positions[victim], eff = Math.min(n, vp.idx);
-      this._moveTo(victim, walkBack(vp, n), 'fly', events, BACK(eff), victim !== slot);
+      const vp = this.positions[victim], eff = Math.min(n, vp.idx), from = events.length;
+      this._moveTo(victim, walkBack(vp, n), 'fly', events, BACK(eff), true);
+      const ev = events.slice(from).find((e) => e.t === 'move' && e.slot === victim && e.mode === 'fly');
+      if (ev) { ev.tornado = true; ev.dur = DUR.tornado; } // the game's tornado carries them back along the path
     } else {
       events.push({ t: 'diceStop', slot, dice: [], total: 0, doubles: false, wheel: { target: victim }, dur: DUR.diceStop });
       const a = { ...this.positions[slot] }, b = { ...this.positions[victim] };
@@ -646,7 +649,8 @@ export class BoardGame {
       case 'skull': say('Skull! Down into the volcano...'); this._intoVolcano(slot, pos, events); break; // they come back out on this skull
       case 'shout': say('Shout! Back to the island!'); this._outOfVolcano(slot, events); break;
       case 'tornado': { // wiki: a player die and a -4/-5/-6 die. Nobody in the volcano or on the start space is touched.
-        const pool = this.players.filter((s) => onIsland(s) && this.positions[s].idx > 0);
+        const pool = this.players.filter((s) => s !== slot && onIsland(s) && this.positions[s].idx > 0); // never yourself
+        if (!pool.length) { say('Tornado! Nobody to blow back.'); break; }
         say('Tornado!');
         this.step = { kind: 'wheel', purpose: 'tornado', pool };
         return true; // the player stops the wheel and the die

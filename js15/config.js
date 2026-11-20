@@ -2,7 +2,7 @@
 
 export const GAME_TITLE = 'Party Island'; // placeholder name: pick your own
 
-export const BUILD = '69'; // shown in the menu and in games; every player must have the same build
+export const BUILD = '70'; // shown in the menu and in games; every player must have the same build
 
 export const MAX_PLAYERS = 6;
 

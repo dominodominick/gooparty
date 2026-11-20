@@ -559,6 +559,16 @@ function ISLAND_IDX(type, nth) { return nth; }
   sc.clearDice();
   sc.onTurn({ events: [{ t: 'diceStart', slot: 0, dice: [], label: 'UFO!', dur: 0, wheel: { purpose: 'ufo', slots: [1, 2] } }] }); run();
   assert.ok(sc.wheel && sc.dice.length === 0 && sc.diceGroup.visible === false && sc.diceGroup.position.x === 0);
+  { // Stop on the UFO wheel: it stays on screen and slows onto the chosen player (it used to vanish with the dice it doesn't have)
+    const w = sc.wheel;
+    sc.onTurn({ events: [{ t: 'diceStop', slot: 0, dice: [], total: 0, doubles: false, wheel: { target: 2 }, dur: 3600 }] });
+    sc.update(1 / 60);
+    for (let i = 0; i < 20000 && sc.anim && sc.anim.t / sc.anim.dur < 0.85; i++) sc.update(1 / 60);
+    assert.ok(sc.wheel === w && w.landing, 'the UFO wheel is still showing after Stop');
+    const ang = ((-w.theta % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
+    assert.equal(Math.floor(ang / Math.PI), 1, 'and lands on the chosen player');
+    assert.equal(els['#wheel'] ? els['#wheel'].hidden : false, false);
+  }
   sc.exit();
 }
 
@@ -569,7 +579,7 @@ assert.ok(DUR.fly >= 2400 && DUR.drop >= 1800);
 {
   const R128 = new Set(['Mesh', 'MeshLambertMaterial', 'MeshBasicMaterial', 'Group', 'BufferAttribute', 'BufferGeometry', 'CanvasTexture', 'PlaneGeometry',
     'PointLight', 'HemisphereLight', 'DirectionalLight', 'Fog', 'Color', 'Scene', 'PerspectiveCamera', 'WebGLRenderer', 'Sprite', 'SpriteMaterial',
-    'SphereGeometry', 'CircleGeometry', 'BoxGeometry', 'CylinderGeometry', 'TubeGeometry', 'CatmullRomCurve3', 'Raycaster', 'AdditiveBlending', 'ConeGeometry', 'Quaternion', 'Euler', 'Vector3', 'Matrix4', 'DoubleSide', 'REVISION', 'SRGBColorSpace']);
+    'SphereGeometry', 'CircleGeometry', 'BoxGeometry', 'CylinderGeometry', 'TubeGeometry', 'CatmullRomCurve3', 'Raycaster', 'AdditiveBlending', 'ConeGeometry', 'Quaternion', 'Euler', 'Vector3', 'Matrix4', 'TextureLoader', 'RepeatWrapping', 'DoubleSide', 'REVISION', 'SRGBColorSpace']);
   const odd = [...usedThree].filter((n) => !R128.has(n));
   assert.deepEqual(odd, [], `unknown THREE names: ${odd.join(', ')}`);
   const bg = new BoardGame({ slots: [0, 1, 2], rng: mulberry32(5), isNpc: () => true });
@@ -911,6 +921,19 @@ for (const type of ['plus5', 'minus4', 'ufo', 'tornado', 'skull', 'volcano', 'mg
   p.fx = { x: p.x, y: p.y + 30, z: p.z, yaw: 1, tilt: 0.3 }; sc.updatePawnPose(1 / 60);
   assert.equal(p.group.rotation.z, 0, 'flying free: no roll left from the hands');
   sc.exit();
+}
+
+// the tornado: forms round the picked player, carries them back along the path riding near its top, and drops them on the space
+{
+  const added = [], fake = { T: THREE, board: { scale: 0.016 }, scene3d: { add(o) { added.push(o); } }, place() {}, setCounter() {} };
+  const pts = [{ x: 0, y: 5, z: 0 }, { x: 4, y: 5, z: 0 }, { x: 8, y: 6, z: 3 }, { x: 12, y: 6, z: 3 }], pawn = { x: 0, y: 5, z: 0 };
+  const a = BoardScene.prototype.tornadoAnim.call(fake, { dur: 7000, tornado: true }, pawn, pts, null);
+  assert.equal(added.length, 1, 'the tornado is added to the scene once');
+  a.step(0.01); assert.ok(Math.hypot(pawn.x, pawn.z) < 1, 'it forms where the player stands');
+  a.step(0.27); assert.ok(pawn.y > 5 + 2 && Math.hypot(pawn.x, pawn.z) < 1, `and lifts them up inside it (${(pawn.y - 5).toFixed(1)})`);
+  a.step(0.55); assert.ok(pawn.x > 3 && pawn.x < 11 && pawn.y > 6 && pawn.fx && pawn.fx.groundY >= 5, 'carried back along the path, up in the tornado');
+  a.step(1); assert.ok(Math.hypot(pawn.x - 12, pawn.z - 3) < 0.01 && Math.abs(pawn.y - 6) < 0.01 && pawn.fx === null, 'dropped on the space, standing');
+  a.cleanup();
 }
 
 // the statue throws, played on the map's own statue meshes with the game's animations (a small stand-in for three's maths)

@@ -351,6 +351,22 @@ The hand-built island is gone. The game now runs on the converted Wii Party map 
   sinks away. The game's "broken" message did not say who broke it, so the scene had no player to animate and
   only waited, then hid the wall.
 
+## Build 70
+
+- UFO space: pressing Stop no longer makes the wheel vanish. It stays and slows onto the player you swap with. (It was
+  cleared away together with the dice, and the UFO has no dice.)
+- Tornado space: the wheel never has the player who landed there on it, so you can't blow yourself back. With nobody
+  else on the island to pick, nothing happens.
+- The tornado is now the game's own: `tools/extract_tornado.py` reads the model and its textures
+  (files/mr001/option/op001_tornado.brres) and its three animations (forms, spins, dies away) into
+  `js15/world/tornadoData.js`; `js15/world/tornado.js` builds and plays it, with its scrolling streaks and fading layers.
+  It forms round the picked player and lifts them up, carries them back along the path riding its top, dies away on
+  the space and drops them there. (Its layers are drawn stronger than the game's raw alpha values, which come out as
+  a faint wisp with ordinary blending.)
+- Viewer: a "Tornado (back 5)" demo.
+- Tests: `tests/tornado.test.js`; the wheel, the tornado pool and the carry in `board.test.js` and
+  `boardScene.smoke.test.js`.
+
 ## Build 69
 
 - The throwing statues now play the game's own animations instead of the hands flying up and tumbling.

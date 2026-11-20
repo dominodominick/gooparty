@@ -12,6 +12,8 @@ import { drawPointer } from '../draw.js';
 import { DUEL_CARD, duelCardCenter, duelCardAt } from '../game/duelLayout.js';
 import { rigStatue, statueTimeline, STATUE_DUR } from '../world/statueRig.js';
 import { STATUES } from '../world/statueData.js';
+import { makeTornado, TORNADO_FPS } from '../world/tornado.js';
+import { TORNADO } from '../world/tornadoData.js';
 
 // The 3D board. Everything the host decides arrives as "events" (roll, move, space, win...)
 // and this scene just plays them back. It never decides anything itself.
@@ -75,7 +77,8 @@ const STATUE_PLATFORMS = {
 };
 const hop = (a, b, t, h) => ({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t + Math.sin(Math.PI * t) * h, z: a.z + (b.z - a.z) * t });
 const lerp3v = (a, b, t) => ({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t, z: a.z + (b.z - a.z) * t });
-const SPRING_H = 2.4; // how tall the spring stands when fully out
+const SPRING_H = 2.4;
+const TORNADO_SIZE = 2; // the game's tornado, twice the map's own scale: a funnel well taller than the player riding its top // how tall the spring stands when fully out
 const ease01 = (t) => { t = Math.min(1, Math.max(0, t)); return t * t * (3 - 2 * t); };
 const LAVA_TYPES = new Set(['blank', 'start', 'volcano', 'vine', 'dragon', 'crates', 'volcanoOrNot', 'spike', 'final', 'finish']); // same list as the host's LAVA_SAFE
 const clamp01 = (v) => Math.min(1, Math.max(0, v));
@@ -739,7 +742,8 @@ export class BoardScene {
     this.control = null; this.stopSent = false;
     this.clearBanner();
     this.refreshHud(); // the Stop button and "Press Stop" go as soon as the dice land, however the roll was stopped
-    if (!this.dice.length) this.startSpinning(ev.dice.map((d) => ({ kind: d.kind, tier: d.tier })));
+    // (no dice spinning: build them now. The UFO has only its wheel: building none would clear the wheel away with them)
+    if (!this.dice.length && ev.dice.length) this.startSpinning(ev.dice.map((d) => ({ kind: d.kind, tier: d.tier })));
     const n = this.dice.length, off = Math.max(0, n - ev.dice.length); // doubles: only the newest die lands now
     ev.dice.forEach((d, i) => {
       const die = this.dice[off + i], e = FACE_EULER[d.v];
@@ -927,6 +931,8 @@ export class BoardScene {
         if (count) this.setCounter(count, f < 1 ? count.total : 0);
         this.place(pawn);
       };
+    } else if (ev.mode === 'fly' && ev.tornado && this.board && pawn.track === 'island') {
+      Object.assign(a, this.tornadoAnim(ev, pawn, pts, count));
     } else if (ev.mode === 'fly' && ev.statue && this.statues && this.statues[pawn.idx] && this.statues[pawn.idx].rig) {
       Object.assign(a, this.statueThrowAnim(ev, pawn, this.statues[pawn.idx], A, B, count));
     } else if (ev.mode === 'fly') {
@@ -1050,6 +1056,52 @@ export class BoardScene {
     this.hemi.intensity = (cave ? 0.75 : 1.0) * LK; this.hemi.color.set(cave ? 0xffb08a : 0xffffff); this.hemi.groundColor.set(cave ? 0x6a2a1a : 0x9aa890);
     this.sun.intensity = (cave ? 0.2 : 0.7) * LK;
     this.showArea(track);
+  }
+
+  /**
+   * The tornado space: the game's own tornado (world/tornado.js) forms round the player who was picked and lifts them
+   * up, carries them back along the path spinning, dies away on the space they are blown back to, and drops them there.
+   */
+  tornadoAnim(ev, pawn, pts, count) {
+    const T = this.T, D = TORNADO, dur = ev.dur || 7000, k = dur / 7000, frameMs = 1000 / TORNADO_FPS * k;
+    if (!this.tornado) { this.tornado = makeTornado(T, D); this.scene3d.add(this.tornado.group); }
+    const tor = this.tornado, g = tor.group, S = this.board.scale * TORNADO_SIZE;
+    g.scale.setScalar(S); g.visible = false;
+    const tForm = (D.clips.form.frames - 1) * frameMs, tFade = (D.clips.fade.frames - 1) * frameMs, tDrop = 450 * k;
+    const tTravel = Math.max(500, dur - tForm - tFade - tDrop), t1 = tForm, t2 = t1 + tTravel, t3 = t2 + tFade;
+    // the way back along the path, by distance
+    const seg = [0]; for (let i = 1; i < pts.length; i++) seg.push(seg[i - 1] + Math.hypot(pts[i].x - pts[i - 1].x, pts[i].z - pts[i - 1].z));
+    const L = seg[seg.length - 1] || 1, A = pts[0], B = pts[pts.length - 1];
+    const along = (s) => { // the point that far along the path
+      let i = 1; while (i < seg.length - 1 && seg[i] < s) i++;
+      const a = pts[i - 1], b = pts[Math.min(i, pts.length - 1)], f = seg[i] > seg[i - 1] ? clamp01((s - seg[i - 1]) / (seg[i] - seg[i - 1])) : 1;
+      return { x: a.x + (b.x - a.x) * f, y: a.y + (b.y - a.y) * f, z: a.z + (b.z - a.z) * f };
+    };
+    const out = { fast: true };
+    if (count) this.setCounter(count, count.total);
+    let lastY = A.y;
+    out.step = (u) => {
+      const t = u * dur;
+      let at, clip, f;
+      if (t < t1) { at = A; clip = 'form'; f = t / frameMs; }
+      else if (t < t2) { const e = ease01((t - t1) / tTravel); at = along(e * L); clip = 'spin'; f = ((t - t1) / frameMs) % (D.clips.spin.frames - 1);
+        if (count) this.setCounter(count, Math.round(count.total * (1 - e))); }
+      else { at = B; clip = 'fade'; f = Math.min(D.clips.fade.frames - 1, (t - t2) / frameMs); if (count) this.setCounter(count, 0); }
+      g.visible = t < t3; g.position.set(at.x, at.y, at.z);
+      if (g.visible) tor.pose(clip, f);
+      // the player rides the tornado's hook, spinning with it; once it has gone they drop onto the space
+      const h = tor.hook(t < t3 ? clip : 'fade', t < t3 ? f : D.clips.fade.frames - 1);
+      const lift = t < t1 ? clamp01(t / (tForm * 0.5)) : 1; // (lifted off the ground as it forms)
+      let x = at.x + h.x * S, y = at.y + h.y * S * lift, z = at.z + h.z * S;
+      const spinYaw = Math.atan2(h.x, h.z) + Math.PI / 2;
+      if (t >= t3) { const d = clamp01((t - t3) / tDrop); x = B.x; z = B.z; y = lastY + (B.y - lastY) * d * d; }
+      else lastY = y;
+      pawn.x = x; pawn.y = y; pawn.z = z;
+      pawn.fx = t >= t3 && y <= B.y + 0.01 ? null : { x, y, z, yaw: spinYaw, arms: [-2.6, -2.6], legs: [0.5, -0.4], tilt: t < t3 ? 0.25 : 0, groundY: at.y };
+      this.place(pawn);
+    };
+    out.cleanup = () => { g.visible = false; };
+    return out;
   }
 
   /**

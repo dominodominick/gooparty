@@ -352,19 +352,19 @@ for (let i = 1; i < V.length; i++) {
     bg.positions[0] = I(t); bg.positions[1] = I(t - 2); bg.positions[2] = { track: 'volcano', idx: 3 }; bg.positions[3] = I(0);
     const { r } = evs(bg, 0, t);
     assert.equal(r, true, 'the player has to stop the wheel first');
-    assert.equal(bg.step.kind, 'wheel'); assert.deepEqual(bg.step.pool, [0, 1], 'volcano and start-space players are not on the wheel');
+    assert.equal(bg.step.kind, 'wheel'); assert.deepEqual(bg.step.pool, [1], 'not the roller (you cannot blow yourself back); volcano and start-space players are not on the wheel');
     bg.phase = 'rolling';
     const ctl = bg._control();
-    assert.deepEqual(ctl.wheel, { purpose: 'tornado', slots: [0, 1] }); assert.deepEqual(ctl.dice, [{ kind: 'tornado' }]);
+    assert.deepEqual(ctl.wheel, { purpose: 'tornado', slots: [1] }); assert.deepEqual(ctl.dice, [{ kind: 'tornado' }]);
     assert.equal(bg.positions[1].idx, t - 2, 'nobody moves until Stop is pressed');
     const e = stop(bg, 0);
     const ds = e.find((x) => x.t === 'diceStop'), mv = e.find((x) => x.t === 'move');
-    assert.ok(ds && ds.wheel && [0, 1].includes(ds.wheel.target) && ds.total >= 4 && ds.total <= 6 && ds.dice[0].kind === 'tornado', 'wheel and die land together');
-    assert.ok(mv && mv.mode === 'fly' && mv.slot === ds.wheel.target, 'the chosen player is swept back');
+    assert.ok(ds && ds.wheel && ds.wheel.target === 1 && ds.total >= 4 && ds.total <= 6 && ds.dice[0].kind === 'tornado', 'wheel and die land together');
+    assert.ok(mv && mv.mode === 'fly' && mv.slot === ds.wheel.target && mv.tornado === true && mv.dur === DUR.tornado, 'the chosen player is carried back by the tornado');
     assert.equal(bg.positions[2].track, 'volcano'); assert.deepEqual(bg.positions[3], I(0));
-    const before = mv.slot === 0 ? t : t - 2;
+    const before = t - 2; assert.deepEqual(bg.positions[0], I(t), 'the roller stays put');
     assert.equal(before - bg.positions[mv.slot].idx, ds.total, 'moves back exactly the number on the die');
-    assert.equal(!!mv.follow, mv.slot !== 0, 'the camera follows when someone else is hit');
+    assert.equal(!!mv.follow, true, 'the camera follows the player who is hit');
   }
   { const seenN = new Set();
     for (let seed = 1; seed < 60; seed++) { const bg = make(2, seed), t = at('tornado'); bg.positions[0] = I(t); bg.positions[1] = I(t - 1);
@@ -372,6 +372,9 @@ for (let i = 1; i < V.length; i++) {
     assert.deepEqual([...seenN].sort(), [4, 5, 6], 'the die shows 4, 5 and 6'); }
   { const bg = make(2, 3), t = at('tornado'); bg.positions[0] = I(t); bg.positions[1] = I(2); // short run to the start: stops at the start
     for (let i = 0; i < 20; i++) { bg.positions[1] = I(2); evs(bg, 0, t); stop(bg); assert.ok(bg.positions[1].idx >= 0); bg.step = null; } }
+
+  { const bg = make(2, 4), t = at('tornado'); bg.positions[0] = I(t); bg.positions[1] = { track: 'volcano', idx: 2 }; // nobody else on the island
+    const { r } = evs(bg, 0, t); assert.ok(!r && !bg.step, 'a tornado with nobody to blow back: no wheel, nobody moves'); assert.deepEqual(bg.positions[0], I(t)); }
 
   // UFO: a wheel of the players it can swap with
   { const bg = make(4, 2), u = at('ufo');
