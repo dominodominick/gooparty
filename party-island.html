@@ -272,6 +272,33 @@ body.own-pointer, body.own-pointer * { cursor: none !important; }
 #ui > .home-link:hover { background: #fff; transform: translateY(-1px); }
 #ui > .home-link:active { transform: translateY(2px); box-shadow: 0 1px 0 rgba(29, 79, 143, 0.25); }
 
+/* ---- your Mii: the round face button on the start menu, and the Mii creator over the game ---- */
+.mii-face {
+  float: right; margin: -8px -6px 6px 12px;
+  display: grid; justify-items: center; gap: 4px;
+  font: inherit; color: var(--ink); background: none; border: 0; padding: 0; cursor: pointer;
+}
+.mii-face img, .mii-face .mii-blank {
+  width: 92px; height: 92px; border-radius: 50%; display: block; object-fit: cover;
+  background: #e8f4fc; border: 3px solid var(--line); box-shadow: 0 4px 0 rgba(22, 50, 79, 0.12);
+}
+.mii-face .mii-blank { /* a plain Mii silhouette */
+  background: radial-gradient(circle at 50% 38%, #b9cfe0 0 22%, transparent 23%), radial-gradient(ellipse 34% 26% at 50% 92%, #b9cfe0 0 99%, transparent 100%), #e8f4fc;
+}
+.mii-face:hover img, .mii-face:hover .mii-blank { border-color: var(--accent); }
+.mii-face:disabled { cursor: wait; opacity: 0.7; }
+.mii-face .mii-label { font-size: 0.85rem; color: var(--muted); }
+.mii-overlay { position: fixed; inset: 0; z-index: 1000; background: #000; transition: opacity 0.3s; }
+.mii-overlay.closing { opacity: 0; }
+.mii-overlay iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+.mii-close {
+  position: absolute; z-index: 1; bottom: max(10px, env(safe-area-inset-bottom)); left: max(10px, env(safe-area-inset-left));
+  font: inherit; font-size: 0.85rem; color: #fff; background: rgba(0, 0, 0, 0.45); border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: 999px; padding: 5px 12px; cursor: pointer;
+}
+.seat:has(.seat-face:not([hidden])) { grid-template-columns: 52px 46px 1fr; }
+.seat-face { width: 46px; height: 46px; flex: none; border-radius: 50%; background: #e8f4fc; border: 2px solid var(--c, var(--line)); object-fit: cover; }
+
 </style>
 </head>
 <body>
@@ -325,7 +352,7 @@ __mods["js15/config.js"] = (() => {
 
 const GAME_TITLE = 'Party Island'; // placeholder name: pick your own
 
-const BUILD = '77'; // shown in the menu and in games; every player must have the same build
+const BUILD = '78'; // shown in the menu and in games; every player must have the same build
 
 const MAX_PLAYERS = 6;
 
@@ -1247,11 +1274,110 @@ class BoardGame {
 
 return { CURVE_MAX, TIERS, WIN_ROLL, DRAGON_NEEDS, VOLCANO_NEEDS, SPIKE_START, SPIKE_MIN, SPIKE_RUNBACK, TORNADO_BACK, REST_WIN_MOVE, DUEL_MOVE, ERUPTION_TURNS, LAVA_BACK, ERUPTION_STRETCHES, DUR, DROP, TIMING, rollDie, walkForward, walkBack, spacesToGo, BoardGame };
 })();
+__mods["js15/world/miic.js"] = (() => {
+// Mii data from the Mii creator (the open-source Mii Maker in mii/): its own "miic" format (version 4, 124 bytes, the
+// creator's MiiCreatorV4Data) or a 3DS/Wii U FFLStoreData (96 bytes). The game turns it into what the Mii renderer (FFL)
+// takes: StudioData (46 bytes, which keeps the Switch's extra colours), and reads the few things the body needs
+// (favourite colour, height, build, gender, skin colour, name).
+
+// MiiCreatorV4Data, field by field (src/class/struct/MiiCreatorV4Data.ts in the creator). 'id8'/'id10' are byte runs,
+// 'name' is 10 UTF-16LE characters, 'u16' a little-endian number; everything else one byte.
+const V4 = [
+  ['miicVersion'], ['originPlatform'], ['authorId', 'id8'], ['createId', 'id10'], ['creator', 'name'], ['nickname', 'name'],
+  ['beardColor'], ['beardType'], ['birthDay'], ['birthMonth'], ['birthYear', 'u16'], ['build'], ['eyeAspect'], ['eyebrowAspect'],
+  ['eyebrowColor'], ['eyebrowRotate'], ['eyebrowScale'], ['eyebrowType'], ['eyebrowX'], ['eyebrowY'], ['eyeColor'], ['eyeRotate'],
+  ['eyeScale'], ['eyeType'], ['eyeX'], ['eyeY'], ['facelineColor'], ['facelineMake'], ['facelineType'], ['facelineWrinkle'],
+  ['facePaintColor'], ['favorite'], ['favoriteColor'], ['fontRegion'], ['gender'], ['glassColor'], ['glassScale'], ['glassType'],
+  ['glassY'], ['hairColor'], ['hairFlip'], ['hairType'], ['hatFavoriteColor'], ['hatCommonColor'], ['hatType'], ['height'],
+  ['wigType'], ['moleScale'], ['moleType'], ['moleX'], ['moleY'], ['mouthAspect'], ['mouthColor'], ['mouthScale'], ['mouthType'],
+  ['mouthY'], ['mustacheScale'], ['mustacheType'], ['mustacheY'], ['noseScale'], ['noseType'], ['noseY'], ['pantsColor'],
+  ['personality'], ['regionMove'], ['shirtColor'], ['special'], ['temporary'], ['eyeSclera'], ['clothesType'], ['shoesColor'],
+];
+const SIZE = { id8: 8, id10: 10, name: 20, u16: 2 };
+const MIIC_V4_SIZE = V4.reduce((n, [, t]) => n + (SIZE[t] || 1), 0); // 124
+
+// StudioData (src/class/struct/StudioData.ts): 46 bytes, alphabetical.
+const STUDIO = ['beardColor', 'beardType', 'build', 'eyeAspect', 'eyeColor', 'eyeRotate', 'eyeScale', 'eyeType', 'eyeX', 'eyeY',
+  'eyebrowAspect', 'eyebrowColor', 'eyebrowRotate', 'eyebrowScale', 'eyebrowType', 'eyebrowX', 'eyebrowY', 'facelineColor',
+  'facelineMake', 'facelineType', 'facelineWrinkle', 'favoriteColor', 'gender', 'glassColor', 'glassScale', 'glassType', 'glassY',
+  'hairColor', 'hairFlip', 'hairType', 'height', 'moleScale', 'moleType', 'moleX', 'moleY', 'mouthAspect', 'mouthColor',
+  'mouthScale', 'mouthType', 'mouthY', 'mustacheScale', 'mustacheType', 'mustacheY', 'noseScale', 'noseType', 'noseY'];
+
+// The Mii favourite colours (the Wii's twelve), as the shirt is drawn.
+const FAVORITE_COLORS = ['#d21e14', '#ff6e19', '#ffd820', '#78d220', '#007830', '#0a48b4', '#3caade', '#f55a7d', '#7328ad', '#483818', '#e0e0e0', '#181814'];
+// Skin (the faceline colours: the Wii's six, then the Switch's four), for the hands.
+const SKIN_COLORS = ['#ffd3ad', '#ffb68f', '#de7952', '#ffaa8c', '#ad5129', '#632c18', '#ffd3be', '#ffb68f', '#c06a3e', '#3f1e10'];
+
+/** base64 -> bytes (browser or node). */
+function fromBase64(s) {
+  if (typeof atob === 'function') { const b = atob(String(s).trim()), out = new Uint8Array(b.length); for (let i = 0; i < b.length; i++) out[i] = b.charCodeAt(i); return out; }
+  return new Uint8Array(Buffer.from(String(s), 'base64'));
+}
+function toBase64(u8) {
+  if (typeof btoa === 'function') { let s = ''; for (let i = 0; i < u8.length; i++) s += String.fromCharCode(u8[i]); return btoa(s); }
+  return Buffer.from(u8).toString('base64');
+}
+
+/** The fields of a miic v4 Mii (or null if it is not one). */
+function readMiic(bytes) {
+  if (!bytes || bytes.length < MIIC_V4_SIZE - 3 || bytes[0] !== 4) return null; // (older ones stop before the clothes fields)
+  const o = {}; let p = 0;
+  for (const [k, t] of V4) {
+    if (p >= bytes.length) { o[k] = 0; continue; }
+    if (t === 'id8' || t === 'id10') { o[k] = bytes.slice(p, p + SIZE[t]); p += SIZE[t]; }
+    else if (t === 'name') { let s = ''; for (let i = 0; i < 10; i++) { const c = bytes[p + 2 * i] | (bytes[p + 2 * i + 1] << 8); if (!c) break; s += String.fromCharCode(c); } o[k] = s; p += 20; }
+    else if (t === 'u16') { o[k] = bytes[p] | (bytes[p + 1] << 8); p += 2; }
+    else o[k] = bytes[p++];
+  }
+  return o;
+}
+
+/** A 96-byte FFLStoreData's few body fields (its bit layout, as FFL's FFLiMiiDataCore). */
+function readStoreData(b) {
+  const flags = b[0x18] | (b[0x19] << 8); // birth/gender/favourite colour word
+  let name = ''; for (let i = 0; i < 10; i++) { const c = b[0x1a + 2 * i] | (b[0x1b + 2 * i] << 8); if (!c) break; name += String.fromCharCode(c); }
+  return { gender: flags & 1, favoriteColor: (flags >> 10) & 15, nickname: name, height: b[0x2e], build: b[0x2f], facelineColor: (b[0x30] >> 5) & 7 };
+}
+
+/**
+ * Everything the game needs from a Mii (a base64 string as the creator gives it):
+ *   { ffl: bytes FFL can draw (StudioData or FFLStoreData), name, gender, favoriteColor, height, build, skin }
+ * or null if it is not Mii data the game knows.
+ */
+function parseMii(b64) {
+  let bytes;
+  try { bytes = fromBase64(b64); } catch (e) { return null; }
+  const m = readMiic(bytes);
+  if (m) {
+    const s = new Uint8Array(STUDIO.length);
+    STUDIO.forEach((k, i) => { s[i] = m[k] & 255; });
+    if (m.facePaintColor !== 255 && m.facePaintColor < 200) s[STUDIO.indexOf('facelineColor')] = m.facePaintColor + 10; // (face paint, as the creator does)
+    return { ffl: s, name: m.nickname || 'Mii', gender: m.gender, favoriteColor: m.favoriteColor % 12, height: m.height, build: m.build, skin: m.facelineColor };
+  }
+  if (bytes.length === 96) { const d = readStoreData(bytes); return { ffl: bytes, name: d.nickname || 'Mii', gender: d.gender, favoriteColor: d.favoriteColor % 12, height: d.height, build: d.build, skin: d.facelineColor }; }
+  return null;
+}
+
+/** Guest Miis (the creator's own six guests, A to F, then two more): the computer players wear these. */
+const GUEST_MIIS = [
+  'BAM5i2G9mwPpOoAAAADs/4LSAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEcAdQBlAHMAdAAgAEEAAAAAAAAACAAAAAAAQAMDCAYEBgIKCAQEAgIMBAAAAP8ABAAACAQACggARP///0AABAACFAMTBBcNBAAKBAEJ//8A/wAAAA==',
+  'BAOFdPR8ZsuhdoAAAAHs/4LSAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEcAdQBlAHMAdAAgAEIAAAAAAAAACAAAAAAAQAMDBgYEBgIKDAQEAgIMAAAAAP8ABQAACAQACgYAN////0AABAACFAMTBBcNBAAKBAEJ//8A/wAAAA==',
+  'BAM2I3afbKlshYAAAALs/4LSAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEcAdQBlAHMAdAAgAEMAAAAAAAAACAAAAAAAQAMDAQYEBgIKCAQEAgIMAQAAAP8AAAAACAQACgEAIf///0AABAACFAMTBBcNBAAKBAEJ//8A/wAAAA==',
+  'BAN9s2CERcxd8IAAAAPs/4LSAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEcAdQBlAHMAdAAgAEQAAAAAAAAACAAAAAAAQAMDCAYEAAIKCAMEBAIMAgAAAP8AAgABCAQACggAGP///0AABAACFAMTBBcNBAAKBAEJ//8A/wAAAA==',
+  'BAP3BYyHQ6gZsoAAAATs/4LSAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEcAdQBlAHMAdAAgAEUAAAAAAAAACAAAAAAAQAMDBwYEAAIKDQMEBAIMAAAAAP8ABgABCAQACgcADv///0AABAACFAMTBBcNBAAKBAEJ//8A/wAAAA==',
+  'BANfFfqpycZfsoAAAAXs/4LSAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEcAdQBlAHMAdAAgAEYAAAAAAAAACAAAAAAAQAMDAQYEAAIKCAMEBAIMAAAAAP8ABwABCAQACgEADP///0AABAACFAMTBBcNBAAKBAEJ//8A/wAAAA==',
+];
+/** The creator's default new Mii (a boy, as its "Create Mii" starts). */
+const DEFAULT_MII = 'BAXGigDvV8wSNID/cJl869TJwxYAAAAAAAAAAAAAAAAAAAAAAAAAAE0AaQBpAAAAAAAAAAAAAAAAAAAACAAAAAAAQAMDAQYEBgIKCAQEAgIMAAAAAP8AAAAACAQACgEAIf///0AABAACFAMTBBcNBAAKBAEJ//8A/wAAAP//';
+
+return { MIIC_V4_SIZE, FAVORITE_COLORS, SKIN_COLORS, fromBase64, toBase64, readMiic, parseMii, GUEST_MIIS, DEFAULT_MII };
+})();
 __mods["js15/game/hostGame.js"] = (() => {
 const { duelCardCenter } = __mods["js15/game/duelLayout.js"];
 const { MAX_PLAYERS, NPC_DIFFICULTIES } = __mods["js15/config.js"];
 const { mulberry32, randomSeed } = __mods["js15/util/rng.js"];
 const { BoardGame } = __mods["js15/game/boardGame.js"];
+const { GUEST_MIIS } = __mods["js15/world/miic.js"];
 
 const HOST_ID = 'host';
 
@@ -1262,6 +1388,9 @@ const NPC_DUEL = { look: 0.8, click: 1.9 };
 
 const clamp01 = (v) => Math.min(1, Math.max(0, Number.isFinite(v) ? v : 0.5));
 const round3 = (v) => Math.round(v * 1000) / 1000;
+
+/** Mii data from a player (base64, as the Mii creator gives it): kept only if it looks like it; else null. */
+function cleanMii(m) { return typeof m === 'string' && m.length >= 100 && m.length <= 400 && /^[A-Za-z0-9+/=]+$/.test(m) ? m : null; }
 
 function cleanName(n) {
   return String(n ?? '').replace(/[\u0000-\u001f<>]/g, '').trim().slice(0, 12);
@@ -1282,7 +1411,7 @@ class HostGame {
 
   _newSeat(fields) {
     return {
-      kind: 'human', key: null, name: '', difficulty: 'Normal',
+      kind: 'human', key: null, name: '', difficulty: 'Normal', mii: null,
       connId: null, connected: false, wasHuman: false,
       ptr: { x: 0.5, y: 0.5, buttons: 0 }, // buttons: bitmask, 1 = left, 2 = right, 4 = middle
       npc: { tx: 0.5, ty: 0.5, timer: 0 },
@@ -1291,7 +1420,7 @@ class HostGame {
   }
 
   /** A human arrives (or returns). */
-  join(connId, key, name) {
+  join(connId, key, name, mii = null) {
     if (typeof key !== 'string' || key.length < 8) {
       return { ok: false, code: 'bad', reason: 'Invalid join request.' };
     }
@@ -1302,13 +1431,14 @@ class HostGame {
       if (seat.connected) return { ok: false, code: 'in-use', reason: 'That player is already connected.' };
       seat.kind = 'human'; seat.connId = connId; seat.connected = true;
       const n = cleanName(name); if (n) seat.name = n;
+      if (cleanMii(mii)) seat.mii = cleanMii(mii);
       return { ok: true, slot: old, reclaimed: true };
     }
     if (this.scene !== 'lobby') return { ok: false, code: 'started', reason: 'That game has already started.' };
     const free = this.slots.findIndex((s) => !s);
     if (free === -1) return { ok: false, code: 'full', reason: 'That room is full.' };
     this.slots[free] = this._newSeat({
-      kind: 'human', key, name: cleanName(name) || `Player ${free + 1}`,
+      kind: 'human', key, name: cleanName(name) || `Player ${free + 1}`, mii: cleanMii(mii),
       connId, connected: true, wasHuman: true,
     });
     return { ok: true, slot: free, reclaimed: false };
@@ -1340,7 +1470,8 @@ class HostGame {
     if (this.scene !== 'lobby') return { ok: false, reason: 'Can only add CPUs in the lobby.' };
     const free = this.slots.findIndex((s) => !s);
     if (free === -1) return { ok: false, reason: 'The room is full.' };
-    this.slots[free] = this._newSeat({ kind: 'npc', name: `CPU ${free + 1}` });
+    const used = new Set(this.slots.filter((x) => x && x.kind === 'npc').map((x) => x.guest)), guest = [0, 1, 2, 3, 4, 5].find((g) => !used.has(g)) ?? free % 6;
+    this.slots[free] = this._newSeat({ kind: 'npc', name: `CPU ${free + 1}`, guest, mii: GUEST_MIIS[guest] }); // CPUs wear the creator's guest Miis
     return { ok: true, slot: free };
   }
 
@@ -1457,7 +1588,7 @@ class HostGame {
       settings: { ...this.settings },
       players: this.slots.map((s, i) => (s ? {
         slot: i, name: s.name, kind: s.kind, difficulty: s.difficulty,
-        connected: s.connected, wasHuman: s.wasHuman,
+        connected: s.connected, wasHuman: s.wasHuman, mii: s.mii || null,
       } : null)),
     };
   }
@@ -1468,7 +1599,7 @@ class HostGame {
   }
 }
 
-return { HOST_ID, cleanName, HostGame };
+return { HOST_ID, cleanMii, cleanName, HostGame };
 })();
 __mods["js15/net.js"] = (() => {
 // Thin wrappers around PeerJS. Nothing else in the project touches PeerJS directly,
@@ -1644,7 +1775,19 @@ function setName(n) {
   try { localStorage.setItem('pi.name', n); } catch { /* private mode: ignore */ }
 }
 
-return { newKey, getKey, getName, setName };
+/** Your Mii, made in the Mii creator: { data (base64 Mii data), face (a picture of it, PNG data URL) } or null. */
+function getMii() {
+  try { const m = JSON.parse(localStorage.getItem('pi.mii') || 'null'); return m && typeof m.data === 'string' ? m : null; } catch { return null; }
+}
+
+function setMii(m) {
+  try { localStorage.setItem('pi.mii', JSON.stringify(m)); } catch { /* private mode: it lasts until the page closes */ }
+  memMii = m;
+}
+let memMii = null;
+function currentMii() { return getMii() || memMii; }
+
+return { newKey, getKey, getName, setName, getMii, setMii, currentMii };
 })();
 __mods["js15/session.js"] = (() => {
 // One object the UI talks to, whether this browser is the host or a client.
@@ -1674,14 +1817,14 @@ class Session {
   }
 
   // ---------- host ----------
-  static async createHost({ name, key, offline = false }) {
+  static async createHost({ name, key, mii = null, offline = false }) {
     const s = new Session('host');
     s.game = new HostGame();
     s.net = offline ? new OfflineNet() : new HostNet();
     s.offline = offline;
     s.paused = false; s.pausedMs = 0; s._pauseAt = null;
     s.code = await s.net.open();
-    s.mySlot = s.game.join(HOST_ID, key, name).slot; // host is always slot 0
+    s.mySlot = s.game.join(HOST_ID, key, name, mii).slot; // host is always slot 0
     s.net.onMessage = (id, msg) => s._hostMessage(id, msg);
     s.net.onLeave = (id) => { if (s.game.leave(id)) s._push(); };
 
@@ -1718,7 +1861,7 @@ class Session {
   _hostMessage(id, msg) {
     switch (msg.t) {
       case 'hello': {
-        const res = this.game.join(id, msg.key, msg.name);
+        const res = this.game.join(id, msg.key, msg.name, msg.mii);
         if (!res.ok) {
           this.net.send(id, { t: 'rejected', code: res.code, reason: res.reason });
           if (res.code !== 'in-use') setTimeout(() => this.net.kick(id), 300);
@@ -1737,7 +1880,7 @@ class Session {
   }
 
   // ---------- client ----------
-  static async join({ code, name, key }) {
+  static async join({ code, name, key, mii = null }) {
     const s = new Session('client');
     s.code = code;
     s.net = new ClientNet();
@@ -1750,9 +1893,9 @@ class Session {
         s._welcome = {
           resolve: () => { clearTimeout(timer); resolve(); },
           reject: (e) => { clearTimeout(timer); reject(e); },
-          retried: false, name,
+          retried: false, name, mii,
         };
-        s.net.send({ t: 'hello', key, name });
+        s.net.send({ t: 'hello', key, name, mii });
       });
     } catch (e) {
       s.close();
@@ -1779,7 +1922,7 @@ class Session {
         // Same browser already seated in this room (e.g. two tabs): retry once as a new player.
         if (msg.code === 'in-use' && w && !w.retried) {
           w.retried = true;
-          this.net.send({ t: 'hello', key: newKey(), name: w.name });
+          this.net.send({ t: 'hello', key: newKey(), name: w.name, mii: w.mii });
         } else w?.reject(new Error(msg.reason || 'Could not join.'));
         return;
       }
@@ -1920,12 +2063,104 @@ const esc = (s) => String(s).replace(/[&<>"']/g, (c) => (
 
 return { esc };
 })();
+__mods["js15/world/miiHead.js"] = (() => {
+// Loads FFL, the Mii renderer, from the Mii creator's folder (mii/ffl/, see tools/pack_mii.py) once, when it is first
+// wanted. Resolves to the renderer ({ head(bytes, renderer), faceIcon(bytes, size), dispose(head) }), or to null when the
+// creator's files are not next to the page (the single-file download) or it fails: then the stand-in heads stay.
+const MII_BASE = 'mii/';
+
+let loading = null;
+
+function loadMiiRenderer() {
+  if (loading) return loading;
+  if (typeof document === 'undefined' || !document.head || typeof fetch !== 'function') return (loading = Promise.resolve(null));
+  loading = new Promise((resolve) => {
+    let settled = false;
+    const done = (v) => { if (!settled) { settled = true; resolve(v); } };
+    setTimeout(() => done(null), 60000); // (never hang the game on it)
+    const glue = document.createElement('script');
+    glue.src = MII_BASE + 'ffl/ffl-emscripten.js';
+    glue.onerror = () => done(null); // no creator files here
+    glue.onload = () => {
+      window.__miiFFLReady = (F) => { F.start(MII_BASE).then(() => done(F), () => done(null)); };
+      const m = document.createElement('script');
+      m.type = 'module';
+      m.textContent = `import * as F from './${MII_BASE}ffl/game-ffl.js'; window.__miiFFLReady(F);`;
+      document.head.appendChild(m);
+    };
+    document.head.appendChild(glue);
+  });
+  return loading;
+}
+
+const faces = new Map(); // Mii data -> face picture (data URL), or a promise of one
+
+/** The face picture of a Mii (base64 Mii data): a promise of a PNG data URL, or of null if it can't be drawn here. */
+function miiFace(data, parse) {
+  if (!data) return Promise.resolve(null);
+  if (faces.has(data)) return Promise.resolve(faces.get(data));
+  const p = loadMiiRenderer().then((F) => {
+    const m = F && parse(data);
+    if (!m) return null;
+    try { const url = F.faceIcon(m.ffl, 160); faces.set(data, url); return url; } catch (e) { return null; }
+  });
+  faces.set(data, p);
+  return p;
+}
+
+return { MII_BASE, loadMiiRenderer, miiFace };
+})();
+__mods["js15/miiCreator.js"] = (() => {
+// The Mii creator (mii/, the open-source Mii Maker remake), opened full screen over the game. It opens straight into the
+// editor with your Mii; when you finish (save or quit) it sends the Mii back and closes.
+const { MII_BASE } = __mods["js15/world/miiHead.js"];
+
+/** Is the creator next to this page? (The single-file download does not carry it.) */
+async function creatorAvailable() {
+  try { const r = await fetch(MII_BASE + 'CREDITS.txt', { cache: 'no-store' }); return r.ok; } catch (e) { return false; }
+}
+
+/**
+ * Open the creator on `data` (base64 Mii data). Resolves to { data, name } when the Mii was saved, null when the
+ * player left without saving, or { error } when the creator could not be opened.
+ */
+function openMiiCreator(data) {
+  return new Promise((resolve) => {
+    creatorAvailable().then((ok) => {
+      if (!ok) { resolve({ error: 'The Mii creator is not included in this copy of the game. Open the published game to make your Mii.' }); return; }
+      const wrap = document.createElement('div');
+      wrap.className = 'mii-overlay';
+      const frame = document.createElement('iframe');
+      frame.title = 'Mii creator';
+      frame.allow = 'autoplay; fullscreen';
+      const origin = location.origin && location.origin !== 'null' ? location.origin : '*';
+      frame.src = `${MII_BASE}index.html?data=${encodeURIComponent(data)}&renderTypes=headshot&origin=${encodeURIComponent(origin)}`;
+      const close = document.createElement('button');
+      close.className = 'mii-close'; close.type = 'button'; close.textContent = 'Close'; close.title = 'Close without saving';
+      wrap.append(frame, close);
+      document.body.appendChild(wrap);
+      const finish = (v) => { removeEventListener('message', onMsg); wrap.classList.add('closing'); setTimeout(() => wrap.remove(), 350); resolve(v); };
+      const onMsg = (e) => {
+        if (e.source !== frame.contentWindow || !e.data || e.data.type !== 'miic-data-finalize') return;
+        finish(e.data.properSave && typeof e.data.data === 'string' ? { data: e.data.data, name: e.data.name || '' } : null);
+      };
+      addEventListener('message', onMsg);
+      close.onclick = () => finish(null);
+    });
+  });
+}
+
+return { creatorAvailable, openMiiCreator };
+})();
 __mods["js15/scenes/menuScene.js"] = (() => {
 const { app } = __mods["js15/app.js"];
 const { GAME_TITLE, BUILD } = __mods["js15/config.js"];
 const { Session } = __mods["js15/session.js"];
 const { esc } = __mods["js15/util/dom.js"];
-const { getKey, getName, setName } = __mods["js15/identity.js"];
+const { getKey, getName, setName, currentMii, setMii } = __mods["js15/identity.js"];
+const { openMiiCreator } = __mods["js15/miiCreator.js"];
+const { miiFace } = __mods["js15/world/miiHead.js"];
+const { parseMii, DEFAULT_MII } = __mods["js15/world/miic.js"];
 
 // Start menu -> "Play" screen (create game / join game) -> settings.
 class MenuScene {
@@ -1942,6 +2177,7 @@ class MenuScene {
       ui.innerHTML = `
         <a class="home-link" href="https://dominodominick.com" target="_top" rel="noopener">&larr; dominodominick.com</a>
         <section class="panel">
+          ${this.miiButton()}
           <h1>${esc(GAME_TITLE)}</h1>
           <p class="tagline">Board game and minigames for up to 6 players, right in the browser.</p>
           <div class="stack">
@@ -1988,6 +2224,31 @@ class MenuScene {
     }
   }
 
+  /** Your Mii's face, on a round button that opens the Mii creator. */
+  miiButton() {
+    const m = currentMii(), face = m && m.face;
+    return `<button class="mii-face" data-act="mii" title="${m ? 'Edit your Mii' : 'Make your Mii'}" ${this.busy ? 'disabled' : ''}>
+      ${face ? `<img src="${esc(face)}" alt="Your Mii">` : '<span class="mii-blank" aria-hidden="true"></span>'}
+      <span class="mii-label">${m ? 'Your Mii' : 'Make your Mii'}</span></button>`;
+  }
+
+  /** Open the creator on your Mii (or a new one); keep what you save, with a picture of its face. */
+  async editMii() {
+    const before = currentMii();
+    this.busy = true; this.say('Opening the Mii creator...', false);
+    const r = await openMiiCreator(before ? before.data : DEFAULT_MII);
+    this.busy = false;
+    if (r && r.error) return this.say(r.error);
+    if (!r) return this.say('', false);
+    const m = parseMii(r.data);
+    if (!m) return this.say('That Mii could not be read.');
+    const face = await miiFace(r.data, parseMii);
+    setMii({ data: r.data, face: face || (before && before.face) || null });
+    const name = getName();
+    if (!name || (before && name === (parseMii(before.data) || {}).name)) setName(m.name.slice(0, 12)); // your name follows your Mii's, unless you typed your own
+    this.say('', false);
+  }
+
   say(msg, isError = true) { this.notice = msg; this.isError = isError; this.render(); }
 
   click(e) {
@@ -1995,6 +2256,7 @@ class MenuScene {
     if (!act || this.busy) return;
     if (act === 'play') { this.panel = 'online'; this.notice = ''; this.render(); }
     else if (act === 'settings') { this.panel = 'settings'; this.render(); }
+    else if (act === 'mii') this.editMii();
     else if (act === 'viewer') app.openViewer();
     else if (act === 'back') { this.panel = 'main'; this.notice = ''; this.render(); }
     else if (act === 'create') this.create();
@@ -2005,7 +2267,7 @@ class MenuScene {
   async create(offline = false) {
     this.busy = true; this.say(offline ? 'Starting...' : 'Creating room...', false);
     try {
-      const s = await Session.createHost({ name: getName(), key: getKey(), offline });
+      const s = await Session.createHost({ name: getName(), key: getKey(), mii: currentMii()?.data || null, offline });
       app.setSession(s);
     } catch (e) {
       this.busy = false; this.say(e.message);
@@ -2017,7 +2279,7 @@ class MenuScene {
     if (code.length !== 5) return this.say('Enter the 5-character room code.');
     this.busy = true; this.say('Connecting...', false);
     try {
-      const s = await Session.join({ code, name: getName(), key: getKey() });
+      const s = await Session.join({ code, name: getName(), key: getKey(), mii: currentMii()?.data || null });
       app.setSession(s);
     } catch (e) {
       this.busy = false; this.say(e.message);
@@ -2032,6 +2294,8 @@ const { app } = __mods["js15/app.js"];
 const { MAX_PLAYERS, PLAYER_COLORS, NPC_DIFFICULTIES } = __mods["js15/config.js"];
 const { esc } = __mods["js15/util/dom.js"];
 const { setName } = __mods["js15/identity.js"];
+const { miiFace } = __mods["js15/world/miiHead.js"];
+const { parseMii, GUEST_MIIS } = __mods["js15/world/miic.js"];
 
 // Player preview: every seat with its color. Host can add CPUs, set difficulty and start.
 class LobbyScene {
@@ -2096,10 +2360,18 @@ class LobbyScene {
         } else if (!left) sub = `CPU, ${p.difficulty}`;
       }
       return `<li class="seat" style="${style}">
-        <span class="badge">${i + 1}</span>
+        <span class="badge">${i + 1}</span><img class="seat-face" data-face="${i}" alt="" hidden>
         <div><div class="seat-name">${esc(p.name)}</div><div class="seat-sub">${sub}</div></div></li>`;
     }).join('');
 
+    // each player's Mii face, drawn by the Mii renderer (when the Mii creator's files are here)
+    r.players.forEach((p, i) => {
+      if (!p) return;
+      miiFace(p.mii || GUEST_MIIS[i % GUEST_MIIS.length], parseMii).then((url) => {
+        const im = url && seats.querySelector(`[data-face="${i}"]`);
+        if (im) { im.src = url; im.hidden = false; }
+      });
+    });
     const count = r.players.filter(Boolean).length;
     app.ui.querySelector('#foot').innerHTML = `
       <span>${count} of ${MAX_PLAYERS} seats filled</span>
@@ -2594,6 +2866,66 @@ function addMii(builder, o, look, rng) {
 }
 
 return { SKINS, HAIR, MII_HEIGHT, PAWN_SCALE, MII_NECK, LEG_PIVOT, ARM_PIVOT, buildMii, addMii };
+})();
+__mods["js15/world/miiPawn.js"] = (() => {
+// A player on the board: their Mii. The head is the real Mii head, drawn by FFL (the Mii renderer the Mii creator
+// uses, loaded from mii/ffl/ when the creator's files are there; see miiHead.js); until it has loaded, or when it
+// can't (the single-file download has no creator files), a simple head stands in. The body is the game's own
+// (it swings its arms and legs from the shoulders and hips), in the Mii's favourite colour, as tall and as wide as
+// the Mii is.
+const { buildMii, HAIR, SKINS, MII_NECK, LEG_PIVOT, ARM_PIVOT } = __mods["js15/world/miis.js"];
+const { builderMesh } = __mods["js15/world/worldBuild.js"];
+const { FAVORITE_COLORS, SKIN_COLORS } = __mods["js15/world/miic.js"];
+
+const MII_PANTS = '#3c4152';          // Mii trousers: the same dark grey-blue for everyone, as on the Wii
+// The FFL head is in the Mii renderer's units (about 92 wide); this makes it the size of the game's head.
+const FFL_HEAD_SCALE = 0.0185;
+const FFL_HEAD_LIFT = 0.16;           // its origin (the neck joint) a little above the shoulders
+
+/** How tall and how wide a Mii stands (height and build are 0..127; 64 is the middle). Kept gentle, so every player still fits a space. */
+function bodyScale(mii) {
+  const h = mii && mii.height != null ? mii.height / 127 : 0.5, b = mii && mii.build != null ? mii.build / 127 : 0.5;
+  return { y: 0.84 + 0.32 * h, xz: 0.84 + 0.34 * b };
+}
+
+/**
+ * The figure: { group, head (the neck pivot), legs, arms }. `mii` is a parsed Mii (miic.parseMii) or null (then the
+ * slot's own stand-in look). The arms and legs hang from pivots inside `fig`, which carries the height and build.
+ */
+function makeFigure(T, slot, mii) {
+  const shirt = mii ? FAVORITE_COLORS[mii.favoriteColor] : null, skin = mii ? SKIN_COLORS[mii.skin] || SKINS[0] : SKINS[slot % SKINS.length];
+  const { body, head, legs, arms } = buildMii({ shirt: shirt || '#2f6fed', pants: MII_PANTS, hair: HAIR[slot % HAIR.length], skin, parts: true });
+  const g = new T.Group(), fig = new T.Group(), sc = bodyScale(mii);
+  fig.scale.set(sc.xz, sc.y, sc.xz);
+  g.add(fig);
+  fig.add(builderMesh(T, body));
+  const L = [], A = [];
+  [-1, 1].forEach((sgn, i) => {
+    const lg = new T.Group(); lg.position.set(sgn * LEG_PIVOT.x, LEG_PIVOT.y, 0); lg.add(builderMesh(T, legs[i])); fig.add(lg); L.push(lg);
+    const ag = new T.Group(); ag.position.set(sgn * ARM_PIVOT.x, ARM_PIVOT.y, 0); ag.add(builderMesh(T, arms[i])); fig.add(ag); A.push(ag);
+  });
+  const headGroup = new T.Group(); // tips up to look at the camera while rolling; pivots at the neck (not scaled with the body: Mii heads are all one size)
+  headGroup.position.set(0, MII_NECK * sc.y, 0);
+  const stand = builderMesh(T, head); stand.userData.standIn = true;
+  headGroup.add(stand);
+  g.add(headGroup);
+  return { group: g, fig, head: headGroup, legs: L, arms: A, standIn: stand };
+}
+
+/** Put a real Mii head (FFL's CharModel meshes) on a figure's neck, in place of the stand-in. */
+function fitFFLHead(headGroup, meshes) {
+  for (const c of headGroup.children) if (c.userData && c.userData.standIn) c.visible = false;
+  const old = headGroup.children.find((c) => c.userData && c.userData.ffl);
+  if (old) headGroup.remove(old);
+  const holder = meshes;
+  holder.userData.ffl = true;
+  holder.scale.setScalar(FFL_HEAD_SCALE);
+  holder.position.set(0, FFL_HEAD_LIFT, 0);
+  headGroup.add(holder);
+  return holder;
+}
+
+return { MII_PANTS, FFL_HEAD_SCALE, FFL_HEAD_LIFT, bodyScale, makeFigure, fitFFLHead };
 })();
 __mods["js15/world/tileArt.js"] = (() => {
 // Canvas art for the board spaces and signs (rounded, glossy tiles with bold icons).
@@ -4376,7 +4708,10 @@ const { PLAYER_COLORS, VIRTUAL, BUILD } = __mods["js15/config.js"];
 const { ISLAND, VOLCANO, LABELS, TILE_COLORS, isChallenge, EXIT_POS } = __mods["js15/game/boardData.js"];
 const { islandPositions, volcanoPositions, legVia, islandWorld, VOLCANO_CENTER, VOLCANO_OFFSET, BRIDGE_PLANKS, SPACE_IDS, stopOfSpace, terrainHeight, nearestPath } = __mods["js15/game/boardLayout.js"];
 const { builderMesh } = __mods["js15/world/worldBuild.js"];
-const { buildMii, HAIR, SKINS, MII_NECK, LEG_PIVOT, ARM_PIVOT, PAWN_SCALE } = __mods["js15/world/miis.js"];
+const { PAWN_SCALE, HAIR, SKINS } = __mods["js15/world/miis.js"];
+const { makeFigure, fitFFLHead } = __mods["js15/world/miiPawn.js"];
+const { parseMii, GUEST_MIIS } = __mods["js15/world/miic.js"];
+const { loadMiiRenderer, miiFace } = __mods["js15/world/miiHead.js"];
 const { tileCanvas } = __mods["js15/world/tileArt.js"];
 const { ChallengeFX } = __mods["js15/scenes/challengeFx.js"];
 const { spacesToGo, DROP, ERUPTION_STRETCHES } = __mods["js15/game/boardGame.js"];
@@ -4505,23 +4840,13 @@ function dieFaceTexture(T, value, style) {
   return canvasTex(T, c);
 }
 
-const PANTS = ['#35508f', '#2b2b3a', '#6a5a3a', '#3a5a8a', '#4a3a6a', '#3a3f4a'];
 const START_SPACING = 2.4; // how far apart the waiting pawns stand
-function makePawn(T, slot) {
+/** A player's pawn: their Mii (world/miiPawn.js), with a shadow and their number over their head. `mii` is a parsed Mii. */
+function makePawn(T, slot, mii = null) {
   const c = PLAYER_COLORS[slot];
-  const g = new T.Group();
-  const { body, head, legs, arms } = buildMii({ shirt: c.hex, pants: PANTS[slot], hair: HAIR[slot], skin: SKINS[slot], parts: true });
-  g.add(builderMesh(T, body));
-  g.userData.legs = []; g.userData.arms = []; // swung from the hips and shoulders when the pawn walks
-  [-1, 1].forEach((sgn, i) => {
-    const lg = new T.Group(); lg.position.set(sgn * LEG_PIVOT.x, LEG_PIVOT.y, 0); lg.add(builderMesh(T, legs[i])); g.add(lg); g.userData.legs.push(lg);
-    const ag = new T.Group(); ag.position.set(sgn * ARM_PIVOT.x, ARM_PIVOT.y, 0); ag.add(builderMesh(T, arms[i])); g.add(ag); g.userData.arms.push(ag);
-  });
-  const headGroup = new T.Group(); // tips up to look at the camera while rolling; pivots at the neck
-  headGroup.position.set(0, MII_NECK, 0);
-  headGroup.add(builderMesh(T, head));
-  g.add(headGroup);
-  g.userData.head = headGroup;
+  const f = makeFigure(T, slot, mii), g = f.group;
+  g.userData.legs = f.legs; g.userData.arms = f.arms; // swung from the hips and shoulders when the pawn walks
+  g.userData.head = f.head; // tips up to look at the camera while rolling; pivots at the neck
   // the shadow: a soft dark disc; it is laid on whatever is under the player each frame (see placeShadow)
   const sg = new T.CircleGeometry(0.95, 18); if (sg.rotateX) sg.rotateX(-Math.PI / 2);
   const shadow = new T.Mesh(sg, new T.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.28, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -6 }));
@@ -4623,7 +4948,8 @@ class BoardScene {
 
   exit() {
     if (this.broken) { app.ui.onclick = null; return; }
-    this.left = true;
+    this.left = true; this.headToken = null;
+    if (this.miiRenderer && this.pawns) for (const p of Object.values(this.pawns)) if (p.fflHead) this.miiRenderer.dispose(p.fflHead);
     removeEventListener('keydown', this.onKey);
     this.unhookPointer();
     this.s?.setTurnHandler(null);
@@ -4789,12 +5115,37 @@ class BoardScene {
     this.pawns = {};
     for (const key of Object.keys(b.positions)) {
       const slot = Number(key), at = b.positions[slot];
-      const group = makePawn(T, slot);
+      const mii = parseMii(this.miiDataOf(slot));
+      const group = makePawn(T, slot, mii);
       this.scene3d.add(group);
-      const pawn = { slot, group, head: group.userData.head, yaw: 0, pitch: 0, badge: group.userData.badge, track: at.track, idx: at.idx, x: 0, y: 0, z: 0, scale: 1 };
+      const pawn = { slot, group, head: group.userData.head, yaw: 0, pitch: 0, badge: group.userData.badge, track: at.track, idx: at.idx, x: 0, y: 0, z: 0, scale: 1, mii };
       this.snapPawn(pawn, at);
       this.pawns[slot] = pawn;
     }
+    this.loadMiiHeads();
+  }
+
+  /** A player's Mii data (base64): theirs from the lobby, or a guest Mii (computer players, or no Mii made yet). */
+  miiDataOf(slot) { return (this.s && this.s.roster && this.s.roster.players && this.s.roster.players[slot] && this.s.roster.players[slot].mii) || GUEST_MIIS[slot % GUEST_MIIS.length]; }
+
+  /** The real Mii heads (FFL), once the Mii renderer has loaded; until then (or without it) the stand-in heads stay. */
+  loadMiiHeads() {
+    const token = (this.headToken = {});
+    loadMiiRenderer().then((F) => {
+      if (!F || this.headToken !== token || this.left || !this.pawns || !this.renderer) return;
+      this.miiRenderer = F;
+      for (const p of Object.values(this.pawns)) {
+        if (!p.mii) continue;
+        try { p.fflHead = fitFFLHead(p.head, F.head(p.mii.ffl, this.renderer)); } catch (e) { /* this Mii keeps the stand-in head */ }
+        const slot = p.slot; // and their face in the turn-order strip
+        miiFace(this.miiDataOf(slot), parseMii).then((url) => {
+          if (!url || this.headToken !== token || typeof Image === 'undefined') return;
+          const im = new Image();
+          im.onload = () => { (this.miiFaceImg ||= {})[slot] = im; if (this.faces) delete this.faces[slot]; this.hudKey = null; };
+          im.src = url;
+        });
+      }
+    });
   }
 
   // ===================================================================== positions
@@ -6396,7 +6747,7 @@ class BoardScene {
     return f != null && this.pawns[f] ? f : null;
   }
 
-  /** A little round portrait of a player's Mii (their hair and skin) on their colour, as an image URL. Cached. */
+  /** A little round portrait of a player's Mii on their colour, as an image URL: their real face once the Mii renderer has drawn it, a simple drawn one until then. Cached. */
   faceUrl(i) {
     this.faces ||= {};
     if (this.faces[i]) return this.faces[i];
@@ -6404,6 +6755,11 @@ class BoardScene {
     const g = cv.getContext('2d'), col = PLAYER_COLORS[i].hex, hair = HAIR[i] || HAIR[0], skin = SKINS[i] || SKINS[0];
     const bg = g.createRadialGradient(36, 30, 6, 48, 48, 48); bg.addColorStop(0, shadeHex(col, 1.35)); bg.addColorStop(0.7, col); bg.addColorStop(1, shadeHex(col, 0.7));
     g.fillStyle = bg; g.beginPath(); g.arc(48, 48, 47, 0, Math.PI * 2); g.fill();
+    const real = this.miiFaceImg && this.miiFaceImg[i];
+    if (real) { // the Mii Maker's own face picture, inside the circle
+      g.save(); g.beginPath(); g.arc(48, 48, 45, 0, Math.PI * 2); g.clip(); g.drawImage(real, 0, 2, 96, 96); g.restore();
+      return (this.faces[i] = cv.toDataURL());
+    }
     const ell = (x, y, rx, ry, c) => { g.fillStyle = c; g.beginPath(); g.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2); g.fill(); };
     if (hair.style === 'long') { g.fillStyle = hair.c; g.beginPath(); g.ellipse(48, 56, 31, 32, 0, Math.PI, 0); g.lineTo(79, 82); g.lineTo(17, 82); g.fill(); }
     if (hair.style === 'bun') ell(48, 16, 11, 10, hair.c);
@@ -7293,6 +7649,8 @@ const { BoardScene } = __mods["js15/scenes/boardScene.js"];
 const { ViewerScene } = __mods["js15/scenes/viewerScene.js"];
 const { loadBoard } = __mods["js15/world/islandLoader.js"];
 const { BoardGame } = __mods["js15/game/boardGame.js"];
+const { currentMii } = __mods["js15/identity.js"];
+const { GUEST_MIIS } = __mods["js15/world/miic.js"];
 
 // Scene registry. To add a minigame later: write a scene file, register it here.
 // The map: packed into the page (single-file build) or fetched from the assets folder. It starts loading right away.
@@ -7432,7 +7790,7 @@ const room = new URLSearchParams(location.search).get('room');
 app.openViewer = () => {
   const bg = new BoardGame({ slots: [0, 1, 2, 3], rng: Math.random, isNpc: () => true }); bg.start(0);
   const names = ['Player 1', 'CPU 2', 'CPU 3', 'CPU 4'];
-  app.session = { role: 'host', mySlot: 0, viewer: true, roster: { players: names.map((n, i) => ({ slot: i, name: n, kind: i ? 'npc' : 'human', wasHuman: !i, connected: !i })) },
+  app.session = { role: 'host', mySlot: 0, viewer: true, roster: { players: names.map((n, i) => ({ slot: i, name: n, kind: i ? 'npc' : 'human', wasHuman: !i, connected: !i, mii: i ? GUEST_MIIS[i - 1] : (currentMii()?.data || GUEST_MIIS[5]) })) }, // (you are player 1, in your Mii)
     board: bg.snapshot(), update() {}, setTurnHandler() {}, stop() {}, choose() {}, backToLobby() {}, leave() {} };
   app.go('viewer');
 };

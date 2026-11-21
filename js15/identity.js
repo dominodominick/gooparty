@@ -23,3 +23,15 @@ export function getName() {
 export function setName(n) {
   try { localStorage.setItem('pi.name', n); } catch { /* private mode: ignore */ }
 }
+
+/** Your Mii, made in the Mii creator: { data (base64 Mii data), face (a picture of it, PNG data URL) } or null. */
+export function getMii() {
+  try { const m = JSON.parse(localStorage.getItem('pi.mii') || 'null'); return m && typeof m.data === 'string' ? m : null; } catch { return null; }
+}
+
+export function setMii(m) {
+  try { localStorage.setItem('pi.mii', JSON.stringify(m)); } catch { /* private mode: it lasts until the page closes */ }
+  memMii = m;
+}
+let memMii = null;
+export function currentMii() { return getMii() || memMii; }

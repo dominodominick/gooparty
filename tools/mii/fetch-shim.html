@@ -1,0 +1,16 @@
+<script>
+// (Party Island: served from a published artifact, the binary bundles are stored as base64 text next to their own
+// name, X.zip -> X.zip.b64.txt, X.glb -> X.glb.b64.txt; this reads them back for the creator's own fetch() calls.)
+(() => {
+  const of = window.fetch.bind(window);
+  window.fetch = (u, o) => {
+    const s = typeof u === 'string' ? u : (u && u.url) || String(u), m = s.match(/^([^?#]*\.(zip|dat|glb))([?#].*)?$/i);
+    if (!m) return of(u, o);
+    return of(m[1] + '.b64.txt').then((r) => { if (!r.ok) throw new Error('missing ' + m[1]); return r.text(); }).then((t) => {
+      const bin = atob(t.trim()), b = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) b[i] = bin.charCodeAt(i);
+      return new Response(b, { status: 200, headers: { 'content-type': 'application/octet-stream' } });
+    });
+  };
+})();
+</script>

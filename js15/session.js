@@ -25,14 +25,14 @@ export class Session {
   }
 
   // ---------- host ----------
-  static async createHost({ name, key, offline = false }) {
+  static async createHost({ name, key, mii = null, offline = false }) {
     const s = new Session('host');
     s.game = new HostGame();
     s.net = offline ? new OfflineNet() : new HostNet();
     s.offline = offline;
     s.paused = false; s.pausedMs = 0; s._pauseAt = null;
     s.code = await s.net.open();
-    s.mySlot = s.game.join(HOST_ID, key, name).slot; // host is always slot 0
+    s.mySlot = s.game.join(HOST_ID, key, name, mii).slot; // host is always slot 0
     s.net.onMessage = (id, msg) => s._hostMessage(id, msg);
     s.net.onLeave = (id) => { if (s.game.leave(id)) s._push(); };
 
@@ -69,7 +69,7 @@ export class Session {
   _hostMessage(id, msg) {
     switch (msg.t) {
       case 'hello': {
-        const res = this.game.join(id, msg.key, msg.name);
+        const res = this.game.join(id, msg.key, msg.name, msg.mii);
         if (!res.ok) {
           this.net.send(id, { t: 'rejected', code: res.code, reason: res.reason });
           if (res.code !== 'in-use') setTimeout(() => this.net.kick(id), 300);
@@ -88,7 +88,7 @@ export class Session {
   }
 
   // ---------- client ----------
-  static async join({ code, name, key }) {
+  static async join({ code, name, key, mii = null }) {
     const s = new Session('client');
     s.code = code;
     s.net = new ClientNet();
@@ -101,9 +101,9 @@ export class Session {
         s._welcome = {
           resolve: () => { clearTimeout(timer); resolve(); },
           reject: (e) => { clearTimeout(timer); reject(e); },
-          retried: false, name,
+          retried: false, name, mii,
         };
-        s.net.send({ t: 'hello', key, name });
+        s.net.send({ t: 'hello', key, name, mii });
       });
     } catch (e) {
       s.close();
@@ -130,7 +130,7 @@ export class Session {
         // Same browser already seated in this room (e.g. two tabs): retry once as a new player.
         if (msg.code === 'in-use' && w && !w.retried) {
           w.retried = true;
-          this.net.send({ t: 'hello', key: newKey(), name: w.name });
+          this.net.send({ t: 'hello', key: newKey(), name: w.name, mii: w.mii });
         } else w?.reject(new Error(msg.reason || 'Could not join.'));
         return;
       }

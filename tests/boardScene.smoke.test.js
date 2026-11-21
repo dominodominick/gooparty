@@ -627,6 +627,7 @@ assert.ok(DUR.fly >= 2400 && DUR.drop >= 1800);
   assert.ok(sc.fx.o && sc.fx.o.floaters.length === 2 && sc.fx.o.floaters[0].length === 3, 'three crates and three barrels');
   assert.ok(sc.fx.o.ball && typeof sc.fx.o.ball.goHome === 'function', 'the spike ball is set up (and its loose copies on the map hidden)');
   assert.equal(sc.pawns[0].head !== undefined, true);
+  assert.ok(sc.pawns[0].mii && sc.pawns[0].mii.name === 'Guest A' && sc.pawns[1].mii.name === 'Guest B', 'v78: players without a Mii of their own wear guest Miis');
   sc.exit();
 }
 

@@ -2,6 +2,7 @@ import { duelCardCenter } from './duelLayout.js';
 import { MAX_PLAYERS, NPC_DIFFICULTIES } from '../config.js';
 import { mulberry32, randomSeed } from '../util/rng.js';
 import { BoardGame } from './boardGame.js';
+import { GUEST_MIIS } from '../world/miic.js';
 
 export const HOST_ID = 'host';
 
@@ -12,6 +13,9 @@ const NPC_DUEL = { look: 0.8, click: 1.9 };
 
 const clamp01 = (v) => Math.min(1, Math.max(0, Number.isFinite(v) ? v : 0.5));
 const round3 = (v) => Math.round(v * 1000) / 1000;
+
+/** Mii data from a player (base64, as the Mii creator gives it): kept only if it looks like it; else null. */
+export function cleanMii(m) { return typeof m === 'string' && m.length >= 100 && m.length <= 400 && /^[A-Za-z0-9+/=]+$/.test(m) ? m : null; }
 
 export function cleanName(n) {
   return String(n ?? '').replace(/[\u0000-\u001f<>]/g, '').trim().slice(0, 12);
@@ -32,7 +36,7 @@ export class HostGame {
 
   _newSeat(fields) {
     return {
-      kind: 'human', key: null, name: '', difficulty: 'Normal',
+      kind: 'human', key: null, name: '', difficulty: 'Normal', mii: null,
       connId: null, connected: false, wasHuman: false,
       ptr: { x: 0.5, y: 0.5, buttons: 0 }, // buttons: bitmask, 1 = left, 2 = right, 4 = middle
       npc: { tx: 0.5, ty: 0.5, timer: 0 },
@@ -41,7 +45,7 @@ export class HostGame {
   }
 
   /** A human arrives (or returns). */
-  join(connId, key, name) {
+  join(connId, key, name, mii = null) {
     if (typeof key !== 'string' || key.length < 8) {
       return { ok: false, code: 'bad', reason: 'Invalid join request.' };
     }
@@ -52,13 +56,14 @@ export class HostGame {
       if (seat.connected) return { ok: false, code: 'in-use', reason: 'That player is already connected.' };
       seat.kind = 'human'; seat.connId = connId; seat.connected = true;
       const n = cleanName(name); if (n) seat.name = n;
+      if (cleanMii(mii)) seat.mii = cleanMii(mii);
       return { ok: true, slot: old, reclaimed: true };
     }
     if (this.scene !== 'lobby') return { ok: false, code: 'started', reason: 'That game has already started.' };
     const free = this.slots.findIndex((s) => !s);
     if (free === -1) return { ok: false, code: 'full', reason: 'That room is full.' };
     this.slots[free] = this._newSeat({
-      kind: 'human', key, name: cleanName(name) || `Player ${free + 1}`,
+      kind: 'human', key, name: cleanName(name) || `Player ${free + 1}`, mii: cleanMii(mii),
       connId, connected: true, wasHuman: true,
     });
     return { ok: true, slot: free, reclaimed: false };
@@ -90,7 +95,8 @@ export class HostGame {
     if (this.scene !== 'lobby') return { ok: false, reason: 'Can only add CPUs in the lobby.' };
     const free = this.slots.findIndex((s) => !s);
     if (free === -1) return { ok: false, reason: 'The room is full.' };
-    this.slots[free] = this._newSeat({ kind: 'npc', name: `CPU ${free + 1}` });
+    const used = new Set(this.slots.filter((x) => x && x.kind === 'npc').map((x) => x.guest)), guest = [0, 1, 2, 3, 4, 5].find((g) => !used.has(g)) ?? free % 6;
+    this.slots[free] = this._newSeat({ kind: 'npc', name: `CPU ${free + 1}`, guest, mii: GUEST_MIIS[guest] }); // CPUs wear the creator's guest Miis
     return { ok: true, slot: free };
   }
 
@@ -207,7 +213,7 @@ export class HostGame {
       settings: { ...this.settings },
       players: this.slots.map((s, i) => (s ? {
         slot: i, name: s.name, kind: s.kind, difficulty: s.difficulty,
-        connected: s.connected, wasHuman: s.wasHuman,
+        connected: s.connected, wasHuman: s.wasHuman, mii: s.mii || null,
       } : null)),
     };
   }

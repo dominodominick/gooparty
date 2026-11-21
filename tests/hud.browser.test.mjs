@@ -31,6 +31,7 @@ function rippleTexture() {
   return d.subarray(20 + n + 8 + (bv.byteOffset || 0), 20 + n + 8 + (bv.byteOffset || 0) + bv.byteLength);
 }
 const server = http.createServer((req, res) => {
+  if (req.url.startsWith('/mii/')) { res.writeHead(404); res.end(); return; } // (the Mii creator and renderer need the real Three.js; these tests use a stand-in)
   if (req.url === '/__ripple.png') { res.writeHead(200, { 'content-type': 'image/png' }); res.end(rippleTexture()); return; }
   const file = path.join(root, decodeURIComponent(req.url.split('?')[0]));
   if (!file.startsWith(root) || !fs.existsSync(file) || fs.statSync(file).isDirectory()) { res.writeHead(404); res.end(); return; }

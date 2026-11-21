@@ -351,6 +351,23 @@ The hand-built island is gone. The game now runs on the converted Wii Party map 
   sinks away. The game's "broken" message did not say who broke it, so the scene had no player to animate and
   only waited, then hid the wall.
 
+## Build 78
+
+- The players are Miis. The start menu has a round button with your Mii's face; it opens the Mii creator (the
+  open-source Mii Maker remake you sent, in `mii/`) full screen, straight into the editor with your Mii. Save and you
+  are back on the menu with your new face (your name follows your Mii's, unless you typed your own). Your Mii is kept in
+  this browser.
+- Your Mii goes to everyone in the room with the lobby list, so every player sees every Mii. The lobby shows each
+  player's face; the computer players wear the creator's guest Miis.
+- On the board each player is their Mii: the real Mii head, drawn by the creator's own Mii renderer (FFL.js), on the
+  game's body (which keeps every walk, jump and throw) in the Mii's favourite colour, as tall and as wide as the Mii. The
+  turn-order strip shows the real faces. The island viewer's player 1 is your Mii.
+- `tools/pack_mii.py` packs the creator into `mii/` so it runs from a published artifact: binary files stored as base64
+  text with a small loader, paths made relative, its error reporting turned off, and two fixes (the editor waits for the
+  Mii renderer when opened straight on a Mii; saving sends the Mii back even when the music never started). The
+  single-file download does not carry the creator (it is about 40 MB): there the button says so and the players keep
+  the simple stand-in heads.
+
 ## Build 77
 
 - The volcano space plays the Wii game's eruption as a cutscene, with nobody on the board. First the summit: the crater

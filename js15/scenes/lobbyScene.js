@@ -2,6 +2,8 @@ import { app } from '../app.js';
 import { MAX_PLAYERS, PLAYER_COLORS, NPC_DIFFICULTIES } from '../config.js';
 import { esc } from '../util/dom.js';
 import { setName } from '../identity.js';
+import { miiFace } from '../world/miiHead.js';
+import { parseMii, GUEST_MIIS } from '../world/miic.js';
 
 // Player preview: every seat with its color. Host can add CPUs, set difficulty and start.
 export class LobbyScene {
@@ -66,10 +68,18 @@ export class LobbyScene {
         } else if (!left) sub = `CPU, ${p.difficulty}`;
       }
       return `<li class="seat" style="${style}">
-        <span class="badge">${i + 1}</span>
+        <span class="badge">${i + 1}</span><img class="seat-face" data-face="${i}" alt="" hidden>
         <div><div class="seat-name">${esc(p.name)}</div><div class="seat-sub">${sub}</div></div></li>`;
     }).join('');
 
+    // each player's Mii face, drawn by the Mii renderer (when the Mii creator's files are here)
+    r.players.forEach((p, i) => {
+      if (!p) return;
+      miiFace(p.mii || GUEST_MIIS[i % GUEST_MIIS.length], parseMii).then((url) => {
+        const im = url && seats.querySelector(`[data-face="${i}"]`);
+        if (im) { im.src = url; im.hidden = false; }
+      });
+    });
     const count = r.players.filter(Boolean).length;
     app.ui.querySelector('#foot').innerHTML = `
       <span>${count} of ${MAX_PLAYERS} seats filled</span>

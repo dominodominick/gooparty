@@ -263,3 +263,30 @@ body.own-pointer, body.own-pointer * { cursor: none !important; }
   box-shadow: 0 3px 0 rgba(29, 79, 143, 0.25); transition: transform 0.12s ease, background 0.12s ease; }
 #ui > .home-link:hover { background: #fff; transform: translateY(-1px); }
 #ui > .home-link:active { transform: translateY(2px); box-shadow: 0 1px 0 rgba(29, 79, 143, 0.25); }
+
+/* ---- your Mii: the round face button on the start menu, and the Mii creator over the game ---- */
+.mii-face {
+  float: right; margin: -8px -6px 6px 12px;
+  display: grid; justify-items: center; gap: 4px;
+  font: inherit; color: var(--ink); background: none; border: 0; padding: 0; cursor: pointer;
+}
+.mii-face img, .mii-face .mii-blank {
+  width: 92px; height: 92px; border-radius: 50%; display: block; object-fit: cover;
+  background: #e8f4fc; border: 3px solid var(--line); box-shadow: 0 4px 0 rgba(22, 50, 79, 0.12);
+}
+.mii-face .mii-blank { /* a plain Mii silhouette */
+  background: radial-gradient(circle at 50% 38%, #b9cfe0 0 22%, transparent 23%), radial-gradient(ellipse 34% 26% at 50% 92%, #b9cfe0 0 99%, transparent 100%), #e8f4fc;
+}
+.mii-face:hover img, .mii-face:hover .mii-blank { border-color: var(--accent); }
+.mii-face:disabled { cursor: wait; opacity: 0.7; }
+.mii-face .mii-label { font-size: 0.85rem; color: var(--muted); }
+.mii-overlay { position: fixed; inset: 0; z-index: 1000; background: #000; transition: opacity 0.3s; }
+.mii-overlay.closing { opacity: 0; }
+.mii-overlay iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+.mii-close {
+  position: absolute; z-index: 1; bottom: max(10px, env(safe-area-inset-bottom)); left: max(10px, env(safe-area-inset-left));
+  font: inherit; font-size: 0.85rem; color: #fff; background: rgba(0, 0, 0, 0.45); border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: 999px; padding: 5px 12px; cursor: pointer;
+}
+.seat:has(.seat-face:not([hidden])) { grid-template-columns: 52px 46px 1fr; }
+.seat-face { width: 46px; height: 46px; flex: none; border-radius: 50%; background: #e8f4fc; border: 2px solid var(--c, var(--line)); object-fit: cover; }

@@ -1,0 +1,7 @@
+mii/ is the open-source Mii Creator (mii-creator-public, an unofficial public instance of Kat21's Mii Creator,
+https://github.com/datkat21/mii-creator, kept by ariankordi), packed for Party Island by tools/pack_mii.py.
+
+ - FFL.js by ariankordi (https://github.com/ariankordi/FFL.js) draws the 3D Mii heads, in the creator and in the game.
+ - mii-js (PretendoNetwork), struct-fu (Nathan Vander Wilt, forked by ariankordi), three.js, JSZip and others are bundled
+   in the creator's dist/ files; see the creator's README.
+ - Custom Mii Maker music by objecty.

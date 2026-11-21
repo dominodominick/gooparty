@@ -3,7 +3,10 @@ import { PLAYER_COLORS, VIRTUAL, BUILD } from '../config.js';
 import { ISLAND, VOLCANO, LABELS, TILE_COLORS, isChallenge, EXIT_POS } from '../game/boardData.js';
 import { islandPositions, volcanoPositions, legVia, islandWorld, VOLCANO_CENTER, VOLCANO_OFFSET, BRIDGE_PLANKS, SPACE_IDS, stopOfSpace, terrainHeight, nearestPath } from '../game/boardLayout.js';
 import { builderMesh } from '../world/worldBuild.js';
-import { buildMii, HAIR, SKINS, MII_NECK, LEG_PIVOT, ARM_PIVOT, PAWN_SCALE } from '../world/miis.js';
+import { PAWN_SCALE, HAIR, SKINS } from '../world/miis.js';
+import { makeFigure, fitFFLHead } from '../world/miiPawn.js';
+import { parseMii, GUEST_MIIS } from '../world/miic.js';
+import { loadMiiRenderer, miiFace } from '../world/miiHead.js';
 import { tileCanvas } from '../world/tileArt.js';
 import { ChallengeFX } from './challengeFx.js';
 import { spacesToGo, DROP, ERUPTION_STRETCHES } from '../game/boardGame.js';
@@ -132,23 +135,13 @@ function dieFaceTexture(T, value, style) {
   return canvasTex(T, c);
 }
 
-const PANTS = ['#35508f', '#2b2b3a', '#6a5a3a', '#3a5a8a', '#4a3a6a', '#3a3f4a'];
 const START_SPACING = 2.4; // how far apart the waiting pawns stand
-function makePawn(T, slot) {
+/** A player's pawn: their Mii (world/miiPawn.js), with a shadow and their number over their head. `mii` is a parsed Mii. */
+function makePawn(T, slot, mii = null) {
   const c = PLAYER_COLORS[slot];
-  const g = new T.Group();
-  const { body, head, legs, arms } = buildMii({ shirt: c.hex, pants: PANTS[slot], hair: HAIR[slot], skin: SKINS[slot], parts: true });
-  g.add(builderMesh(T, body));
-  g.userData.legs = []; g.userData.arms = []; // swung from the hips and shoulders when the pawn walks
-  [-1, 1].forEach((sgn, i) => {
-    const lg = new T.Group(); lg.position.set(sgn * LEG_PIVOT.x, LEG_PIVOT.y, 0); lg.add(builderMesh(T, legs[i])); g.add(lg); g.userData.legs.push(lg);
-    const ag = new T.Group(); ag.position.set(sgn * ARM_PIVOT.x, ARM_PIVOT.y, 0); ag.add(builderMesh(T, arms[i])); g.add(ag); g.userData.arms.push(ag);
-  });
-  const headGroup = new T.Group(); // tips up to look at the camera while rolling; pivots at the neck
-  headGroup.position.set(0, MII_NECK, 0);
-  headGroup.add(builderMesh(T, head));
-  g.add(headGroup);
-  g.userData.head = headGroup;
+  const f = makeFigure(T, slot, mii), g = f.group;
+  g.userData.legs = f.legs; g.userData.arms = f.arms; // swung from the hips and shoulders when the pawn walks
+  g.userData.head = f.head; // tips up to look at the camera while rolling; pivots at the neck
   // the shadow: a soft dark disc; it is laid on whatever is under the player each frame (see placeShadow)
   const sg = new T.CircleGeometry(0.95, 18); if (sg.rotateX) sg.rotateX(-Math.PI / 2);
   const shadow = new T.Mesh(sg, new T.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.28, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -6 }));
@@ -250,7 +243,8 @@ export class BoardScene {
 
   exit() {
     if (this.broken) { app.ui.onclick = null; return; }
-    this.left = true;
+    this.left = true; this.headToken = null;
+    if (this.miiRenderer && this.pawns) for (const p of Object.values(this.pawns)) if (p.fflHead) this.miiRenderer.dispose(p.fflHead);
     removeEventListener('keydown', this.onKey);
     this.unhookPointer();
     this.s?.setTurnHandler(null);
@@ -416,12 +410,37 @@ export class BoardScene {
     this.pawns = {};
     for (const key of Object.keys(b.positions)) {
       const slot = Number(key), at = b.positions[slot];
-      const group = makePawn(T, slot);
+      const mii = parseMii(this.miiDataOf(slot));
+      const group = makePawn(T, slot, mii);
       this.scene3d.add(group);
-      const pawn = { slot, group, head: group.userData.head, yaw: 0, pitch: 0, badge: group.userData.badge, track: at.track, idx: at.idx, x: 0, y: 0, z: 0, scale: 1 };
+      const pawn = { slot, group, head: group.userData.head, yaw: 0, pitch: 0, badge: group.userData.badge, track: at.track, idx: at.idx, x: 0, y: 0, z: 0, scale: 1, mii };
       this.snapPawn(pawn, at);
       this.pawns[slot] = pawn;
     }
+    this.loadMiiHeads();
+  }
+
+  /** A player's Mii data (base64): theirs from the lobby, or a guest Mii (computer players, or no Mii made yet). */
+  miiDataOf(slot) { return (this.s && this.s.roster && this.s.roster.players && this.s.roster.players[slot] && this.s.roster.players[slot].mii) || GUEST_MIIS[slot % GUEST_MIIS.length]; }
+
+  /** The real Mii heads (FFL), once the Mii renderer has loaded; until then (or without it) the stand-in heads stay. */
+  loadMiiHeads() {
+    const token = (this.headToken = {});
+    loadMiiRenderer().then((F) => {
+      if (!F || this.headToken !== token || this.left || !this.pawns || !this.renderer) return;
+      this.miiRenderer = F;
+      for (const p of Object.values(this.pawns)) {
+        if (!p.mii) continue;
+        try { p.fflHead = fitFFLHead(p.head, F.head(p.mii.ffl, this.renderer)); } catch (e) { /* this Mii keeps the stand-in head */ }
+        const slot = p.slot; // and their face in the turn-order strip
+        miiFace(this.miiDataOf(slot), parseMii).then((url) => {
+          if (!url || this.headToken !== token || typeof Image === 'undefined') return;
+          const im = new Image();
+          im.onload = () => { (this.miiFaceImg ||= {})[slot] = im; if (this.faces) delete this.faces[slot]; this.hudKey = null; };
+          im.src = url;
+        });
+      }
+    });
   }
 
   // ===================================================================== positions
@@ -2023,7 +2042,7 @@ export class BoardScene {
     return f != null && this.pawns[f] ? f : null;
   }
 
-  /** A little round portrait of a player's Mii (their hair and skin) on their colour, as an image URL. Cached. */
+  /** A little round portrait of a player's Mii on their colour, as an image URL: their real face once the Mii renderer has drawn it, a simple drawn one until then. Cached. */
   faceUrl(i) {
     this.faces ||= {};
     if (this.faces[i]) return this.faces[i];
@@ -2031,6 +2050,11 @@ export class BoardScene {
     const g = cv.getContext('2d'), col = PLAYER_COLORS[i].hex, hair = HAIR[i] || HAIR[0], skin = SKINS[i] || SKINS[0];
     const bg = g.createRadialGradient(36, 30, 6, 48, 48, 48); bg.addColorStop(0, shadeHex(col, 1.35)); bg.addColorStop(0.7, col); bg.addColorStop(1, shadeHex(col, 0.7));
     g.fillStyle = bg; g.beginPath(); g.arc(48, 48, 47, 0, Math.PI * 2); g.fill();
+    const real = this.miiFaceImg && this.miiFaceImg[i];
+    if (real) { // the Mii Maker's own face picture, inside the circle
+      g.save(); g.beginPath(); g.arc(48, 48, 45, 0, Math.PI * 2); g.clip(); g.drawImage(real, 0, 2, 96, 96); g.restore();
+      return (this.faces[i] = cv.toDataURL());
+    }
     const ell = (x, y, rx, ry, c) => { g.fillStyle = c; g.beginPath(); g.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2); g.fill(); };
     if (hair.style === 'long') { g.fillStyle = hair.c; g.beginPath(); g.ellipse(48, 56, 31, 32, 0, Math.PI, 0); g.lineTo(79, 82); g.lineTo(17, 82); g.fill(); }
     if (hair.style === 'bun') ell(48, 16, 11, 10, hair.c);

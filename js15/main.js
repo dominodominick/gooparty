@@ -8,6 +8,8 @@ import { BoardScene } from './scenes/boardScene.js';
 import { ViewerScene } from './scenes/viewerScene.js';
 import { loadBoard } from './world/islandLoader.js';
 import { BoardGame } from './game/boardGame.js';
+import { currentMii } from './identity.js';
+import { GUEST_MIIS } from './world/miic.js';
 
 // Scene registry. To add a minigame later: write a scene file, register it here.
 // The map: packed into the page (single-file build) or fetched from the assets folder. It starts loading right away.
@@ -147,7 +149,7 @@ const room = new URLSearchParams(location.search).get('room');
 app.openViewer = () => {
   const bg = new BoardGame({ slots: [0, 1, 2, 3], rng: Math.random, isNpc: () => true }); bg.start(0);
   const names = ['Player 1', 'CPU 2', 'CPU 3', 'CPU 4'];
-  app.session = { role: 'host', mySlot: 0, viewer: true, roster: { players: names.map((n, i) => ({ slot: i, name: n, kind: i ? 'npc' : 'human', wasHuman: !i, connected: !i })) },
+  app.session = { role: 'host', mySlot: 0, viewer: true, roster: { players: names.map((n, i) => ({ slot: i, name: n, kind: i ? 'npc' : 'human', wasHuman: !i, connected: !i, mii: i ? GUEST_MIIS[i - 1] : (currentMii()?.data || GUEST_MIIS[5]) })) }, // (you are player 1, in your Mii)
     board: bg.snapshot(), update() {}, setTurnHandler() {}, stop() {}, choose() {}, backToLobby() {}, leave() {} };
   app.go('viewer');
 };
