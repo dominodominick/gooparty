@@ -900,7 +900,7 @@ export class ChallengeFX {
     if (o && o.block) o.block.position.set(V.dir.x * slide * 3.2 / S, 0, V.dir.z * slide * 3.2 / S);
     const shove = ease(clamp01((u - 0.18) / 0.25)), fall = clamp01((u - 0.4) / 0.35);
     const p = lerp3(A, V.pit, shove); p.y = A.y + Math.sin(shove * Math.PI) * 0.8 - fall * fall * 26;
-    pawn.fx = { x: p.x, y: p.y, z: p.z, tilt: fall * 1.4, arms: [-2.8, -2.8], groundY: A.y - 30 };
+    pawn.fx = { x: p.x, y: p.y, z: p.z, tilt: fall * 1.4, clip: 'tumble', arms: [-2.8, -2.8], groundY: A.y - 30 };
     return p;
   }
 
@@ -1074,7 +1074,7 @@ export class ChallengeFX {
       if (i === bad) { // crack: this one gives way under the player
         const swimY = c.water - 2.9, sunk = { x: to.x, y: swimY, z: to.z }, shore = { x: outB.x, y: swimY, z: outB.z };
         parts.push([0.35, (t) => { this.breakFloater(li, k); return air(lerp3(to, sunk, t)); }]);
-        parts.push([flat(sunk, shore) / 7, (t) => { const p = lerp3(sunk, shore, t); p.y += Math.sin(t * 40) * 0.12; return { ...p, fx: { yaw, tilt: 0.9, arms: [-2.4 + Math.sin(t * 50) * 0.8, -2.4 - Math.sin(t * 50) * 0.8], groundY: swimY } }; }]);
+        parts.push([flat(sunk, shore) / 7, (t) => { const p = lerp3(sunk, shore, t); p.y += Math.sin(t * 40) * 0.12; return { ...p, fx: { yaw, tilt: 0.9, clip: 'swim', arms: [-2.4 + Math.sin(t * 50) * 0.8, -2.4 - Math.sin(t * 50) * 0.8], groundY: swimY } }; }]);
         parts.push([0.4, (t) => air(hop(shore, outB, t, 1.5))]);
         at = null; break;
       }

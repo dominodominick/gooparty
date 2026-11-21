@@ -166,8 +166,8 @@ export class ViewerScene extends BoardScene {
       else { o.tx += (fx.x - o.tx) * k; o.ty += (fx.y + 1.5 - o.ty) * k; o.tz += (fx.z - o.tz) * k; }
     }
     this.setAmbience(o.tx > VOLCANO_OFFSET.x / 2 ? 'volcano' : 'island');
-    const cp = Math.cos(o.pitch);
-    this.camera.position.set(o.tx + Math.sin(o.yaw) * cp * o.dist, o.ty + Math.sin(o.pitch) * o.dist, o.tz + Math.cos(o.yaw) * cp * o.dist);
+    const cp = Math.cos(o.pitch), dist = o.dist * ((typeof window !== 'undefined' && window.__VIEW_ZOOM) || 1); // (__VIEW_ZOOM: a page can bring the camera in, for checking the Miis by eye)
+    this.camera.position.set(o.tx + Math.sin(o.yaw) * cp * dist, o.ty + Math.sin(o.pitch) * dist, o.tz + Math.cos(o.yaw) * cp * dist);
     this.camera.lookAt(o.tx, o.ty, o.tz);
     this.rolling = false;
   }

@@ -351,6 +351,18 @@ The hand-built island is gone. The game now runs on the converted Wii Party map 
   sinks away. The game's "broken" message did not say who broke it, so the scene had no player to animate and
   only waited, then hid the wall.
 
+## Build 81
+
+- The players are Wii Party's own Miis: Wii Party's Mii body (from `files/ch_base/player/pl001.brres`: shirt, trousers,
+  hands and neck, skinned to its skeleton) with the real Mii head, in the Mii's favourite colour and skin colour, and
+  Wii Party's own Mii animations (`files/ch_base/player_motion.branm`, 480 of them; 18 are used on the board so far):
+  standing (idle), walking and running in step with the ground, flailing through the air (springs, statue throws,
+  fireballs, the UFO), tumbling (the tornado, a meteor, the fall into the volcano), landing, hanging from the vine,
+  swimming after the crates, cowering (the spike ball, the meteor coming down), and the winner celebrating. A change
+  of animation blends over a fifth of a second. `tools/extract_wp_mii.py` writes the body and the clips to
+  `js15/world/wpMiiData.js` (318 KB); `js15/world/wpMii.js` builds and plays them.
+- The creator's Wii U body (build 79) is gone.
+
 ## Build 80
 
 - Every player is the same height and build on the board, as in Wii Party: a Mii's own height and weight from the

@@ -140,7 +140,7 @@ const START_SPACING = 2.4; // how far apart the waiting pawns stand
 function makePawn(T, slot, mii = null) {
   const c = PLAYER_COLORS[slot];
   const f = makeFigure(T, slot, mii), g = f.group;
-  g.userData.legs = f.legs; g.userData.arms = f.arms; // swung from the hips and shoulders when the pawn walks
+  g.userData.wp = f.body; // Wii Party's Mii body: plays Wii Party's Mii animations (see animateWp)
   g.userData.head = f.head; // tips up to look at the camera while rolling; pivots at the neck
   // the shadow: a soft dark disc; it is laid on whatever is under the player each frame (see placeShadow)
   const sg = new T.CircleGeometry(0.95, 18); if (sg.rotateX) sg.rotateX(-Math.PI / 2);
@@ -570,12 +570,14 @@ export class BoardScene {
         this.anim.end = () => { if (end) end(); this.clearBanner(); };
         break;
       }
-      case 'win':
+      case 'win': {
         this.camSlot = ev.slot;
+        const wp = this.pawns[ev.slot]; if (wp) wp.cheer = 'win'; // (they celebrate, arms up, from now on)
         this.openSummit();
         this.setBanner(`${esc(this.nameOf(ev.slot))} wins!`);
         this.anim = { t: 0, dur: ev.dur };
         break;
+      }
       case 'move': {
         const main = this.wrapMove(ev, this.beginMove(ev)), side = [];
         while (this.queue.length && this.queue[0].t === 'move' && this.queue[0].with) side.push(this.queue.shift()); // run at the same time
@@ -1287,18 +1289,18 @@ export class BoardScene {
       if (u < T1) { // standing there, looking up as it comes in
         const w = clamp01(u / T1);
         pawn.x = A.x; pawn.y = A.y; pawn.z = A.z;
-        pawn.fx = { x: A.x, y: A.y, z: A.z, yaw: upYaw, arms: [-1.6 * w, -1.6 * w], tilt: -0.25 * w, groundY: A.y };
+        pawn.fx = { x: A.x, y: A.y, z: A.z, yaw: upYaw, clip: 'scared', arms: [-1.6 * w, -1.6 * w], tilt: -0.25 * w, groundY: A.y };
       } else if (u < T2) { // blown back, tumbling over
         const g = clamp01((u - T1) / (T2 - T1)), e = 1 - (1 - g) * (1 - g);
         const x = A.x + (B.x - A.x) * e, z = A.z + (B.z - A.z) * e, y = A.y + (B.y - A.y) * e + Math.sin(g * Math.PI) * lift;
         const q = nearestPath(x, z), gy = q && q.d < 2.4 ? q.y + 0.08 : terrainHeight(x, z) + 0.14;
         pawn.x = x; pawn.y = y; pawn.z = z;
-        pawn.fx = { x, y, z, yaw: faceYaw, tilt: 0.5 + 1.6 * Math.sin(g * Math.PI * 0.9), arms: [-2.8, -2.2], legs: [0.6, -0.5], groundY: gy };
+        pawn.fx = { x, y, z, yaw: faceYaw, clip: 'tumble', tilt: 0.5 + 1.6 * Math.sin(g * Math.PI * 0.9), arms: [-2.8, -2.2], legs: [0.6, -0.5], groundY: gy };
         if (count) this.setCounter(count, Math.round(count.total * (1 - e)));
       } else { // down with a bump, and back up
         const l = clamp01((u - T2) / (1 - T2));
         pawn.x = B.x; pawn.y = B.y; pawn.z = B.z;
-        pawn.fx = l < 1 ? { x: B.x, y: B.y, z: B.z, yaw: faceYaw, tilt: 0.45 * (1 - l), arms: [-1.4 * (1 - l), -1.4 * (1 - l)] } : null;
+        pawn.fx = l < 1 ? { x: B.x, y: B.y, z: B.z, yaw: faceYaw, clip: 'land', clipF: l * 30, tilt: 0.45 * (1 - l), arms: [-1.4 * (1 - l), -1.4 * (1 - l)] } : null;
         if (count) this.setCounter(count, 0);
       }
       this.place(pawn);
@@ -1346,7 +1348,7 @@ export class BoardScene {
       if (t >= t3) { const d = clamp01((t - t3) / tDrop); x = B.x; z = B.z; y = lastY + (B.y - lastY) * d * d; }
       else lastY = y;
       pawn.x = x; pawn.y = y; pawn.z = z;
-      pawn.fx = t >= t3 && y <= B.y + 0.01 ? null : { x, y, z, yaw: spinYaw, arms: [-2.6, -2.6], legs: [0.5, -0.4], tilt: t < t3 ? 0.25 : 0, groundY: at.y };
+      pawn.fx = t >= t3 && y <= B.y + 0.01 ? null : { x, y, z, yaw: spinYaw, clip: t < t3 ? 'tumble' : 'fly', arms: [-2.6, -2.6], legs: [0.5, -0.4], tilt: t < t3 ? 0.25 : 0, groundY: at.y };
       this.place(pawn);
     };
     out.cleanup = () => { g.visible = false; };
@@ -1690,6 +1692,7 @@ export class BoardScene {
     pawn.amp = (pawn.amp || 0) + (want - (pawn.amp || 0)) * Math.min(1, dt * 12);
     pawn.phase = (pawn.phase || 0) + Math.min(moved, 1.6) * 1.1;       // long strides: one full stride about every 5.7 units
     const sw = Math.sin(pawn.phase) * pawn.amp * 1.3, flying = pawn.groundY != null, F = pawn.fx;
+    if (U.wp) { this.animateWp(pawn, U.wp, dt, flying, F, speed, moved); if (U.shadow) this.placeShadow(pawn, U.shadow, flying); return; }
     if (U.legs) {
       if (F && F.legs) { U.legs[0].rotation.x = F.legs[0]; U.legs[1].rotation.x = F.legs[1]; }
       else { U.legs[0].rotation.x = flying ? 0.5 : sw; U.legs[1].rotation.x = flying ? -0.4 : -sw; }
@@ -1698,6 +1701,35 @@ export class BoardScene {
     }
     if (!F) g.position.y += Math.abs(Math.cos(pawn.phase)) * pawn.amp * 0.24;    // a little spring in each step
     if (U.shadow) this.placeShadow(pawn, U.shadow, flying);
+  }
+
+  /**
+   * The Mii body's animation, from Wii Party's own clips (world/wpMii.js): what the pawn is doing picks the clip.
+   *  - a set piece can name one (fx.clip, at fx.clipF frames or from when it started);
+   *  - hanging from the vine (arms straight up): 'hang'; in the air: 'fly' (arms and legs flailing);
+   *  - a set piece holding the pawn on the ground with its arms up high (a fright): 'scared'; otherwise standing: 'idle';
+   *  - walking or running along the path: 'walk' / 'run', in step with how far the pawn has gone.
+   * A change of clip blends over a fifth of a second.
+   */
+  animateWp(pawn, wp, dt, flying, F, speed, moved) {
+    let clip, frame = null;
+    if (F && F.clip) { clip = F.clip; if (F.clipF != null) frame = F.clipF; }
+    else if (F && F.arms && F.arms[0] <= -2.95) clip = 'hang';
+    else if (flying) clip = 'fly';
+    else if (F && F.arms && F.arms[0] <= -2.5) clip = 'scared';
+    else if (F) clip = 'idle';
+    else if (pawn.amp > 0.2) clip = speed > 16 ? 'run' : 'walk';
+    else clip = pawn.cheer || 'idle';
+    const W = pawn.wp || (pawn.wp = { clip: null, t: 0, prev: null, prevF: 0, blend: 1, dist: 0 });
+    if (clip !== W.clip) { W.prev = W.clip; W.prevF = W.f || 0; W.clip = clip; W.t = 0; W.blend = W.prev ? 0 : 1; }
+    W.t += dt; W.blend = Math.min(1, W.blend + dt / 0.2);
+    if (clip === 'walk' || clip === 'run') W.dist += Math.min(moved, 2) * (clip === 'run' ? 8 : 19); // (frames per unit walked: the feet keep up with the ground)
+    const f = frame != null ? frame : clip === 'walk' || clip === 'run' ? W.dist : W.t * 60;
+    W.f = f;
+    if (W.blend < 1 && W.prev) { wp.pose(W.prev, W.prevF); wp.pose(clip, f, W.blend); } else wp.pose(clip, f);
+    // the body stays where the game puts the pawn: the clip's own travel (its root bone moving off) is left out
+    const root = wp.bones.ske_root;
+    if (root) { root.position.x = 0; root.position.z = 0; if (flying || clip === 'hang' || clip === 'fly' || clip === 'tumble') root.position.y = 60; }
   }
 
   /**

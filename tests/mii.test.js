@@ -63,18 +63,19 @@ for (const hw of [{ height: 0, build: 0 }, { height: 127, build: 127 }, { height
   assert.deepEqual(odd, [], 'only file types an artifact serves');
   assert.ok(!fs.readFileSync(path.join(M, 'ffl', 'FFLShaderMaterial.js'), 'utf8').includes('PrepareThree'), "FFL's material uses the page's Three.js");
 }
-// ---- the Mii body (the creator's Wii U body), with the real Three.js the creator ships ----
+// ---- v81: Wii Party's own Mii body and animations, with the real Three.js the creator ships ----
 {
   const T = (await import('../mii/dist/three.js')).default;
-  const { makeBody, BODY_NECK } = await import('../js15/world/miiBody.js');
-  for (const gender of [0, 1]) {
-    const b = makeBody(T, gender), v = new T.Vector3(), at = (n) => { b.root.updateMatrixWorld(true); return b.bones[n].getWorldPosition(v).clone(); };
-    assert.equal(b.meshes.length, 2); assert.ok(b.meshes.every((m) => m.isSkinnedMesh && m.skeleton.bones.length === 25));
-    assert.ok(Math.abs(at('head').y - BODY_NECK) < 0.4, `the neck is at BODY_NECK (${at('head').y.toFixed(2)})`);
-    const hand0 = at('wrist_r'); assert.ok(hand0.y < 7 && hand0.x < 0, 'at rest the arms hang down (the idle pose); arm 0 on the -x side');
-    b.setArm(0, -2.4); const up = at('wrist_r'); assert.ok(up.y > at('head').y && up.z > hand0.z - 0.5, 'arm thrown up (forward and up), as the old pawn\'s');
-    b.setArm(0, 0); assert.ok(at('wrist_r').distanceTo(hand0) < 1e-3, 'and back');
-    const foot0 = at('ankle_l'); b.setLeg(1, -0.6); assert.ok(at('ankle_l').z > foot0.z + 1, 'a leg swings forward (+z: the way the Mii faces)');
-  }
+  const { makeWpBody, WP_NECK } = await import('../js15/world/wpMii.js');
+  const { WP_MII } = await import('../js15/world/wpMiiData.js');
+  const b = makeWpBody(T, WP_MII), v = new T.Vector3(), at = (n) => { b.root.updateMatrixWorld(true); return b.bones[n].getWorldPosition(v).clone(); };
+  assert.equal(b.meshes.length, 3, 'shirt, trousers, skin'); assert.ok(b.meshes.every((m) => m.isSkinnedMesh));
+  assert.ok(Math.abs(at('hook_head').y - WP_NECK) < 0.5, 'the neck is at WP_NECK at rest');
+  for (const c of ['idle', 'walk', 'run', 'jump', 'fly', 'tumble', 'hang', 'swim', 'scared', 'cheer', 'sad', 'win', 'land', 'knock', 'hit', 'springUp', 'boardIdle', 'sitStunned'])
+    assert.ok(b.frames(c) > 0, `clip ${c}`);
+  b.pose('idle', 0); const hand = at('L_hand'); assert.ok(hand.y < 80, 'idle: arms down at the sides');
+  b.pose('win', 30); assert.ok(at('L_hand').y > at('hook_head').y, 'win: arms up over the head');
+  b.pose('walk', 0); const f0 = at('L_foot1').z; b.pose('walk', 30); assert.ok(Math.abs(at('L_foot1').z - f0) > 5, 'walk: the feet go back and forth');
+  b.pose('idle', 0); b.pose('win', 30, 0.5); const mid = at('L_hand').y; assert.ok(mid > hand.y && mid < at('hook_head').y + 40, 'a blend is in between');
 }
 console.log('mii tests passed');
