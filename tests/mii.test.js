@@ -64,4 +64,18 @@ assert.ok(bodyScale({ height: 127, build: 0 }).y > bodyScale({ height: 0, build:
   assert.deepEqual(odd, [], 'only file types an artifact serves');
   assert.ok(!fs.readFileSync(path.join(M, 'ffl', 'FFLShaderMaterial.js'), 'utf8').includes('PrepareThree'), "FFL's material uses the page's Three.js");
 }
+// ---- the Mii body (the creator's Wii U body), with the real Three.js the creator ships ----
+{
+  const T = (await import('../mii/dist/three.js')).default;
+  const { makeBody, BODY_NECK } = await import('../js15/world/miiBody.js');
+  for (const gender of [0, 1]) {
+    const b = makeBody(T, gender), v = new T.Vector3(), at = (n) => { b.root.updateMatrixWorld(true); return b.bones[n].getWorldPosition(v).clone(); };
+    assert.equal(b.meshes.length, 2); assert.ok(b.meshes.every((m) => m.isSkinnedMesh && m.skeleton.bones.length === 25));
+    assert.ok(Math.abs(at('head').y - BODY_NECK) < 0.4, `the neck is at BODY_NECK (${at('head').y.toFixed(2)})`);
+    const hand0 = at('wrist_r'); assert.ok(hand0.y < 7 && hand0.x < 0, 'at rest the arms hang down (the idle pose); arm 0 on the -x side');
+    b.setArm(0, -2.4); const up = at('wrist_r'); assert.ok(up.y > at('head').y && up.z > hand0.z - 0.5, 'arm thrown up (forward and up), as the old pawn\'s');
+    b.setArm(0, 0); assert.ok(at('wrist_r').distanceTo(hand0) < 1e-3, 'and back');
+    const foot0 = at('ankle_l'); b.setLeg(1, -0.6); assert.ok(at('ankle_l').z > foot0.z + 1, 'a leg swings forward (+z: the way the Mii faces)');
+  }
+}
 console.log('mii tests passed');

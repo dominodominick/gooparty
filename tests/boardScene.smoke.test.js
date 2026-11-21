@@ -611,7 +611,7 @@ assert.ok(DUR.fly >= 2400 && DUR.drop >= 1800);
 {
   const R128 = new Set(['Mesh', 'MeshLambertMaterial', 'MeshBasicMaterial', 'Group', 'BufferAttribute', 'BufferGeometry', 'CanvasTexture', 'PlaneGeometry',
     'PointLight', 'HemisphereLight', 'DirectionalLight', 'Fog', 'Color', 'Scene', 'PerspectiveCamera', 'WebGLRenderer', 'Sprite', 'SpriteMaterial',
-    'SphereGeometry', 'CircleGeometry', 'BoxGeometry', 'CylinderGeometry', 'TubeGeometry', 'CatmullRomCurve3', 'Raycaster', 'AdditiveBlending', 'ConeGeometry', 'Quaternion', 'Euler', 'Vector3', 'Matrix4', 'TextureLoader', 'RepeatWrapping', 'DoubleSide', 'REVISION', 'SRGBColorSpace']);
+    'SphereGeometry', 'CircleGeometry', 'BoxGeometry', 'CylinderGeometry', 'TubeGeometry', 'CatmullRomCurve3', 'Raycaster', 'AdditiveBlending', 'ConeGeometry', 'Quaternion', 'Euler', 'Vector3', 'Matrix4', 'TextureLoader', 'RepeatWrapping', 'DoubleSide', 'REVISION', 'SRGBColorSpace', 'SkinnedMesh', 'Bone', 'Skeleton']);
   const odd = [...usedThree].filter((n) => !R128.has(n));
   assert.deepEqual(odd, [], `unknown THREE names: ${odd.join(', ')}`);
   const bg = new BoardGame({ slots: [0, 1, 2], rng: mulberry32(5), isNpc: () => true });

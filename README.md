@@ -351,6 +351,16 @@ The hand-built island is gone. The game now runs on the converted Wii Party map 
   sinks away. The game's "broken" message did not say who broke it, so the scene had no player to animate and
   only waited, then hid the wall.
 
+## Build 79
+
+- The players have the Mii body: the creator's own Wii U Mii body (a skinned mesh on its skeleton, boy and girl), in
+  the Mii's favourite colour with grey trousers, as tall and wide as the Mii, the real Mii head on its neck. It stands
+  in the creator's idle pose, and every walk, jump, throw and swing turns its shoulders and hips the way the old pawn's
+  limbs were turned. The body is packed into the game (`js15/world/miiBodyData.js`, 125 KB), so even the single-file
+  download has it (with the simple stand-in head there).
+- Fix: the Mii creator was black on the website: the rule that keeps the game's own build folder (`dist/`) out of git
+  was also leaving out the creator's `mii/dist/` (its program). Only the game's top-level `/dist/` is ignored now.
+
 ## Build 78
 
 - The players are Miis. The start menu has a round button with your Mii's face; it opens the Mii creator (the
