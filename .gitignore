@@ -1,4 +1,4 @@
 node_modules/
-dist/
+/dist/
 tests/shots/
 __pycache__/
