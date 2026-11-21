@@ -26,7 +26,8 @@ export function makeWpBody(T, D, { shirt = '#d21e14', pants = '#3c4152', skin = 
   const root = new T.Group();
   root.add(bones[0]);
   const inv = D.skel.map((b) => { const m = b.inv; return new T.Matrix4().set(m[0], m[1], m[2], m[3], m[4], m[5], m[6], m[7], m[8], m[9], m[10], m[11], 0, 0, 0, 1); });
-  const mats = { wear00: new T.MeshLambertMaterial({ color: shirt }), pants: new T.MeshLambertMaterial({ color: pants }), skin00: new T.MeshLambertMaterial({ color: skin }) };
+  const side = T.DoubleSide; // (a few of the body's triangles face the other way)
+  const mats = { wear00: new T.MeshLambertMaterial({ color: shirt, side }), pants: new T.MeshLambertMaterial({ color: pants, side }), skin00: new T.MeshLambertMaterial({ color: skin, side }) };
   root.updateMatrixWorld(true);
   const meshes = D.meshes.map((m) => {
     const g = new T.BufferGeometry();

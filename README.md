@@ -351,6 +351,15 @@ The hand-built island is gone. The game now runs on the converted Wii Party map 
   sinks away. The game's "broken" message did not say who broke it, so the scene had no player to animate and
   only waited, then hid the wall.
 
+## Build 82
+
+- The Miis are the right size again: with Wii Party's own body they had come out too big. Measured against your
+  screenshot of the game (a Mii on the UFO space), the Mii's head is now about a sixth of a space wide, as there
+  (`PAWN_SCALE` 0.8 -> 0.66).
+- Fix: the trousers showed through the front of the shirt. Some of the body's triangles face the other way (the
+  Wii draws both sides), so parts of the shirt were missing and the trousers behind showed; the body is now drawn
+  from both sides. Its shading is smoother too: normals are worked out from the shape, keeping the hem and cuffs sharp.
+
 ## Build 81
 
 - The players are Wii Party's own Miis: Wii Party's Mii body (from `files/ch_base/player/pl001.brres`: shirt, trousers,

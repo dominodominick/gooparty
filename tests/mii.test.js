@@ -76,6 +76,12 @@ for (const hw of [{ height: 0, build: 0 }, { height: 127, build: 127 }, { height
   b.pose('idle', 0); const hand = at('L_hand'); assert.ok(hand.y < 80, 'idle: arms down at the sides');
   b.pose('win', 30); assert.ok(at('L_hand').y > at('hook_head').y, 'win: arms up over the head');
   b.pose('walk', 0); const f0 = at('L_foot1').z; b.pose('walk', 30); assert.ok(Math.abs(at('L_foot1').z - f0) > 5, 'walk: the feet go back and forth');
+  assert.ok(b.meshes.every((m) => m.material.side === T.DoubleSide), 'v82: drawn from both sides (some triangles face the other way: the trousers showed through the shirt)');
+  { // v82: the shirt's front faces forward (normals worked out from the shape)
+    const sh = WP_MII.meshes.find((m) => m.mat === 'wear00'); let best = -1, n = null;
+    for (let i = 0; i < sh.pos.length / 3; i++) if (sh.pos[3 * i + 1] > 70 && sh.pos[3 * i + 1] < 90 && sh.pos[3 * i + 2] > best) { best = sh.pos[3 * i + 2]; n = sh.nrm.slice(3 * i, 3 * i + 3); }
+    assert.ok(n[2] > 0.8, `the chest's normal points forward (${n})`);
+  }
   b.pose('idle', 0); b.pose('win', 30, 0.5); const mid = at('L_hand').y; assert.ok(mid > hand.y && mid < at('hook_head').y + 40, 'a blend is in between');
 }
 console.log('mii tests passed');

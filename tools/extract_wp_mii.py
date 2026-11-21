@@ -88,7 +88,26 @@ for op in M['defs']['DrawOpa']:
         t = (tuple(pos[3 * k:3 * k + 3]), tuple(nrm[3 * k:3 * k + 3]), tuple(ji[2 * k:2 * k + 2]), tuple(jw[2 * k:2 * k + 2]))
         if t not in key: key[t] = len(key); P2 += t[0]; N2 += t[1]; J2 += t[2]; W2 += t[3]
         remap.append(key[t])
-    meshes.append({'mat': mat_order[mat], 'pos': P2, 'nrm': N2, 'ji': J2, 'jw': W2, 'idx': [remap[int(i)] for t in tris for i in t]})
+    idx = [remap[int(i)] for t in tris for i in t]
+    # smooth normals from the shape itself, with creases: each corner of a face gets the area-weighted normals of the
+    # faces round the same place that bend less than 60 degrees from it (so a hem or a cuff stays a sharp edge)
+    V = np.array(P2).reshape(-1, 3); faces = list(zip(idx[0::3], idx[1::3], idx[2::3])); at = {}
+    FN = [np.cross(V[c_] - V[a_], V[b_] - V[a_]) for a_, b_, c_ in faces]  # (the Wii winds its triangles the other way round)
+    for f_, tri in enumerate(faces):
+        for v_ in tri: at.setdefault(tuple(np.round(V[v_], 2)), []).append(f_)
+    unit = lambda x: x / (np.linalg.norm(x) or 1)
+    out_key, P3, N3, J3, W3, idx3 = {}, [], [], [], [], []
+    for f_, tri in enumerate(faces):
+        me = unit(FN[f_])
+        for v_ in tri:
+            n_ = sum((FN[g] for g in at[tuple(np.round(V[v_], 2))] if np.dot(unit(FN[g]), me) > 0.5), np.zeros(3))
+            n_ = [round(float(x), 3) for x in unit(n_)]
+            k_ = (v_, tuple(n_))
+            if k_ not in out_key:
+                out_key[k_] = len(out_key); P3 += P2[3 * v_:3 * v_ + 3]; N3 += n_; J3 += J2[2 * v_:2 * v_ + 2]; W3 += W2[2 * v_:2 * v_ + 2]
+            idx3.append(out_key[k_])
+    P2, N2, J2, W2, idx = P3, N3, J3, W3, idx3
+    meshes.append({'mat': mat_order[mat], 'pos': P2, 'nrm': N2, 'ji': J2, 'jw': W2, 'idx': idx})
 
 skel = [{'name': b['name'], 'parent': b['parent'], 't': [round(x, 4) for x in b['T']], 'r': [round(x, 4) for x in b['R']], 's': [round(x, 4) for x in b['S']],
          'inv': [round(float(x), 5) for x in np.linalg.inv(world(i))[:3].ravel()]} for i, b in enumerate(bones)]
