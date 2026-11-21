@@ -27,9 +27,8 @@ assert.deepEqual(GUEST_MIIS.map((g) => parseMii(g).gender), [0, 0, 0, 1, 1, 1]);
 assert.equal(parseMii('not mii data!'), null);
 assert.equal(parseMii(toBase64(new Uint8Array(40))), null);
 assert.equal(readMiic(fromBase64(DEFAULT_MII)).nickname, 'Mii');
-// the body follows the Mii's height and build, gently
-assert.deepEqual(bodyScale({ height: 64, build: 64 }), bodyScale(null) && { y: 0.84 + 0.32 * 64 / 127, xz: 0.84 + 0.34 * 64 / 127 });
-assert.ok(bodyScale({ height: 127, build: 0 }).y > bodyScale({ height: 0, build: 0 }).y);
+// v80: a Mii's own height and weight are not used: every player is the same size
+for (const hw of [{ height: 0, build: 0 }, { height: 127, build: 127 }, { height: 64, build: 10 }]) assert.deepEqual(bodyScale(hw), { y: 1, xz: 1 });
 
 // ---- through the lobby ----
 {

@@ -1,7 +1,7 @@
 // A player on the board: their Mii. The head is the real Mii head, drawn by FFL (the Mii renderer the Mii creator
 // uses, loaded from mii/ffl/ when the creator's files are there; see miiHead.js); until it has loaded, or when it
 // can't (the single-file download has no creator files), a simple head stands in. The body is the creator's Wii U
-// Mii body (miiBody.js), in the Mii's favourite colour, as tall and as wide as the Mii is.
+// Mii body (miiBody.js), in the Mii's favourite colour. Every player is the same height and build.
 import { buildMii, HAIR, SKINS, MII_NECK } from './miis.js';
 import { makeBody, BODY_NECK, BODY_HEAD_SCALE } from './miiBody.js';
 import { builderMesh } from './worldBuild.js';
@@ -9,11 +9,11 @@ import { FAVORITE_COLORS, SKIN_COLORS } from './miic.js';
 
 export const MII_PANTS = '#3c4152';          // Mii trousers: the same dark grey-blue for everyone, as on the Wii
 
-/** How tall and how wide a Mii stands (height and build are 0..127; 64 is the middle). Kept gentle, so every player still fits a space. */
-export function bodyScale(mii) {
-  const h = mii && mii.height != null ? mii.height / 127 : 0.5, b = mii && mii.build != null ? mii.build / 127 : 0.5;
-  return { y: 0.84 + 0.32 * h, xz: 0.84 + 0.34 * b };
-}
+/**
+ * How tall and how wide a Mii stands on the board: always the same. A Mii's own height and weight (from the creator)
+ * are not used in the game; every player is the same size, as in Wii Party.
+ */
+export function bodyScale() { return { y: 1, xz: 1 }; }
 
 /**
  * The figure: { group, head (the neck pivot, which tips to look up), legs, arms }. `mii` is a parsed Mii
