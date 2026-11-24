@@ -351,6 +351,16 @@ The hand-built island is gone. The game now runs on the converted Wii Party map 
   sinks away. The game's "broken" message did not say who broke it, so the scene had no player to animate and
   only waited, then hid the wall.
 
+## Build 83
+
+- Every Mii wears Board Game Island's explorer suit, as in Wii Party: the game's own outfit model
+  (`files/ch_base/player/pl026.brres`, the "explorer" picture: collar, pockets and buttons, belt and buckle, shorts,
+  white socks and brown boots), on the same skeleton, so all the animations still fit.
+- The suit is the player's colour, whatever colour the Mii likes: player 1 blue, 2 red, 3 green, 4 yellow, 5 pink,
+  6 white. The suit's picture says where the colour shows; the game mixes the two as the Wii does.
+- Wii Party has 41 outfits in all (`pl001`-`pl041`: tourist, formal, swimsuit, spacesuit, ski, karate, jockey...);
+  `tools/extract_wp_mii.py` takes any of them (`BODY`).
+
 ## Build 82
 
 - The Miis are the right size again: with Wii Party's own body they had come out too big. Measured against your

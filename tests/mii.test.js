@@ -69,7 +69,8 @@ for (const hw of [{ height: 0, build: 0 }, { height: 127, build: 127 }, { height
   const { makeWpBody, WP_NECK } = await import('../js15/world/wpMii.js');
   const { WP_MII } = await import('../js15/world/wpMiiData.js');
   const b = makeWpBody(T, WP_MII), v = new T.Vector3(), at = (n) => { b.root.updateMatrixWorld(true); return b.bones[n].getWorldPosition(v).clone(); };
-  assert.equal(b.meshes.length, 3, 'shirt, trousers, skin'); assert.ok(b.meshes.every((m) => m.isSkinnedMesh));
+  assert.equal(b.meshes.length, 2, 'v83: the explorer suit and the skin'); assert.equal(WP_MII.body, 'pl026');
+  assert.ok(WP_MII.tex.wear00.rgb.startsWith('data:image/png') && WP_MII.tex.wear00.mix.startsWith('data:image/png') && WP_MII.meshes.find((m) => m.mat === 'wear00').uv, 'the suit has its picture (pockets, belt, boots) and where it goes'); assert.ok(b.meshes.every((m) => m.isSkinnedMesh));
   assert.ok(Math.abs(at('hook_head').y - WP_NECK) < 0.5, 'the neck is at WP_NECK at rest');
   for (const c of ['idle', 'walk', 'run', 'jump', 'fly', 'tumble', 'hang', 'swim', 'scared', 'cheer', 'sad', 'win', 'land', 'knock', 'hit', 'springUp', 'boardIdle', 'sitStunned'])
     assert.ok(b.frames(c) > 0, `clip ${c}`);
@@ -83,5 +84,14 @@ for (const hw of [{ height: 0, build: 0 }, { height: 127, build: 127 }, { height
     assert.ok(n[2] > 0.8, `the chest's normal points forward (${n})`);
   }
   b.pose('idle', 0); b.pose('win', 30, 0.5); const mid = at('L_hand').y; assert.ok(mid > hand.y && mid < at('hook_head').y + 40, 'a blend is in between');
+}
+{ // v83: the suit is the player's colour, whatever the Mii's favourite colour
+  const T = (await import('../mii/dist/three.js')).default;
+  const { makeFigure } = await import('../js15/world/miiPawn.js');
+  const { PLAYER_COLORS } = await import('../js15/config.js');
+  for (const slot of [0, 1, 2]) {
+    const f = makeFigure(T, slot, parseMii(GUEST_MIIS[1])); // (Guest B's favourite colour is blue)
+    assert.equal('#' + f.body.mats.wear00.color.getHexString(), PLAYER_COLORS[slot].hex, `player ${slot + 1}'s suit is ${PLAYER_COLORS[slot].name}`);
+  }
 }
 console.log('mii tests passed');

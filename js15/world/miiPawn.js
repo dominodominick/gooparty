@@ -1,11 +1,12 @@
 // A player on the board: their Mii. The head is the real Mii head, drawn by FFL (the Mii renderer the Mii creator
 // uses, loaded from mii/ffl/ when the creator's files are there; see miiHead.js); until it has loaded, or when it
 // can't (the single-file download has no creator files), a simple head stands in. The body is Wii Party's own Mii
-// body, played with Wii Party's own Mii animations (wpMii.js), in the Mii's favourite colour, the hands and neck in
+// body in Board Game Island's explorer suit, played with Wii Party's own Mii animations (wpMii.js), the suit in the player's colour, the hands, legs and neck in
 // the Mii's skin colour. Every player is the same height and build.
 import { buildMii, HAIR, SKINS, MII_NECK } from './miis.js';
 import { makeWpBody, WP_NECK } from './wpMii.js';
 import { WP_MII } from './wpMiiData.js';
+import { PLAYER_COLORS } from '../config.js';
 import { builderMesh } from './worldBuild.js';
 import { FAVORITE_COLORS, SKIN_COLORS } from './miic.js';
 
@@ -23,7 +24,7 @@ export function bodyScale() { return { y: 1, xz: 1 }; }
  * where the old pawn's was.
  */
 export function makeFigure(T, slot, mii) {
-  const shirt = mii ? FAVORITE_COLORS[mii.favoriteColor] : ['#2f6fed', '#e23b3b', '#2fb34a', '#f2b81d', '#9a4fd6', '#ff8a1f'][slot % 6];
+  const shirt = PLAYER_COLORS[slot % PLAYER_COLORS.length].hex; // the player's colour (player 1 blue, 2 red, ...), whatever the Mii's favourite colour, as in Wii Party
   const skin = mii ? SKIN_COLORS[mii.skin] || SKINS[0] : SKINS[slot % SKINS.length];
   const body = makeWpBody(T, WP_MII, { shirt, pants: MII_PANTS, skin });
   const g = new T.Group(), k = MII_NECK / WP_NECK; // (Wii Party's units -> the game's)

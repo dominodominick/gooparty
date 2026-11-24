@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Wii Party's own Mii body and its animations, from the game's files (files/ch_base/):
-  player/pl001.brres  the Mii body: shirt (wear00), trousers (pants) and skin (hands, neck), skinned to a skeleton
+  player/pl026.brres  the Mii body in Board Game Island's explorer suit: the suit (wear00, its picture: pockets, belt,
+                      collar, boots; the rest is the player's colour) and skin (hands, neck, legs), skinned to a skeleton
   player_motion.branm the Mii animations (480 of them, pm000_xx shared, pm001_xx Board Game Island, ...)
 Writes js15/world/wpMiiData.js: the skeleton (rest pose), the three skinned meshes (model space, one or two bones per
 vertex), and the clips named in CLIPS, each baked per bone as a turn (quaternion) and place every STEP frames.
@@ -49,8 +50,9 @@ def quat(m):
     return [x, y, z, w]
 
 CH = sys.argv[1]
-d = load(os.path.join(CH, 'player', 'pl001.brres.lz'))
-R = brres(d); M = mdl0(d, R['3DModels(NW4R)']['pl001'])
+BODY = 'pl026'  # Board Game Island's outfit: the explorer suit (shirt with pockets and belt, shorts, boots); pl001 is the plain body
+d = load(os.path.join(CH, 'player', BODY + '.brres.lz'))
+R = brres(d); M = mdl0(d, R['3DModels(NW4R)'][BODY])
 bones = M['bones']
 mtx_bone = {b['mtx']: i for i, b in enumerate(bones)}
 infl = {}  # matrix id -> [(bone, weight)]
@@ -73,7 +75,8 @@ for op in M['defs']['DrawOpa']:
     o = M['objs'][obj]; vs, tris = read_obj(d, o)
     a = o['addr']; tbl = a + be('i', d, a + 0x64)[0]; n = be('I', d, tbl)[0]; ids = be(f'{n}H', d, tbl + 4)
     P = M['pos'][o['ids'][0]][1]; N = M['nrm'][o['ids'][1]][1]
-    pos, nrm, ji, jw = [], [], [], []
+    UV = M['uv'][o['ids'][4]][1] if o['ids'][4] >= 0 else None
+    pos, nrm, ji, jw, uv = [], [], [], [], []
     for v in vs:
         mid = v['mid'] if v.get('mid') is not None else bones[bone]['mtx']
         inf = sorted(infl[mid], key=lambda x: -x[1])[:2] + [(0, 0.0)] * 2
@@ -82,11 +85,12 @@ for op in M['defs']['DrawOpa']:
             W = world(infl[mid][0][0]); p = W[:3, :3] @ p + W[:3, 3]; q = W[:3, :3] @ q
         pos += [round(float(c), 3) for c in p]; nrm += [round(float(c), 3) for c in q]
         ji += [inf[0][0], inf[1][0]]; jw += [round(inf[0][1], 3), round(inf[1][1], 3)]
-    # one vertex per distinct (place, normal, bones, weights)
-    key, remap, P2, N2, J2, W2 = {}, [], [], [], [], []
+        uv += [round(float(c), 4) for c in UV[v['uv0']]] if UV is not None else [0.0, 0.0]
+    # one vertex per distinct (place, normal, bones, weights, texture place)
+    key, remap, P2, N2, J2, W2, T2 = {}, [], [], [], [], [], []
     for k in range(len(vs)):
-        t = (tuple(pos[3 * k:3 * k + 3]), tuple(nrm[3 * k:3 * k + 3]), tuple(ji[2 * k:2 * k + 2]), tuple(jw[2 * k:2 * k + 2]))
-        if t not in key: key[t] = len(key); P2 += t[0]; N2 += t[1]; J2 += t[2]; W2 += t[3]
+        t = (tuple(pos[3 * k:3 * k + 3]), tuple(nrm[3 * k:3 * k + 3]), tuple(ji[2 * k:2 * k + 2]), tuple(jw[2 * k:2 * k + 2]), tuple(uv[2 * k:2 * k + 2]))
+        if t not in key: key[t] = len(key); P2 += t[0]; N2 += t[1]; J2 += t[2]; W2 += t[3]; T2 += t[4]
         remap.append(key[t])
     idx = [remap[int(i)] for t in tris for i in t]
     # smooth normals from the shape itself, with creases: each corner of a face gets the area-weighted normals of the
@@ -96,7 +100,7 @@ for op in M['defs']['DrawOpa']:
     for f_, tri in enumerate(faces):
         for v_ in tri: at.setdefault(tuple(np.round(V[v_], 2)), []).append(f_)
     unit = lambda x: x / (np.linalg.norm(x) or 1)
-    out_key, P3, N3, J3, W3, idx3 = {}, [], [], [], [], []
+    out_key, P3, N3, J3, W3, T3, idx3 = {}, [], [], [], [], [], []
     for f_, tri in enumerate(faces):
         me = unit(FN[f_])
         for v_ in tri:
@@ -104,10 +108,24 @@ for op in M['defs']['DrawOpa']:
             n_ = [round(float(x), 3) for x in unit(n_)]
             k_ = (v_, tuple(n_))
             if k_ not in out_key:
-                out_key[k_] = len(out_key); P3 += P2[3 * v_:3 * v_ + 3]; N3 += n_; J3 += J2[2 * v_:2 * v_ + 2]; W3 += W2[2 * v_:2 * v_ + 2]
+                out_key[k_] = len(out_key); P3 += P2[3 * v_:3 * v_ + 3]; N3 += n_; J3 += J2[2 * v_:2 * v_ + 2]; W3 += W2[2 * v_:2 * v_ + 2]; T3 += T2[2 * v_:2 * v_ + 2]
             idx3.append(out_key[k_])
-    P2, N2, J2, W2, idx = P3, N3, J3, W3, idx3
-    meshes.append({'mat': mat_order[mat], 'pos': P2, 'nrm': N2, 'ji': J2, 'jw': W2, 'idx': idx})
+    P2, N2, J2, W2, T2, idx = P3, N3, J3, W3, T3, idx3
+    meshes.append({'mat': mat_order[mat], 'pos': P2, 'nrm': N2, 'ji': J2, 'jw': W2, 'idx': idx, **({'uv': T2} if UV is not None else {})})
+
+# the outfit's own picture (pockets, belt, collar, boots): where it is see-through the shirt is the player's colour
+import io, base64
+from PIL import Image
+from tex0 import tex0
+tex = {}
+inv_mat = {i: n for n, i in M['mats'].items()}
+for t, refs in M['texlinks'].items():
+    if t in ('RIMTEXq', 'body_hl'): continue  # (the rim light and highlight: lighting the game does its own way)
+    # two opaque pictures, the colours and the mix (its alpha, as grey): a browser loses the colour of see-through pixels
+    arr, _ = tex0(d, R['Textures(NW4R)'][t]); urls = []
+    for im in (Image.fromarray(arr[..., :3].copy(), 'RGB'), Image.fromarray(arr[..., 3].copy(), 'L')):
+        buf = io.BytesIO(); im.save(buf, 'PNG', optimize=True); urls.append('data:image/png;base64,' + base64.b64encode(buf.getvalue()).decode())
+    for m_, _ in refs: tex[inv_mat.get(m_, 'wear00')] = {'rgb': urls[0], 'mix': urls[1]}
 
 skel = [{'name': b['name'], 'parent': b['parent'], 't': [round(x, 4) for x in b['T']], 'r': [round(x, 4) for x in b['R']], 's': [round(x, 4) for x in b['S']],
          'inv': [round(float(x), 5) for x in np.linalg.inv(world(i))[:3].ravel()]} for i, b in enumerate(bones)]
@@ -136,7 +154,7 @@ if '--all' in sys.argv:
     json.dump({'skel': skel, 'meshes': meshes, 'clips': {n: bake(n) for n in names}}, open(sys.argv[sys.argv.index('--all') + 1], 'w'))
     print(len(names), 'clips'); sys.exit()
 
-data = {'step': STEP, 'skel': skel, 'meshes': meshes, 'clips': {k: bake(v) for k, v in CLIPS.items()}, 'source': CLIPS}
+data = {'step': STEP, 'body': BODY, 'skel': skel, 'meshes': meshes, 'tex': tex, 'clips': {k: bake(v) for k, v in CLIPS.items()}, 'source': CLIPS}
 dst = os.path.join(os.path.dirname(__file__), '..', 'js15', 'world', 'wpMiiData.js')
 with open(dst, 'w') as f:
     f.write("// Generated by tools/extract_wp_mii.py from Wii Party's files/ch_base/ (player/pl001.brres, the Mii body, and\n")
