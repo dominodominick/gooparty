@@ -351,6 +351,14 @@ The hand-built island is gone. The game now runs on the converted Wii Party map 
   sinks away. The game's "broken" message did not say who broke it, so the scene had no player to animate and
   only waited, then hid the wall.
 
+## Build 84
+
+- The Mii's whole body (skin, suit and trousers) is now drawn with FFL's shader, the same one the Mii's face uses (its
+  light, shine and rim light), so the hands, arms, legs and neck are the exact colour of the face and the suit shines the
+  same way. The body switches to it as soon as FFL (the Mii renderer) has loaded; where FFL can't load (the single-file
+  download) the body keeps its plain lighting. (`wpMii.shadeLikeFace`, `game-ffl.bodyMaterial`: FFL's own "body" and
+  "pants" light settings.)
+
 ## Build 83
 
 - Every Mii wears Board Game Island's explorer suit, as in Wii Party: the game's own outfit model

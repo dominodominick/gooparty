@@ -50,4 +50,17 @@ export function faceIcon(bytes, size = 256) {
 /** Free a head's FFL memory and textures. */
 export function dispose(g) { try { g.userData.charModel && g.userData.charModel.dispose(); } catch (e) { /* already gone */ } }
 
+/**
+ * A material for Wii Party's Mii body in FFL's own shader (the one the head is drawn with: the same light, the same
+ * shine and the same rim light), so the skin and the suit match the face. `color` a '#rrggbb' colour (given to the shader
+ * as it is, as FFL gives it the Mii's colours); `map` a picture (in place of the colour); `pants` the trousers' material.
+ */
+export function bodyMaterial({ color = '#ffffff', map = null, pants = false } = {}) {
+  const n = parseInt(String(color).slice(1), 16);
+  const c = new THREE.Color().setRGB(((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255);
+  const m = new FFLShaderMaterial({ modulateMode: map ? 1 : 0, modulateType: pants ? 10 : 9, color: c, side: THREE.DoubleSide });
+  if (map) m.map = map;
+  return m;
+}
+
 export { THREE };

@@ -15,14 +15,15 @@ const picture = (url) => { let im = pictures.get(url); if (!im) { im = new Image
  * The outfit's picture in a player's colour: `pic` = { rgb, mix } (two opaque PNGs: the picture's colours, and how
  * much of the player's colour shows through, as grey: the Wii picture's alpha). Where mix is white, the colour; where it
  * is black, the picture (as the Wii's colour combiner mixes them). A canvas texture, filled in once both pictures have
- * loaded; null where there is no canvas (tests).
+ * loaded; null where there is no canvas (tests). `raw`: the picture's colours as they are (for FFL's shader, see
+ * shadeLikeFace), not as sRGB.
  */
-export function outfitTexture(T, pic, color) {
+export function outfitTexture(T, pic, color, raw = false) {
   if (!pic || typeof document === 'undefined' || typeof Image === 'undefined') return null;
-  const key = pic.rgb + '|' + color;
+  const key = pic.rgb + '|' + color + (raw ? '|raw' : '');
   if (outfits.has(key)) return outfits.get(key);
   const cv = document.createElement('canvas'), tex = new T.CanvasTexture(cv);
-  tex.flipY = false; if (T.SRGBColorSpace) tex.colorSpace = T.SRGBColorSpace;
+  tex.flipY = false; if (T.SRGBColorSpace && !raw) tex.colorSpace = T.SRGBColorSpace; // (raw: for FFL's shader, which takes colours as they are)
   outfits.set(key, tex);
   const rgb = picture(pic.rgb), mix = picture(pic.mix);
   const read = (im) => { const c = document.createElement('canvas'); c.width = im.width; c.height = im.height; const g = c.getContext('2d'); g.drawImage(im, 0, 0); return g.getImageData(0, 0, im.width, im.height).data; };
@@ -73,6 +74,7 @@ export function makeWpBody(T, D, { shirt = '#d21e14', pants = '#3c4152', skin = 
     g.setAttribute('skinWeight', new T.BufferAttribute(jw, 4));
     g.setIndex(m.idx);
     const mesh = new T.SkinnedMesh(g, mats[m.mat] || mats.wear00);
+    mesh.userData.mat = m.mat;
     mesh.frustumCulled = false;
     root.add(mesh);
     mesh.bind(new T.Skeleton(bones, inv), new T.Matrix4());
@@ -80,7 +82,7 @@ export function makeWpBody(T, D, { shirt = '#d21e14', pants = '#3c4152', skin = 
   });
   const q0 = new T.Quaternion(), q1 = new T.Quaternion();
   const out = {
-    root, bones: byName, meshes, mats,
+    root, bones: byName, meshes, mats, look: { shirt, pants, skin, pic: D.tex && D.tex.wear00 },
     /** Every bone back to the body's rest pose (the T-pose). */
     rest() { bones.forEach((o, i) => { o.quaternion.copy(restQ[i]); o.position.copy(restT[i]); }); },
     /** Frame f (in the clip's 60fps frames) of a clip. `weight` < 1 blends it over whatever pose the bones are in. */
@@ -103,4 +105,23 @@ export function makeWpBody(T, D, { shirt = '#d21e14', pants = '#3c4152', skin = 
     frames: (name) => (D.clips[name] ? D.clips[name].frames : 0),
   };
   return out;
+}
+
+/**
+ * Draw a body in FFL's shader, the one the Mii's head is drawn with (F = the Mii renderer, miiHead.js), so the skin and
+ * the suit are lit and shine just as the face is. Until FFL has loaded (or where it can't: the single-file download, tests)
+ * the body keeps its plain lit materials.
+ */
+export function shadeLikeFace(T, body, F) {
+  if (!F || typeof F.bodyMaterial !== 'function' || body.ffl) return false;
+  const { shirt, pants, skin, pic } = body.look;
+  const tex = pic ? outfitTexture(T, pic, shirt, true) : null;
+  const mats = {
+    wear00: tex ? F.bodyMaterial({ map: tex }) : F.bodyMaterial({ color: shirt }),
+    pants: F.bodyMaterial({ color: pants, pants: true }),
+    skin00: F.bodyMaterial({ color: skin }),
+  };
+  for (const m of body.meshes) m.material = mats[m.userData.mat] || mats.wear00;
+  body.mats = mats; body.ffl = true;
+  return true;
 }

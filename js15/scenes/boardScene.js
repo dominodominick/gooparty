@@ -5,6 +5,7 @@ import { islandPositions, volcanoPositions, legVia, islandWorld, VOLCANO_CENTER,
 import { builderMesh } from '../world/worldBuild.js';
 import { PAWN_SCALE, HAIR, SKINS } from '../world/miis.js';
 import { makeFigure, fitFFLHead } from '../world/miiPawn.js';
+import { shadeLikeFace } from '../world/wpMii.js';
 import { parseMii, GUEST_MIIS } from '../world/miic.js';
 import { loadMiiRenderer, miiFace } from '../world/miiHead.js';
 import { tileCanvas } from '../world/tileArt.js';
@@ -430,6 +431,7 @@ export class BoardScene {
       if (!F || this.headToken !== token || this.left || !this.pawns || !this.renderer) return;
       this.miiRenderer = F;
       for (const p of Object.values(this.pawns)) {
+        try { if (p.group.userData.wp) shadeLikeFace(this.T, p.group.userData.wp, F); } catch (e) { /* the body keeps its plain materials */ }
         if (!p.mii) continue;
         try { p.fflHead = fitFFLHead(p.head, F.head(p.mii.ffl, this.renderer)); } catch (e) { /* this Mii keeps the stand-in head */ }
         const slot = p.slot; // and their face in the turn-order strip

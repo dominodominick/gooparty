@@ -94,4 +94,20 @@ for (const hw of [{ height: 0, build: 0 }, { height: 127, build: 127 }, { height
     assert.equal('#' + f.body.mats.wear00.color.getHexString(), PLAYER_COLORS[slot].hex, `player ${slot + 1}'s suit is ${PLAYER_COLORS[slot].name}`);
   }
 }
+{ // v84: once FFL has loaded, the body is drawn in FFL's shader, as the face is
+  const T = (await import('../mii/dist/three.js')).default;
+  const { makeFigure } = await import('../js15/world/miiPawn.js');
+  const { shadeLikeFace } = await import('../js15/world/wpMii.js');
+  const { SKIN_COLORS } = await import('../js15/world/miic.js');
+  const { PLAYER_COLORS } = await import('../js15/config.js');
+  const asked = [], F = { bodyMaterial: (o) => { asked.push(o); return { ffl: true, ...o }; } };
+  const m = parseMii(GUEST_MIIS[1]), f = makeFigure(T, 1, m);
+  assert.ok(!shadeLikeFace(T, f.body, null), 'without FFL the body keeps its own materials');
+  assert.ok(shadeLikeFace(T, f.body, F) && f.body.meshes.every((x) => x.material.ffl), 'every part of the body in FFL\'s shader');
+  assert.equal(f.body.meshes.find((x) => x.userData.mat === 'skin00').material.color, SKIN_COLORS[m.skin], 'the skin in the Mii\'s skin colour');
+  assert.equal(f.body.meshes.find((x) => x.userData.mat === 'wear00').material.color, PLAYER_COLORS[1].hex, 'the suit in the player\'s colour (no canvas here: the plain colour)');
+  assert.ok(!shadeLikeFace(T, f.body, F), 'only once');
+  const src = fs.readFileSync(path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'mii', 'ffl', 'game-ffl.js'), 'utf8');
+  assert.ok(/export function bodyMaterial/.test(src) && /modulateType: pants \? 10 : 9/.test(src), "FFL's body material (FFL's own body and trousers light settings)");
+}
 console.log('mii tests passed');
