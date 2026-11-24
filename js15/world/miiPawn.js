@@ -10,7 +10,11 @@ import { PLAYER_COLORS } from '../config.js';
 import { builderMesh } from './worldBuild.js';
 import { FAVORITE_COLORS, SKIN_COLORS } from './miic.js';
 
-export const MII_PANTS = '#3c4152';          // Mii trousers: the same dark grey-blue for everyone, as on the Wii
+export const MII_PANTS = '#3c4152';
+// Where the head sits on the neck (Wii Party's units): lowered so the chin rests on the collar, as in Wii Party (FFL's head
+// has its chin at its origin; on the neck bone as it is, a long bare neck showed), and tipping (to look up at the camera)
+// about a point inside the head, not under the chin, so looking up doesn't lift the chin off the collar.
+export const HEAD_DROP = 6, HEAD_PIVOT = 10;          // Mii trousers: the same dark grey-blue for everyone, as on the Wii
 
 /**
  * How tall and how wide a Mii stands on the board: always the same. A Mii's own height and weight (from the creator)
@@ -31,11 +35,12 @@ export function makeFigure(T, slot, mii) {
   body.root.scale.setScalar(k);
   g.add(body.root);
   body.pose('idle', 0);
-  const headGroup = new T.Group(); // tips up to look at the camera while rolling; pivots at the neck
+  const headGroup = new T.Group(); // tips up to look at the camera while rolling; pivots inside the head
+  headGroup.position.set(0, -HEAD_DROP, HEAD_PIVOT);
   body.bones.hook_head.add(headGroup);
   // until the real head has loaded (or without the Mii renderer): a simple head, in the old pawn's units
   const { head } = buildMii({ shirt, pants: MII_PANTS, hair: HAIR[slot % HAIR.length], skin, parts: true });
-  const stand = builderMesh(T, head); stand.userData.standIn = true; stand.scale.setScalar(1 / k); stand.position.y = -0.1 / k;
+  const stand = builderMesh(T, head); stand.userData.standIn = true; stand.scale.setScalar(1 / k); stand.position.y = -0.1 / k; stand.position.z = -HEAD_PIVOT;
   headGroup.add(stand);
   return { group: g, body, head: headGroup, standIn: stand };
 }
@@ -48,7 +53,7 @@ export function fitFFLHead(headGroup, meshes) {
   const holder = meshes;
   holder.userData.ffl = true;
   holder.scale.setScalar(1); // (FFL's units are Wii Party's: the head fits the body as it is)
-  holder.position.set(0, 0, 0);
+  holder.position.set(0, 0, -HEAD_PIVOT); // (the head group's pivot is HEAD_PIVOT in front of the neck)
   headGroup.add(holder);
   return holder;
 }

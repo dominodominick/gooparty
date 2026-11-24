@@ -340,7 +340,7 @@ const fakeCam = () => ({ position: { x: 0, y: 0, z: 0, set(x, y, z) { this.x = x
   assert.ok(Math.abs(Math.hypot(dir.x, dir.z) - 1) < 1e-6, 'path direction is a unit vector');
   assert.ok((sc.cam.tx - pawn.x) * dir.x + (sc.cam.tz - pawn.z) * dir.z > 0, 'looks toward where the player will go');
   for (let i = 0; i < 120; i++) sc.updatePawnPose(0.016);
-  assert.ok(pawn.pitch < -0.4, 'head tips up toward the camera');
+  assert.ok(pawn.pitch < -0.3, 'head tips up toward the camera');
   sc.exit();
 }
 

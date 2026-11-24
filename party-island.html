@@ -352,7 +352,7 @@ __mods["js15/config.js"] = (() => {
 
 const GAME_TITLE = 'Party Island'; // placeholder name: pick your own
 
-const BUILD = '85'; // shown in the menu and in games; every player must have the same build
+const BUILD = '86'; // shown in the menu and in games; every player must have the same build
 
 const MAX_PLAYERS = 6;
 
@@ -3033,7 +3033,11 @@ const { PLAYER_COLORS } = __mods["js15/config.js"];
 const { builderMesh } = __mods["js15/world/worldBuild.js"];
 const { FAVORITE_COLORS, SKIN_COLORS } = __mods["js15/world/miic.js"];
 
-const MII_PANTS = '#3c4152';          // Mii trousers: the same dark grey-blue for everyone, as on the Wii
+const MII_PANTS = '#3c4152';
+// Where the head sits on the neck (Wii Party's units): lowered so the chin rests on the collar, as in Wii Party (FFL's head
+// has its chin at its origin; on the neck bone as it is, a long bare neck showed), and tipping (to look up at the camera)
+// about a point inside the head, not under the chin, so looking up doesn't lift the chin off the collar.
+const HEAD_DROP = 6, HEAD_PIVOT = 10;          // Mii trousers: the same dark grey-blue for everyone, as on the Wii
 
 /**
  * How tall and how wide a Mii stands on the board: always the same. A Mii's own height and weight (from the creator)
@@ -3054,11 +3058,12 @@ function makeFigure(T, slot, mii) {
   body.root.scale.setScalar(k);
   g.add(body.root);
   body.pose('idle', 0);
-  const headGroup = new T.Group(); // tips up to look at the camera while rolling; pivots at the neck
+  const headGroup = new T.Group(); // tips up to look at the camera while rolling; pivots inside the head
+  headGroup.position.set(0, -HEAD_DROP, HEAD_PIVOT);
   body.bones.hook_head.add(headGroup);
   // until the real head has loaded (or without the Mii renderer): a simple head, in the old pawn's units
   const { head } = buildMii({ shirt, pants: MII_PANTS, hair: HAIR[slot % HAIR.length], skin, parts: true });
-  const stand = builderMesh(T, head); stand.userData.standIn = true; stand.scale.setScalar(1 / k); stand.position.y = -0.1 / k;
+  const stand = builderMesh(T, head); stand.userData.standIn = true; stand.scale.setScalar(1 / k); stand.position.y = -0.1 / k; stand.position.z = -HEAD_PIVOT;
   headGroup.add(stand);
   return { group: g, body, head: headGroup, standIn: stand };
 }
@@ -3071,12 +3076,12 @@ function fitFFLHead(headGroup, meshes) {
   const holder = meshes;
   holder.userData.ffl = true;
   holder.scale.setScalar(1); // (FFL's units are Wii Party's: the head fits the body as it is)
-  holder.position.set(0, 0, 0);
+  holder.position.set(0, 0, -HEAD_PIVOT); // (the head group's pivot is HEAD_PIVOT in front of the neck)
   headGroup.add(holder);
   return holder;
 }
 
-return { MII_PANTS, bodyScale, makeFigure, fitFFLHead };
+return { MII_PANTS, HEAD_DROP, bodyScale, makeFigure, fitFFLHead };
 })();
 __mods["js15/world/tileArt.js"] = (() => {
 // Canvas art for the board spaces and signs (rounded, glossy tiles with bold icons).
@@ -5280,6 +5285,23 @@ class BoardScene {
   /** A player's Mii data (base64): theirs from the lobby, or a guest Mii (computer players, or no Mii made yet). */
   miiDataOf(slot) { return (this.s && this.s.roster && this.s.roster.players && this.s.roster.players[slot] && this.s.roster.players[slot].mii) || GUEST_MIIS[slot % GUEST_MIIS.length]; }
 
+  /**
+   * The Miis (head and body, drawn in FFL's shader) lit from the island's sun: FFL's light is given in the camera's view,
+   * so it is worked out each frame from where the sun is; half of it stays FFL's own light (from over the camera's
+   * shoulder), so a face is never left in shadow.
+   */
+  lightMiis() {
+    if (!this.miiRenderer || !this.pawns || !this.sun) return;
+    const T = this.T, L = (this._miiLight ||= { sun: new T.Vector3(), ffl: new T.Vector3(-0.4531539381, 0.4226179123, 0.7848858833), dir: new T.Vector3() });
+    L.sun.copy(this.sun.position).normalize().transformDirection(this.camera.matrixWorldInverse);
+    L.dir.copy(L.sun).multiplyScalar(0.6).addScaledVector(L.ffl, 0.4).normalize();
+    for (const p of Object.values(this.pawns)) {
+      if (!p || !p.group) continue;
+      if (!p.fflMats || p.fflMatsN !== p.group.children.length) { p.fflMats = []; p.group.traverse((o) => { if (o.material && o.material.uniforms && o.material.uniforms.u_light_dir) p.fflMats.push(o.material); }); p.fflMatsN = p.group.children.length; }
+      for (const m of p.fflMats) m.uniforms.u_light_dir.value.copy(L.dir);
+    }
+  }
+
   /** The real Mii heads (FFL), once the Mii renderer has loaded; until then (or without it) the stand-in heads stay. */
   loadMiiHeads() {
     const token = (this.headToken = {});
@@ -5290,6 +5312,7 @@ class BoardScene {
         try { if (p.group.userData.wp) shadeLikeFace(this.T, p.group.userData.wp, F); } catch (e) { /* the body keeps its plain materials */ }
         if (!p.mii) continue;
         try { p.fflHead = fitFFLHead(p.head, F.head(p.mii.ffl, this.renderer)); } catch (e) { /* this Mii keeps the stand-in head */ }
+        p.fflMats = null; // (lightMiis finds the new materials)
         const slot = p.slot; // and their face in the turn-order strip
         miiFace(this.miiDataOf(slot), parseMii).then((url) => {
           if (!url || this.headToken !== token || typeof Image === 'undefined') return;
@@ -5937,6 +5960,7 @@ class BoardScene {
     this.drawMinimap();
     this.updateHudLive();
     if (this.devOpen || this.devPending) this.devTick();
+    this.lightMiis();
     this.renderer.render(this.scene3d, this.camera);
   }
 
@@ -6532,7 +6556,7 @@ class BoardScene {
       if (inShot) target = Math.atan2(cam.x - (pawn.x + pawn.ox), cam.z - (pawn.z + pawn.oz));
       const diff = Math.atan2(Math.sin(target - pawn.yaw), Math.cos(target - pawn.yaw));
       pawn.yaw += diff * k;
-      pawn.pitch += ((inShot ? -0.55 : 0) - pawn.pitch) * k;
+      pawn.pitch += ((inShot ? -0.4 : 0) - pawn.pitch) * k;
       pawn.group.rotation.y = pawn.yaw;
       if (pawn.fx && pawn.fx.quat) pawn.group.quaternion.copy(pawn.fx.quat); // carried by a statue's hands: turned with them
       if (pawn.head) pawn.head.rotation.x = pawn.pitch;

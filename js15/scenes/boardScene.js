@@ -424,6 +424,23 @@ export class BoardScene {
   /** A player's Mii data (base64): theirs from the lobby, or a guest Mii (computer players, or no Mii made yet). */
   miiDataOf(slot) { return (this.s && this.s.roster && this.s.roster.players && this.s.roster.players[slot] && this.s.roster.players[slot].mii) || GUEST_MIIS[slot % GUEST_MIIS.length]; }
 
+  /**
+   * The Miis (head and body, drawn in FFL's shader) lit from the island's sun: FFL's light is given in the camera's view,
+   * so it is worked out each frame from where the sun is; half of it stays FFL's own light (from over the camera's
+   * shoulder), so a face is never left in shadow.
+   */
+  lightMiis() {
+    if (!this.miiRenderer || !this.pawns || !this.sun) return;
+    const T = this.T, L = (this._miiLight ||= { sun: new T.Vector3(), ffl: new T.Vector3(-0.4531539381, 0.4226179123, 0.7848858833), dir: new T.Vector3() });
+    L.sun.copy(this.sun.position).normalize().transformDirection(this.camera.matrixWorldInverse);
+    L.dir.copy(L.sun).multiplyScalar(0.6).addScaledVector(L.ffl, 0.4).normalize();
+    for (const p of Object.values(this.pawns)) {
+      if (!p || !p.group) continue;
+      if (!p.fflMats || p.fflMatsN !== p.group.children.length) { p.fflMats = []; p.group.traverse((o) => { if (o.material && o.material.uniforms && o.material.uniforms.u_light_dir) p.fflMats.push(o.material); }); p.fflMatsN = p.group.children.length; }
+      for (const m of p.fflMats) m.uniforms.u_light_dir.value.copy(L.dir);
+    }
+  }
+
   /** The real Mii heads (FFL), once the Mii renderer has loaded; until then (or without it) the stand-in heads stay. */
   loadMiiHeads() {
     const token = (this.headToken = {});
@@ -434,6 +451,7 @@ export class BoardScene {
         try { if (p.group.userData.wp) shadeLikeFace(this.T, p.group.userData.wp, F); } catch (e) { /* the body keeps its plain materials */ }
         if (!p.mii) continue;
         try { p.fflHead = fitFFLHead(p.head, F.head(p.mii.ffl, this.renderer)); } catch (e) { /* this Mii keeps the stand-in head */ }
+        p.fflMats = null; // (lightMiis finds the new materials)
         const slot = p.slot; // and their face in the turn-order strip
         miiFace(this.miiDataOf(slot), parseMii).then((url) => {
           if (!url || this.headToken !== token || typeof Image === 'undefined') return;
@@ -1081,6 +1099,7 @@ export class BoardScene {
     this.drawMinimap();
     this.updateHudLive();
     if (this.devOpen || this.devPending) this.devTick();
+    this.lightMiis();
     this.renderer.render(this.scene3d, this.camera);
   }
 
@@ -1676,7 +1695,7 @@ export class BoardScene {
       if (inShot) target = Math.atan2(cam.x - (pawn.x + pawn.ox), cam.z - (pawn.z + pawn.oz));
       const diff = Math.atan2(Math.sin(target - pawn.yaw), Math.cos(target - pawn.yaw));
       pawn.yaw += diff * k;
-      pawn.pitch += ((inShot ? -0.55 : 0) - pawn.pitch) * k;
+      pawn.pitch += ((inShot ? -0.4 : 0) - pawn.pitch) * k;
       pawn.group.rotation.y = pawn.yaw;
       if (pawn.fx && pawn.fx.quat) pawn.group.quaternion.copy(pawn.fx.quat); // carried by a statue's hands: turned with them
       if (pawn.head) pawn.head.rotation.x = pawn.pitch;

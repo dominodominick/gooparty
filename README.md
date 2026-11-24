@@ -351,6 +351,15 @@ The hand-built island is gone. The game now runs on the converted Wii Party map 
   sinks away. The game's "broken" message did not say who broke it, so the scene had no player to animate and
   only waited, then hid the wall.
 
+## Build 86
+
+- The Mii's head sits right on the collar, as in Wii Party: it was on the neck bone as it is, which showed a long bare
+  neck (FFL's head has its chin at its origin). The head is lowered (`HEAD_DROP`) and tips up to look at the camera about
+  a point inside the head (`HEAD_PIVOT`), a little less far than before, so looking up no longer lifts the chin off the
+  collar.
+- The Miis (head and body, in FFL's shader) are lit from the island's sun: FFL's light is set each frame from where the
+  sun is as seen by the camera, mixed half and half with FFL's own light so a face is never in shadow (`lightMiis`).
+
 ## Build 85
 
 - Fixed the explorer suit in play: the shirt, shorts and boots came out black with the suit's picture squeezed into a
