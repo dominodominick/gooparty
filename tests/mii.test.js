@@ -118,4 +118,11 @@ for (const hw of [{ height: 0, build: 0 }, { height: 127, build: 127 }, { height
   assert.ok(sz[0] >= 16 && sz[1] >= 16 && sz[0] <= 2048);
   assert.deepEqual(pngSize(WP_MII.tex.wear00.mix), sz, 'both pictures the same size');
 }
+{ // v87: the head tips about a point inside it, behind the chin, and the chin sits at the same place on the collar
+  const T = (await import('../mii/dist/three.js')).default;
+  const { makeFigure, fitFFLHead, HEAD_DROP, HEAD_PIVOT } = await import('../js15/world/miiPawn.js');
+  const f = makeFigure(T, 0, null), h = fitFFLHead(f.head, new T.Group());
+  assert.ok(HEAD_PIVOT.y > 8 && HEAD_PIVOT.z <= 0, 'the pivot is up inside the head, not at the chin in front of the neck');
+  assert.ok(Math.abs(f.head.position.y + h.position.y + HEAD_DROP) < 1e-9 && Math.abs(f.head.position.z + h.position.z) < 1e-9, 'standing, the chin is HEAD_DROP under the neck bone');
+}
 console.log('mii tests passed');

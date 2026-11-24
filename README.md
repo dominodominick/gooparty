@@ -351,6 +351,13 @@ The hand-built island is gone. The game now runs on the converted Wii Party map 
   sinks away. The game's "broken" message did not say who broke it, so the scene had no player to animate and
   only waited, then hid the wall.
 
+## Build 87
+
+- When a Mii looks up (at the camera, while rolling) the neck no longer looks pinched. Build 86 tipped the head about a
+  point at the chin, in front of the neck, so the back of the head sank into the collar. The head now tips about where a
+  neck joint would be, inside the head, 14 units above the chin and 2 behind the neck's middle (`HEAD_PIVOT`). Standing,
+  the head sits exactly where build 86 put it.
+
 ## Build 86
 
 - The Mii's head sits right on the collar, as in Wii Party: it was on the neck bone as it is, which showed a long bare
