@@ -351,6 +351,17 @@ The hand-built island is gone. The game now runs on the converted Wii Party map 
   sinks away. The game's "broken" message did not say who broke it, so the scene had no player to animate and
   only waited, then hid the wall.
 
+## Build 88
+
+- The island has its real sky: deep blue at the top, paler toward the horizon, with the clouds. The map's sky file has
+  two skies on the same dome, the blue one (`m001_05`) and a grey, overcast one (`m001_42`), and both were drawn: the grey
+  one, drawn last, covered the blue, so only clouds on grey showed. Now only the blue sky is shown.
+- Each Mii's shadow is the Mii's own shape (head, body, arms and legs, moving with every animation) instead of a round
+  disc. Every part of the figure is drawn a second time, flattened along the sun's light onto the ground under the player
+  (the same ground, and tilt, the round shadow was laid on), in see-through black (`world/miiShadow.js`). A stencil keeps
+  one Mii's parts from darkening each other where they overlap, so the shadow is one even shade (the 3D view now asks for
+  a stencil buffer). It fades and stays on the ground while a Mii is in the air, as before.
+
 ## Build 87
 
 - When a Mii looks up (at the camera, while rolling) the neck no longer looks pinched. Build 86 tipped the head about a

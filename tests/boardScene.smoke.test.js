@@ -609,7 +609,7 @@ assert.ok(DUR.fly >= 2400 && DUR.drop >= 1800);
 
 // ---- v15: the scene only uses things that really exist in Three.js (r160) ----
 {
-  const R128 = new Set(['Mesh', 'MeshLambertMaterial', 'MeshBasicMaterial', 'Group', 'BufferAttribute', 'BufferGeometry', 'CanvasTexture', 'PlaneGeometry',
+  const R128 = new Set(['NotEqualStencilFunc', 'ReplaceStencilOp', 'KeepStencilOp', 'Mesh', 'MeshLambertMaterial', 'MeshBasicMaterial', 'Group', 'BufferAttribute', 'BufferGeometry', 'CanvasTexture', 'PlaneGeometry',
     'PointLight', 'HemisphereLight', 'DirectionalLight', 'Fog', 'Color', 'Scene', 'PerspectiveCamera', 'WebGLRenderer', 'Sprite', 'SpriteMaterial',
     'SphereGeometry', 'CircleGeometry', 'BoxGeometry', 'CylinderGeometry', 'TubeGeometry', 'CatmullRomCurve3', 'Raycaster', 'AdditiveBlending', 'ConeGeometry', 'Quaternion', 'Euler', 'Vector3', 'Matrix4', 'TextureLoader', 'RepeatWrapping', 'DoubleSide', 'REVISION', 'SRGBColorSpace', 'SkinnedMesh', 'Bone', 'Skeleton']);
   const odd = [...usedThree].filter((n) => !R128.has(n));

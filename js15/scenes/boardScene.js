@@ -6,6 +6,7 @@ import { builderMesh } from '../world/worldBuild.js';
 import { PAWN_SCALE, HAIR, SKINS } from '../world/miis.js';
 import { makeFigure, fitFFLHead } from '../world/miiPawn.js';
 import { shadeLikeFace } from '../world/wpMii.js';
+import { makeShadowCaster } from '../world/miiShadow.js';
 import { parseMii, GUEST_MIIS } from '../world/miic.js';
 import { loadMiiRenderer, miiFace } from '../world/miiHead.js';
 import { tileCanvas } from '../world/tileArt.js';
@@ -148,7 +149,8 @@ function makePawn(T, slot, mii = null) {
   const shadow = new T.Mesh(sg, new T.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.28, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -6 }));
   shadow.position.y = -0.02; shadow.renderOrder = 2;
   g.add(shadow);
-  g.userData.shadow = shadow;
+  g.userData.shadow = shadow; // (where the shadow falls; the shadow drawn is the Mii's own shape, below, where it can be)
+  try { g.userData.caster = makeShadowCaster(T, f.body.root, slot + 1); } catch (e) { g.userData.caster = null; /* the round shadow then */ }
   const tex = labelTexture(T, String(slot + 1), { bg: c.hex, fg: c.ink, border: '#16324f' });
   const sprite = new T.Sprite(new T.SpriteMaterial({ map: tex, depthTest: false }));
   sprite.scale.set(1.8 / PAWN_SCALE, 1.8 / PAWN_SCALE, 1); // (the player's number keeps its size; the pawn group is scaled)
@@ -258,7 +260,7 @@ export class BoardScene {
   // ===================================================================== setup
   buildRenderer() {
     const T = this.T;
-    if (!app.renderer) app.renderer = new T.WebGLRenderer({ canvas: app.canvas3d, antialias: true });
+    if (!app.renderer) app.renderer = new T.WebGLRenderer({ canvas: app.canvas3d, antialias: true, stencil: true }); // (stencil: one even shadow per Mii, see miiShadow.js)
     this.renderer = app.renderer;
     app.canvas3d.style.display = 'block';
     this.scene3d = new T.Scene();
@@ -368,6 +370,9 @@ export class BoardScene {
     // the clouds sit well away from the island, so they never come between the camera and the board
     board.sky.scale.setScalar(board.scale * 4); // (set, not multiplied: the board is attached again after a return to the lobby)
     board.sky.traverse((o) => { if (o.isMesh) for (const m of [].concat(o.material)) m.fog = false; });
+    // The map has two skies on the same dome: the blue one (m001_05) and a grey, overcast one (m001_42), with the same
+    // clouds. Both were drawn, and the grey one, drawn last, hid the blue sky: only clouds on grey showed. The blue sky.
+    board.sky.traverse((o) => { if (o.name === 'm001_42') o.visible = false; if (o.name === 'm001_05') o.visible = true; });
     this.fx.attach(board);
     this.showArea(this.ambience || 'island');
     if (this.s.board && this.s.board.over) this.openSummit();
@@ -452,6 +457,7 @@ export class BoardScene {
         if (!p.mii) continue;
         try { p.fflHead = fitFFLHead(p.head, F.head(p.mii.ffl, this.renderer)); } catch (e) { /* this Mii keeps the stand-in head */ }
         p.fflMats = null; // (lightMiis finds the new materials)
+        try { const c = p.group.userData.caster; if (c) c.rebuild(); } catch (e) { /* the shadow keeps the old head's shape */ }
         const slot = p.slot; // and their face in the turn-order strip
         miiFace(this.miiDataOf(slot), parseMii).then((url) => {
           if (!url || this.headToken !== token || typeof Image === 'undefined') return;
@@ -1785,6 +1791,12 @@ export class BoardScene {
     if (sh.quaternion.setFromUnitVectors) sh.quaternion.setFromUnitVectors(this.upAxis, this.tmpN.set(at.n.x, at.n.y, at.n.z));
     const s = (g.scale.x || 1) * k; sh.scale.set(s, s, s);
     sh.material.opacity = 0.28 * k;
+    const caster = g.userData && g.userData.caster;
+    if (caster && caster.twins.length) { // the Mii's own shape, laid along the sun's light on the same ground
+      sh.visible = false;
+      const L = this.sun ? this.sun.position : { x: 60, y: 100, z: 40 }, l = Math.hypot(L.x, L.y, L.z) || 1;
+      caster.set({ x, y: at.y + 0.03, z }, at.n, { x: -L.x / l, y: -L.y / l, z: -L.z / l }, 0.3 * k);
+    }
   }
 
   /** The first solid, visible surface straight below a point (the island or the volcano's inside), or null. */

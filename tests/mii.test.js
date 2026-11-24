@@ -125,4 +125,15 @@ for (const hw of [{ height: 0, build: 0 }, { height: 127, build: 127 }, { height
   assert.ok(HEAD_PIVOT.y > 8 && HEAD_PIVOT.z <= 0, 'the pivot is up inside the head, not at the chin in front of the neck');
   assert.ok(Math.abs(f.head.position.y + h.position.y + HEAD_DROP) < 1e-9 && Math.abs(f.head.position.z + h.position.z) < 1e-9, 'standing, the chin is HEAD_DROP under the neck bone');
 }
+{ // v88: the shadow is the Mii's own shape: a flattened copy of every part, moving with it
+  const T = (await import('../mii/dist/three.js')).default;
+  const { makeFigure, fitFFLHead } = await import('../js15/world/miiPawn.js');
+  const { makeShadowCaster } = await import('../js15/world/miiShadow.js');
+  const f = makeFigure(T, 0, null), c = makeShadowCaster(T, f.body.root, 1);
+  assert.ok(c.twins.filter((t) => t.isSkinnedMesh).length === 2 && c.twins.every((t) => t.parent && t.parent.isMesh && t.material === c.material), 'a copy of the suit and the skin, on the parts themselves (so they pose and hide with them)');
+  const n = c.twins.length, head = new T.Group(); head.add(new T.Mesh(new T.SphereGeometry(40), new T.MeshBasicMaterial()));
+  fitFFLHead(f.head, head); assert.equal(c.rebuild(), n + 1, 'the real head gets its shadow too'); assert.equal(c.rebuild(), n + 1, 'rebuilt, not doubled');
+  c.set({ x: 1, y: 2, z: 3 }, { x: 0, y: 2, z: 0 }, { x: 0, y: -1, z: 0 }, 0.25); assert.equal(c.material.opacity, 0.25);
+  assert.ok(c.material.stencilWrite && c.material.stencilRef === 1, 'one even shadow (the stencil)');
+}
 console.log('mii tests passed');
