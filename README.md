@@ -351,6 +351,13 @@ The hand-built island is gone. The game now runs on the converted Wii Party map 
   sinks away. The game's "broken" message did not say who broke it, so the scene had no player to animate and
   only waited, then hid the wall.
 
+## Build 85
+
+- Fixed the explorer suit in play: the shirt, shorts and boots came out black with the suit's picture squeezed into a
+  thin strip down the middle. The game draws the Miis before the suit's picture has finished loading, and the graphics
+  card kept the size of that first, empty picture. The suit's picture now has its real size from the start (read from
+  the picture's header, `wpMii.pngSize`), shown in the player's colour until the pockets, belt and boots are painted in.
+
 ## Build 84
 
 - The Mii's whole body (skin, suit and trousers) is now drawn with FFL's shader, the same one the Mii's face uses (its

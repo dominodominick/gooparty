@@ -110,4 +110,12 @@ for (const hw of [{ height: 0, build: 0 }, { height: 127, build: 127 }, { height
   const src = fs.readFileSync(path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'mii', 'ffl', 'game-ffl.js'), 'utf8');
   assert.ok(/export function bodyMaterial/.test(src) && /modulateType: pants \? 10 : 9/.test(src), "FFL's body material (FFL's own body and trousers light settings)");
 }
+{ // v85: the suit's canvas is the picture's size from the start (the GPU keeps a texture's first size)
+  const { pngSize } = await import('../js15/world/wpMii.js');
+  const { WP_MII } = await import('../js15/world/wpMiiData.js');
+  const sz = pngSize(WP_MII.tex.wear00.rgb), raw = Buffer.from(WP_MII.tex.wear00.rgb.split(',')[1], 'base64');
+  assert.deepEqual(sz, [raw.readUInt32BE(16), raw.readUInt32BE(20)], 'the picture\'s size, from its header');
+  assert.ok(sz[0] >= 16 && sz[1] >= 16 && sz[0] <= 2048);
+  assert.deepEqual(pngSize(WP_MII.tex.wear00.mix), sz, 'both pictures the same size');
+}
 console.log('mii tests passed');

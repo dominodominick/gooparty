@@ -11,6 +11,14 @@ const pictures = new Map(); // data URL -> Image (loading or loaded)
 const outfits = new Map();  // picture + colour -> CanvasTexture
 const picture = (url) => { let im = pictures.get(url); if (!im) { im = new Image(); im.src = url; pictures.set(url, im); } return im; };
 
+/** A PNG's width and height, read from its data URL's header (or null). */
+export function pngSize(url) {
+  try {
+    const b = atob(String(url).split(',')[1].slice(0, 44)), at = (i) => ((b.charCodeAt(i) << 24) | (b.charCodeAt(i + 1) << 16) | (b.charCodeAt(i + 2) << 8) | b.charCodeAt(i + 3)) >>> 0;
+    return b.slice(12, 16) === 'IHDR' ? [at(16), at(20)] : null;
+  } catch (e) { return null; }
+}
+
 /**
  * The outfit's picture in a player's colour: `pic` = { rgb, mix } (two opaque PNGs: the picture's colours, and how
  * much of the player's colour shows through, as grey: the Wii picture's alpha). Where mix is white, the colour; where it
@@ -22,14 +30,20 @@ export function outfitTexture(T, pic, color, raw = false) {
   if (!pic || typeof document === 'undefined' || typeof Image === 'undefined') return null;
   const key = pic.rgb + '|' + color + (raw ? '|raw' : '');
   if (outfits.has(key)) return outfits.get(key);
-  const cv = document.createElement('canvas'), tex = new T.CanvasTexture(cv);
+  // The canvas is the picture's own size from the start, filled with the player's colour: the game draws the suit before
+  // the picture has loaded, and the GPU keeps a texture's first size (a later, different size came out squeezed into the
+  // middle of the suit, the rest black: build 83's bug).
+  const size = pngSize(pic.rgb) || [256, 256];
+  const cv = document.createElement('canvas'); cv.width = size[0]; cv.height = size[1];
+  { const g0 = cv.getContext('2d'); g0.fillStyle = color; g0.fillRect(0, 0, cv.width, cv.height); }
+  const tex = new T.CanvasTexture(cv);
   tex.flipY = false; if (T.SRGBColorSpace && !raw) tex.colorSpace = T.SRGBColorSpace; // (raw: for FFL's shader, which takes colours as they are)
   outfits.set(key, tex);
   const rgb = picture(pic.rgb), mix = picture(pic.mix);
   const read = (im) => { const c = document.createElement('canvas'); c.width = im.width; c.height = im.height; const g = c.getContext('2d'); g.drawImage(im, 0, 0); return g.getImageData(0, 0, im.width, im.height).data; };
   const paint = () => {
     if (!(rgb.complete && rgb.width && mix.complete && mix.width)) return;
-    cv.width = rgb.width; cv.height = rgb.height;
+    if (cv.width !== rgb.width || cv.height !== rgb.height) { cv.width = rgb.width; cv.height = rgb.height; tex.dispose(); } // (a new size needs a new GPU texture)
     const g = cv.getContext('2d'); g.fillStyle = color; g.fillRect(0, 0, cv.width, cv.height);
     const P = read(rgb), A = read(mix), C = g.getImageData(0, 0, cv.width, cv.height);
     for (let i = 0; i < P.length; i += 4) { const a = A[i] / 255; for (let c = 0; c < 3; c++) C.data[i + c] = P[i + c] * (1 - a) + C.data[i + c] * a; C.data[i + 3] = 255; }
