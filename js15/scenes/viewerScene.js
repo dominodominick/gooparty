@@ -106,14 +106,15 @@ export class ViewerScene extends BoardScene {
     const throwBy = (s, color) => { const n = ISLAND[s].arg, w = (color === 'blue' ? walkForward : walkBack)({ track: 'island', idx: s }, n);
       return { t: 'move', slot: 0, mode: 'fly', statue: color, path: w.path, count: { total: n, dir: color === 'blue' ? 'fwd' : 'back' }, dur: DUR.statueThrow }; };
     const spring = (slot, from, n, color) => { const path = []; const st = n > 0 ? 1 : -1; for (let i = 1; i <= Math.abs(n); i++) path.push({ track: 'island', idx: from + i * st }); return { t: 'move', slot, mode: 'spring', spring: color, path, count: { total: Math.abs(n), dir: n > 0 ? 'fwd' : 'back' }, dur: DUR.spring }; };
+    const look = (...slots) => () => { for (const s of slots) if (this.pawns[s]) this.pawns[s].wonder = true; return { t: 0, dur: DUR.wonder }; }; // ("what is about to happen?" while the banner shows, as in a game)
     const put = (slot, idx) => { const p = this.pawns[slot], q = this.pos.island[idx]; Object.assign(p, { track: 'island', idx, x: q.x, y: q.y + 0.05, z: q.z, scale: 1, fx: null }); p.group.visible = true; this.place(p); return p; };
     return [
       ['Vine swing (4, then walk 2)', () => { const v = stopOf('vine'); at(v); this.fx.begin(0); this.demo.push(() => ({ t: 0, dur: 1200 }), move({ ...walk(v, 6, 'walk', { swing: 4 }), dur: 6 * 340 + 350 + DUR.cross + DUR.swing + DUR.vinePause })); }], // rolled 4 on the vine, 2 spaces left to walk
-      ['Dragon fireball', () => { const s = stopOf('dragon'), p = at(s); this.demo.push(() => this.fx.playNote({ fx: 'fireball', dur: DUR.fire }, p), move({ t: 'move', slot: 0, mode: 'knock', path: [{ track: 'island', idx: s - 1 }], count: { total: 1, dir: 'back' }, dur: DUR.knock })); }],
+      ['Dragon fireball', () => { const s = stopOf('dragon'), p = at(s); this.demo.push(look(0), () => this.fx.playNote({ fx: 'fireball', dur: DUR.fire }, p), move({ t: 'move', slot: 0, mode: 'knock', path: [{ track: 'island', idx: s - 1 }], count: { total: 1, dir: 'back' }, dur: DUR.knock })); }],
       ['Smash dragon wall', () => { const p = at(stopOf('dragon')); this.demo.push(() => this.fx.brokenAnim({ challenge: 'dragon', dur: DUR.wall }, p)); }],
       ['Blue statue throw', () => { const s = stopOf('statueBlue'); at(s); this.demo.push(move(throwBy(s, 'blue'))); }],
       ['Red statue throw', () => { const s = stopOf('statueRed'); at(s); this.demo.push(move(throwBy(s, 'red'))); }],
-      ['Tornado (back 5)', () => { const s = stopOf('tornado') + 3; at(s); const w = walkBack({ track: 'island', idx: s }, 5); this.demo.push(move({ t: 'move', slot: 0, mode: 'fly', tornado: true, follow: true, path: w.path, count: { total: 5, dir: 'back' }, dur: DUR.tornado })); }], // a player a little past the tornado space is blown back 5
+      ['Tornado (back 5)', () => { const s = stopOf('tornado') + 3; at(s); const w = walkBack({ track: 'island', idx: s }, 5); this.demo.push(look(0), move({ t: 'move', slot: 0, mode: 'fly', tornado: true, follow: true, path: w.path, count: { total: 5, dir: 'back' }, dur: DUR.tornado })); }], // a player a little past the tornado space is blown back 5
       ['Crates: wrong pick', () => { const s = stopOf('crates'), p = at(s); this.fx.begin(0); // a crate breaks, they swim to the far bank and stand there
         this.demo.push(() => { this.fx.playNote({ fx: 'crates', picked: Math.floor(Math.random() * 2), safe: false, hit: Math.floor(Math.random() * 3) }, p); return { t: 0, dur: 700 }; },
           move({ t: 'move', slot: 0, mode: 'fast', path: [{ track: 'island', idx: s + 1 }], swim: true, stopShort: true, to: { track: 'island', idx: s, across: true }, dur: DUR.swim })); }],
@@ -130,13 +131,13 @@ export class ViewerScene extends BoardScene {
         if (next !== n) this.demo.push(() => this.fx.playNote({ fx: 'spikeCount', from: n, to: next, dur: DUR.spikeCount }, p));
       }],
       ['Smash spike statue', () => { const p = at(stopOf('spike')); this.demo.push(() => this.fx.brokenAnim({ challenge: 'spike', dur: DUR.wall }, p)); }],
-      ['Blue spring (+5)', () => { const s = stopOf('plus5'); at(s); this.demo.push(move(spring(0, s, 5, 'blue'))); }],
+      ['Blue spring (+5)', () => { const s = stopOf('plus5'); at(s); this.demo.push(look(0), move(spring(0, s, 5, 'blue'))); }],
       ['Red spring (-4)', () => { const s = stopOf('minus4'); at(s); this.demo.push(move(spring(0, s, -4, 'red'))); }],
       ['1v1 won: green springs', () => { const s = stopOf('mg11'); at(s); const o = put(1, s + 2); this.demo.push(move(spring(0, s, 7, 'green')), () => { this.camSlot = 1; return move(spring(1, s + 2, -7, 'green'))(); }); void o; }],
       ['1 vs Rest won: green spring', () => { const s = stopOf('mgRest'); at(s); this.demo.push(move(spring(0, s, 10, 'green'))); }],
       ['UFO swap', () => { const s = stopOf('ufo'), o = s + 6; at(s); put(1, o);
         const ufo = (ev) => () => this.beginUfo({ t: 'ufo', dur: DUR.ufo, ...ev });
-        this.demo.push(ufo({ phase: 'up', slot: 0 }), ufo({ phase: 'up', slot: 1 }), ufo({ phase: 'down', slot: 1, to: { track: 'island', idx: s } }), ufo({ phase: 'down', slot: 0, to: { track: 'island', idx: o } })); }],
+        this.demo.push(look(0, 1), ufo({ phase: 'up', slot: 0 }), ufo({ phase: 'up', slot: 1 }), ufo({ phase: 'down', slot: 1, to: { track: 'island', idx: s } }), ufo({ phase: 'down', slot: 0, to: { track: 'island', idx: o } })); }],
       ['Volcano erupts', () => { // the cutscene: the stretch past the volcano-or-not pit and two others (picked at random, as the host does)
         const others = [1, 2, 3, 4, 5].sort(() => Math.random() - 0.5); this.setEruption(0);
         this.demo.push(() => this.eruptionCutscene({ t: 'eruption', active: 1, dur: DUR.eruption, stretches: [0, others[0], others[1]] }), () => ({ t: 0, dur: 1500, end: () => this.setEruption(0) })); }],

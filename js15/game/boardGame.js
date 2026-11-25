@@ -34,7 +34,7 @@ const LAVA_SAFE = new Set(['blank', 'start', 'volcano', 'vine', 'dragon', 'crate
 // moveTail: after the last step the counter sits at its final number for a moment.
 // turnIntro: black fade out, the player's name on black, fade back in (then the dice start).
 export const DUR = {
-  diceStop: 3600, walkStep: 185, fastStep: 140, moveTail: 350, fly: 2600, drop: 0, banner: 1100, round: 2600, turnIntro: 2000, flyover: 7000, eruption: 10000, meteorHit: 2200, minigame: 2200,
+  diceStop: 3600, wonder: 2000, walkStep: 185, fastStep: 140, moveTail: 350, fly: 2600, drop: 0, banner: 1100, round: 2600, turnIntro: 2000, flyover: 7000, eruption: 10000, meteorHit: 2200, minigame: 2200,
   cross: 1500,   // extra time for a step that crosses a gap (a jump over the pit, over the creek...)
   swing: 2400,   // the vine swing
   vinePause: 1000, // standing on the landing spot after the vine, before walking the rest
@@ -131,7 +131,9 @@ const move = (slot, mode, path, count, follow = false, start = null) => {
 };
 const FWD = (total) => ({ total, dir: 'fwd' });
 const BACK = (total) => ({ total, dir: 'back' });
-const note = (slot, text, extra = {}) => ({ t: 'space', slot, text, dur: DUR.banner, ...extra });
+// extra.wonder: the players who look around ("what is about to happen?", Wii Party's pm001_02) while the banner shows,
+// until something happens to them (the UFO, a blue spring, the dragon's fireball, the skull, the ! space, a tornado)
+const note = (slot, text, extra = {}) => ({ t: 'space', slot, text, dur: extra.wonder ? DUR.wonder : DUR.banner, ...extra }); // (a look around takes a little longer than a banner)
 
 export class BoardGame {
   constructor({ slots, rng, isNpc = () => false }) {
@@ -443,7 +445,7 @@ export class BoardGame {
     if (step.purpose === 'tornado') {
       const v = rollDie(this.rng, 0), n = 4 + (v - 1) % 3; // the red die shows 4, 5, 6, 4, 5, 6
       events.push({ t: 'diceStop', slot, dice: [{ v, kind: 'tornado' }], total: n, doubles: false, wheel: { target: victim }, dur: DUR.diceStop });
-      events.push(note(slot, `{${victim}} is swept back ${n} spaces!`));
+      events.push(note(slot, `{${victim}} is swept back ${n} spaces!`, { wonder: [victim] }));
       const vp = this.positions[victim], eff = Math.min(n, vp.idx), from = events.length;
       this._moveTo(victim, walkBack(vp, n), 'fly', events, BACK(eff), true);
       const ev = events.slice(from).find((e) => e.t === 'move' && e.slot === victim && e.mode === 'fly');
@@ -451,7 +453,7 @@ export class BoardGame {
     } else {
       events.push({ t: 'diceStop', slot, dice: [], total: 0, doubles: false, wheel: { target: victim }, dur: DUR.diceStop });
       const a = { ...this.positions[slot] }, b = { ...this.positions[victim] };
-      events.push(note(slot, `UFO! You swap places with {${victim}}!`));
+      events.push(note(slot, `UFO! You swap places with {${victim}}!`, { wonder: [slot, victim] }));
       // the UFO beams up the roller, then the other player, drops the other player on the roller's spot, then the roller
       events.push({ t: 'ufo', phase: 'up', slot, dur: DUR.ufo });
       events.push({ t: 'ufo', phase: 'up', slot: victim, dur: DUR.ufo });
@@ -493,7 +495,7 @@ export class BoardGame {
           return r; }
       case 'dragon':
         if (d >= DRAGON_NEEDS) return pass('The dragon wall breaks!', 'dragon');
-        events.push(note(slot, 'Fireball! Back one space.', { fx: 'fireball', dur: DUR.fire }));
+        events.push(note(slot, 'Fireball! Back one space.', { fx: 'fireball', dur: DUR.fire, wonder: [slot] }));
         this._moveTo(slot, walkBack(pos, 1), 'knock', events, BACK(1));
         return true;
       case 'volcanoOrNot':
@@ -657,7 +659,7 @@ export class BoardGame {
     }
 
     switch (node.type) {
-      case 'plus4': case 'plus5': case 'plus6': { const n = Number(node.type.slice(4)); say(`+${n}!`); this._spring(slot, walkForward(pos, n), 'blue', events, FWD(n)); break; }
+      case 'plus4': case 'plus5': case 'plus6': { const n = Number(node.type.slice(4)); events.push(note(slot, `+${n}!`, { wonder: [slot] })); this._spring(slot, walkForward(pos, n), 'blue', events, FWD(n)); break; }
       case 'minus4': say('-4...'); this._spring(slot, walkBack(pos, 4), 'red', events, BACK(4)); break;
       case 'statueBlue': say('The blue statue throws you ahead!'); this._statueThrow(slot, walkForward(pos, node.arg), 'blue', events, FWD(node.arg)); break;
       case 'statueRed': say('The red statue throws you back!'); this._statueThrow(slot, walkBack(pos, node.arg), 'red', events, BACK(node.arg)); break;
@@ -666,8 +668,8 @@ export class BoardGame {
         if (this.rng() < 0.5) { say('Pterodactyl! +10'); fwd(10, 'fly'); }
         else { say(`T-Rex! Back ${node.arg}`); back(node.arg, 'fly'); }
         break;
-      case 'skull': say('Skull! Down into the volcano...'); this._intoVolcano(slot, pos, events); break; // they come back out on this skull
-      case 'shout': say('Shout! Back to the island!'); this._outOfVolcano(slot, events); break;
+      case 'skull': events.push(note(slot, 'Skull! Down into the volcano...', { wonder: [slot] })); this._intoVolcano(slot, pos, events); break; // they come back out on this skull
+      case 'shout': events.push(note(slot, 'Shout! Back to the island!', { wonder: [slot] })); this._outOfVolcano(slot, events); break;
       case 'tornado': { // wiki: a player die and a -4/-5/-6 die. Nobody in the volcano or on the start space is touched.
         const pool = this.players.filter((s) => s !== slot && onIsland(s) && this.positions[s].idx > 0); // never yourself
         if (!pool.length) { say('Tornado! Nobody to blow back.'); break; }

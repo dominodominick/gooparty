@@ -351,6 +351,19 @@ The hand-built island is gone. The game now runs on the converted Wii Party map 
   sinks away. The game's "broken" message did not say who broke it, so the scene had no player to animate and
   only waited, then hid the wall.
 
+## Build 91
+
+- `pm001_02` is no longer called "boardIdle": it is **wonder**, the Mii looking around ("what is about to happen?"). It
+  plays for 2 seconds, while the banner shows, before:
+  - the UFO picks a player up (both players of the swap, each until they are beamed up);
+  - a **blue** spring (+4, +5, +6) throws them ahead (not the red or green springs);
+  - the dragon wall's fireball knocks them back;
+  - the skull space sends them into the volcano;
+  - the ! space sends them out of the volcano;
+  - a tornado sweeps them back (the player it sweeps, not the one who rolled).
+  The viewer's demos of the dragon fireball, tornado, blue spring and UFO swap play it first too. (`note(..., { wonder })`
+  in boardGame.js, `pawn.wonder` in boardScene.js.)
+
 ## Build 90
 
 - The island viewer has an **Animation gallery** (its own button, or open the viewer at `#animation-gallery`, or

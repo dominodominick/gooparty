@@ -22,7 +22,7 @@ from chr0 import chr0, sample
 STEP = 2
 # the clips the game plays (name in the game -> Wii Party's clip); see js15/world/wpMii.js
 CLIPS = {
-    'idle': 'pm000_01', 'walk': 'pm000_03', 'run': 'pm000_04', 'jump': 'pm000_05', 'boardIdle': 'pm001_02',
+    'idle': 'pm000_01', 'walk': 'pm000_03', 'run': 'pm000_04', 'jump': 'pm000_05', 'wonder': 'pm001_02',  # looking around: 'what is about to happen?' (before the UFO, a blue spring, the dragon's fireball, the skull, the ! space, a tornado)
     'fly': 'pm001_11', 'tumble': 'pm001_09', 'knock': 'pm001_04', 'sitStunned': 'pm001_05', 'land': 'pm001_12',
     'swim': 'pm001_14', 'hang': 'pm001_13', 'hit': 'pm001_06', 'cheer': 'pm001_10', 'sad': 'pm001_16', 'win': 'pm001_17',
     'scared': 'pm001_19', 'springUp': 'pm001_15',

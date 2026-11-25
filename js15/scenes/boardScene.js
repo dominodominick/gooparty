@@ -545,7 +545,7 @@ export class BoardScene {
         this.anim = { t: 0, dur: ev.dur, end: () => this.clearBanner() };
         break;
       }
-      case 'turnStart': this.anim = this.beginTurnStart(ev); break;
+      case 'turnStart': for (const p of Object.values(this.pawns || {})) p.wonder = false; this.anim = this.beginTurnStart(ev); break;
       case 'flyover': this.anim = this.beginFlyover(ev); break;
       case 'eruption': {
         if (ev.dur && ev.stretches && this.board) { this.anim = this.eruptionCutscene(ev); break; }
@@ -590,6 +590,7 @@ export class BoardScene {
       case 'diceStop': this.anim = this.beginLand(ev); break;
       case 'space': {
         this.setBanner(this.fillNames(ev.text));
+        for (const w of ev.wonder || []) if (this.pawns[w]) this.pawns[w].wonder = true; // (they look around until it happens to them)
         const show = ev.fx ? this.fx.playNote(ev, this.pawns[ev.slot]) : null; // fireball, pit, crates
         this.anim = show || { t: 0, dur: ev.dur };
         const end = this.anim.end;
@@ -605,12 +606,14 @@ export class BoardScene {
         break;
       }
       case 'move': {
+        this.stopWondering(ev.slot);
+        for (const q of this.queue) if (q.t === 'move' && q.with) this.stopWondering(q.slot);
         const main = this.wrapMove(ev, this.beginMove(ev)), side = [];
         while (this.queue.length && this.queue[0].t === 'move' && this.queue[0].with) side.push(this.queue.shift()); // run at the same time
         this.anim = side.length ? this.together(ev, main, side) : main;
         break;
       }
-      case 'ufo': this.anim = this.beginUfo(ev); break;
+      case 'ufo': this.stopWondering(ev.slot); this.anim = this.beginUfo(ev); break;
       case 'devJump': { // dev tools: the dice go away and the player is simply there
         this.control = null; this.stopSent = false; this.clearDice(); this.clearBanner();
         const pawn = this.pawns[ev.slot];
@@ -622,6 +625,9 @@ export class BoardScene {
       default: break;
     }
   }
+
+  /** Stop looking around (something is happening to them now). */
+  stopWondering(slot) { const p = this.pawns && this.pawns[slot]; if (p) p.wonder = false; }
 
   /** Between turns: fade to black, show whose turn it is, fade back in. The camera cuts while it's black. */
   beginTurnStart(ev) {
@@ -889,6 +895,7 @@ export class BoardScene {
 
   /** The UFO swap, one step at a time: the camera cuts to the player, the UFO beams them up (or drops them off). */
   beginUfo(ev) {
+    this.stopWondering(ev.slot);
     const pawn = this.pawns[ev.slot];
     if (!pawn) return { t: 0, dur: 1 };
     this.clearDice();
@@ -924,6 +931,7 @@ export class BoardScene {
   }
 
   beginMove(ev) {
+    this.stopWondering(ev.slot);
     const pawn = this.pawns[ev.slot];
     if (!pawn || !ev.path.length) return null;
     if (this.fx) this.fx.unhide(pawn); // out of the hiding place (the camera has been elsewhere) before moving on
@@ -1745,6 +1753,7 @@ export class BoardScene {
     else if (flying) clip = 'fly';
     else if (F && F.arms && F.arms[0] <= -2.5) clip = 'scared';
     else if (F) clip = 'idle';
+    else if (pawn.wonder) clip = 'wonder'; // ("what is about to happen?": before the UFO, a blue spring, the fireball, the skull, the ! space, a tornado)
     else if (pawn.amp > 0.2) clip = speed > 16 ? 'run' : 'walk';
     else clip = pawn.cheer || 'idle';
     const W = pawn.wp || (pawn.wp = { clip: null, t: 0, prev: null, prevF: 0, blend: 1, dist: 0 });

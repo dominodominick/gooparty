@@ -544,4 +544,20 @@ for (let i = 1; i < V.length; i++) {
   vg.devJump(0, { track: 'volcano', idx: 0 }, vg.readyAt + 2);
   assert.equal(vg.positions[0].track, 'volcano'); }
 
+// ---------- v91: who looks around ("what is about to happen?", pm001_02) before what ----------
+{
+  const at = (type, nth = 0) => ISLAND.map((n, i) => (n.type === type ? i : -1)).filter((i) => i >= 0)[nth];
+  const make = (n = 4, seed = 1) => { const bg = new BoardGame({ slots: [...Array(n).keys()], rng: mulberry32(seed), isNpc: () => true }); bg.start(0); bg.order = [...bg.players]; bg.turn = 0; return bg; };
+  const wonders = (e) => e.filter((x) => x.t === 'space' && x.wonder).map((x) => x.wonder);
+  const land = (bg, slot, pos) => { const e = []; bg.positions[slot] = { ...pos }; bg._landing(slot, pos, e); return e; };
+  const stop = (bg, slot = 0) => { bg.phase = 'rolling'; bg.turn = slot; return bg._resolveRoll(0).events; };
+  let bg = make(); assert.deepEqual(wonders(land(bg, 0, I(at('plus4')))), [[0]], 'a blue spring: they look around first');
+  bg = make(); assert.deepEqual(wonders(land(bg, 0, I(at('minus4')))), [], 'not before a red spring');
+  bg = make(); assert.deepEqual(wonders(land(bg, 0, I(at('skull')))), [[0]], 'the skull (into the volcano)');
+  bg = make(); assert.deepEqual(wonders(land(bg, 0, { track: 'volcano', idx: VOLCANO.findIndex((n) => n.type === 'shout') })), [[0]], 'the ! space (out of the volcano)');
+  bg = make(); bg.positions[1] = I(at('ufo') + 6); land(bg, 0, I(at('ufo'))); { const e = stop(bg), w = wonders(e), up = e.filter((x) => x.t === 'ufo' && x.phase === 'up').map((x) => x.slot); assert.ok(w.length === 1 && w[0].length === 2 && w[0][0] === 0 && w[0][1] !== 0, 'the UFO: both of them'); assert.deepEqual(up, w[0], 'both, before each is beamed up'); }
+  bg = make(); bg.positions[1] = I(at('tornado') + 3); bg.positions[2] = { track: 'volcano', idx: 2 }; bg.positions[3] = { track: 'volcano', idx: 2 };
+  land(bg, 0, I(at('tornado'))); assert.deepEqual(wonders(stop(bg)), [[1]], 'the tornado: the one it sweeps back');
+  bg = make(); { const d = at('dragon'); bg.positions[0] = I(d); bg.step = { kind: 'single', purpose: 'dragon', remaining: 0 }; bg.rigNext = 1; const e = []; bg._resolveSingle(0, e); assert.deepEqual(wonders(e), [[0]], 'the dragon wall: before the fireball'); }
+}
 console.log('board tests passed');
