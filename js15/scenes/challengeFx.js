@@ -600,12 +600,12 @@ export class ChallengeFX {
         } else if (t < SPIT + FLY) { // spat: the ball flies at the player
           const k = (t - SPIT) / FLY, p = hop(from, target, k, 0.8);
           if (rig) rig.pose(f, { at: toModel(p) }); else { this.fire.visible = true; this.fire.position.set(p.x, p.y, p.z); this.fire.scale.setScalar(0.8); }
-          if (k > 0.85) pawn.fx = { x: start.x, y: start.y, z: start.z, tilt: 0.25 * (k - 0.85) / 0.15, arms: [-1.4, -1.4] };
+          if (k > 0.85) pawn.fx = { x: start.x, y: start.y, z: start.z, tilt: 0.25 * (k - 0.85) / 0.15, arms: [-1.4, -1.4], clip: pawn.wonder ? 'wonder' : undefined }; // (still looking around until it hits)
         } else { // it bursts on them; the dragon settles back
           const k = clamp01((t - SPIT - FLY) / POP);
           if (rig) rig.pose(f, k < 1 ? { at: toModel(target), scale: 1 + k * 1.5 } : { hide: true });
           else { this.fire.visible = k < 1; this.fire.position.set(target.x, target.y, target.z); this.fire.scale.setScalar(0.8 * (1 + k * 1.5)); }
-          pawn.fx = { x: start.x, y: start.y, z: start.z, tilt: 0.25, arms: [-1.4, -1.4] };
+          pawn.fx = { x: start.x, y: start.y, z: start.z, tilt: 0.25, arms: [-1.4, -1.4], clip: pawn.wonder ? 'wonder' : undefined };
           if (f >= DRAGON.frames - 1 && k >= 1) reset();
         }
         this.s.place(pawn);

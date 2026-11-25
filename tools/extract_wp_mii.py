@@ -8,6 +8,7 @@ vertex), and the clips named in CLIPS, each baked per bone as a turn (quaternion
 
 Usage:  python3 tools/extract_wp_mii.py path/to/ch_base/ [--all out.json]
   --all writes every pm000/pm001 clip to out.json instead (for looking through them).
+  --more writes every other clip (pm002 and up) to mii/clips/more-clips.json (the gallery loads it when it opens).
   --gallery writes every pm000/pm001 clip to js15/world/wpMiiAllClips.js (the island viewer's animation gallery).
 """
 import sys, os, json, math
@@ -23,7 +24,11 @@ STEP = 2
 # the clips the game plays (name in the game -> Wii Party's clip); see js15/world/wpMii.js
 CLIPS = {
     'idle': 'pm000_01', 'walk': 'pm000_03', 'run': 'pm000_04', 'jump': 'pm000_05', 'wonder': 'pm001_02',  # looking around: 'what is about to happen?' (before the UFO, a blue spring, the dragon's fireball, the skull, the ! space, a tornado)
-    'fly': 'pm001_11', 'tumble': 'pm001_09', 'knock': 'pm001_04', 'sitStunned': 'pm001_05', 'land': 'pm001_12',
+    'fly': 'pm001_11', 'tumble': 'pm001_09', 'land': 'pm001_12',
+    'knock': 'pm001_04',       # knocked off their feet, onto their bottom (the dragon's fireball)
+    'sitStunned': 'pm001_05',  # sat there dazed (after the fireball; landing on the red statue's platform)
+    'getUp': 'pm206_03',       # back up off the ground (filed with another board's clips, pm206)
+   
     'swim': 'pm001_14', 'hang': 'pm001_13', 'hit': 'pm001_06', 'cheer': 'pm001_10', 'sad': 'pm001_16', 'win': 'pm001_17',
     'scared': 'pm001_19', 'springUp': 'pm001_15',
     'springWind': 'pm001_08',  # standing on a spring as it winds up, before it bounces them forward or back
@@ -159,6 +164,13 @@ if '--gallery' in sys.argv: # every shared (pm000) and Board Game Island (pm001)
         f.write("// animation shared by the boards (pm000_xx) and Board Game Island's own (pm001_xx), baked as in wpMiiData.js. Only the\n")
         f.write("// island viewer's animation gallery loads it (to pick which clip goes where); the game plays WP_MII.clips.\n")
         f.write('export const ALL_CLIPS = ' + json.dumps({n: bake(n) for n in names}, separators=(',', ':')) + ';\n')
+    print(len(names), 'clips ->', dst); sys.exit()
+
+if '--more' in sys.argv: # every other clip (other boards, minigames: pm002 and up), for the gallery to load when it opens
+    names = sorted(n for n in ra['AnmChr(NW4R)'] if not n.startswith(('pm000', 'pm001')))
+    dst = os.path.join(os.path.dirname(__file__), '..', 'mii', 'clips', 'more-clips.json')
+    os.makedirs(os.path.dirname(dst), exist_ok=True)
+    json.dump({'step': STEP, 'clips': {n: bake(n) for n in names}}, open(dst, 'w'), separators=(',', ':'))
     print(len(names), 'clips ->', dst); sys.exit()
 
 if '--all' in sys.argv:

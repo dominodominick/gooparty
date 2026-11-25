@@ -9,10 +9,24 @@ import { makeFigure, fitFFLHead } from '../world/miiPawn.js';
 import { shadeLikeFace } from '../world/wpMii.js';
 import { WP_MII } from '../world/wpMiiData.js';
 import { ALL_CLIPS } from '../world/wpMiiAllClips.js';
+
+// The rest of Wii Party's Mii clips (other boards' and the minigames': pm002 and up), loaded when the gallery opens:
+// mii/clips/more-clips.json, made by tools/extract_wp_mii.py --more (too big to go in the page).
+let moreClips = null;
+export function loadMoreClips() {
+  if (!moreClips) moreClips = typeof fetch !== 'function' ? Promise.resolve(null)
+    : fetch(`${MII_BASE}clips/more-clips.json`).then((r) => (r.ok ? r.json() : null)).then((j) => (j && j.clips) || null).catch(() => null);
+  return moreClips;
+}
+/** The gallery's order: Board Game Island's own clips (pm001) first, then the shared ones (pm000), then the rest. */
+export function galleryOrder(names) {
+  const g = (n) => (n.startsWith('pm001') ? 0 : n.startsWith('pm000') ? 1 : 2);
+  return [...names].sort((a, b) => g(a) - g(b) || (a < b ? -1 : a > b ? 1 : 0));
+}
 import { makeShadowCaster } from '../world/miiShadow.js';
 import { parseMii } from '../world/miic.js';
 import { PAWN_SCALE } from '../world/miis.js';
-import { loadMiiRenderer } from '../world/miiHead.js';
+import { loadMiiRenderer, MII_BASE } from '../world/miiHead.js';
 
 /** Which of the game's moments plays each clip (from WP_MII.source: the game's name -> Wii Party's clip). */
 export function clipUses(source = WP_MII.source || {}) {
@@ -241,7 +255,7 @@ export class ViewerScene extends BoardScene {
   openGallery(clip = null) {
     if (this.gallery || !this.board || typeof document === 'undefined') return;
     if (this.anim) { this.anim = null; this.demo = []; } // (a set piece stops)
-    const T = this.T, root = new T.Group(), G = { root, f: 0, speed: 1, playing: true, repeat: true, lock: true, hold: 0 };
+    const T = this.T, root = new T.Group(), G = { root, f: 0, speed: 1, playing: true, repeat: true, lock: true, hold: 0, clips: { ...ALL_CLIPS }, more: 'loading' };
     this.gallery = G;
     // the stage: a round of grass with a sandy edge, like a spot on the island
     const disc = new T.Mesh(new T.CylinderGeometry(4.2, 4.6, 0.6, 48), [new T.MeshLambertMaterial({ color: 0xc9b07a }), new T.MeshLambertMaterial({ color: 0x6cbf3f }), new T.MeshLambertMaterial({ color: 0xa88f5c })]);
@@ -249,7 +263,7 @@ export class ViewerScene extends BoardScene {
     const mark = new T.Mesh(new T.RingGeometry(0.9, 1.0, 40), new T.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.5 }));
     mark.rotation.x = -Math.PI / 2; mark.position.y = 0.01; root.add(mark);
     const mii = parseMii(this.miiDataOf(0));
-    const fig = makeFigure(T, 0, mii, { ...WP_MII, clips: ALL_CLIPS });
+    const fig = makeFigure(T, 0, mii, { ...WP_MII, clips: G.clips }); // (G.clips fills up when the rest arrive)
     fig.group.scale.setScalar(PAWN_SCALE); root.add(fig.group);
     G.fig = fig; G.mii = mii;
     try { G.caster = makeShadowCaster(T, fig.body.root, 9); } catch (e) { G.caster = null; }
@@ -270,8 +284,15 @@ export class ViewerScene extends BoardScene {
       G.fflMats = null;
     }).catch(() => {});
     this.buildGalleryUi();
-    const names = Object.keys(ALL_CLIPS).sort();
-    this.playClip(clip && ALL_CLIPS[clip] ? clip : names[0]);
+    this.playClip(clip && G.clips[clip] ? clip : galleryOrder(Object.keys(G.clips))[0]);
+    // the rest of the clips: in the list once they are here (and played, if the link asked for one of them)
+    loadMoreClips().then((more) => {
+      if (this.gallery !== G) return;
+      G.more = more ? 'in' : 'failed';
+      if (more) Object.assign(G.clips, more);
+      G.ui.list();
+      if (more && clip && more[clip] && G.clip !== clip) this.playClip(clip);
+    });
   }
 
   /** Back to the island. */
@@ -287,13 +308,13 @@ export class ViewerScene extends BoardScene {
   }
 
   playClip(name) {
-    const G = this.gallery; if (!G || !ALL_CLIPS[name]) return;
+    const G = this.gallery; if (!G || !G.clips[name]) return;
     G.clip = name; G.f = 0; G.hold = 0; G.playing = true;
     if (G.ui) G.ui.update(true);
   }
 
   stepGallery(dt) {
-    const G = this.gallery, C = G && ALL_CLIPS[G.clip]; if (!C) return;
+    const G = this.gallery, C = G && G.clips[G.clip]; if (!C) return;
     const last = C.frames - 1;
     if (G.playing) {
       if (C.loop) G.f = (G.f + dt * 60 * G.speed) % C.frames;
@@ -317,7 +338,7 @@ export class ViewerScene extends BoardScene {
   }
 
   buildGalleryUi() {
-    const G = this.gallery, used = clipUses(), names = Object.keys(ALL_CLIPS).sort();
+    const G = this.gallery, used = clipUses(); let names = [];
     const main = app.ui.querySelector('.viewer-panel'); if (main) main.style.display = 'none';
     const panel = document.createElement('div');
     panel.className = 'viewer-panel gallery-panel';
@@ -337,18 +358,17 @@ export class ViewerScene extends BoardScene {
     scrub.oninput = () => { G.playing = false; G.f = +scrub.value; G.hold = 0; G.ui.update(true); };
     panel.appendChild(scrub);
     const step = el('div', 'display:flex;gap:5px');
-    step.append(button('< frame', () => { G.playing = false; G.f = Math.max(0, Math.round(G.f) - 1); G.ui.update(true); }, '#4a4a7a'), button('frame >', () => { G.playing = false; G.f = Math.min(ALL_CLIPS[G.clip].frames - 1, Math.round(G.f) + 1); G.ui.update(true); }, '#4a4a7a'));
+    step.append(button('< frame', () => { G.playing = false; G.f = Math.max(0, Math.round(G.f) - 1); G.ui.update(true); }, '#4a4a7a'), button('frame >', () => { G.playing = false; G.f = Math.min(G.clips[G.clip].frames - 1, Math.round(G.f) + 1); G.ui.update(true); }, '#4a4a7a'));
     panel.appendChild(step);
-    panel.appendChild(el('div', 'opacity:.75;font-size:11px', 'pm000 = shared by every board, pm001 = Board Game Island. Purple = the game plays it now (as the name after it). Up/down arrows: next clip; space: pause.'));
+    panel.appendChild(el('div', 'opacity:.75;font-size:11px', 'pm001 = Board Game Island, pm000 = shared by every board, pm002 and up = the other boards and the minigames. Purple = the game plays it now (as the name after it). Up/down arrows: next clip; space: pause.'));
+    const search = el('input'); search.type = 'search'; search.placeholder = 'Find a clip (e.g. pm206 or 206_03)';
+    search.style.cssText = 'width:100%;box-sizing:border-box;border:0;border-radius:8px;padding:6px 8px;font:13px sans-serif';
+    search.addEventListener('keydown', (e) => e.stopPropagation()); // (typing here is not the arrow keys or space)
+    search.oninput = () => G.ui.list();
+    panel.appendChild(search);
+    const status = el('div', 'font-size:11px;opacity:.85'); panel.appendChild(status);
     const list = el('div', 'flex:1;overflow:auto;display:flex;flex-direction:column;gap:3px;min-height:80px'); panel.appendChild(list);
-    const items = {};
-    for (const n of names) {
-      const C = ALL_CLIPS[n], u = used[n];
-      const b = button('', () => this.playClip(n), u ? '#6a3a7a' : '#2a4a66');
-      b.style.textAlign = 'left'; b.style.padding = '4px 8px';
-      b.innerHTML = `<b>${n}</b>${u ? ` &middot; ${u.join(', ')}` : ''}<span style="float:right;opacity:.7">${C.frames}f ${C.loop ? 'loop' : 'once'}</span>`;
-      list.appendChild(b); items[n] = b;
-    }
+    let items = {};
     panel.appendChild(button('Back to the island', () => this.closeGallery(), '#7a2a3a'));
     app.ui.appendChild(panel);
     G.panel = panel;
@@ -361,8 +381,29 @@ export class ViewerScene extends BoardScene {
     addEventListener('keydown', G.keys, true);
     let shown = null;
     G.ui = {
+      /** (Re)build the list: every clip there is so far that matches the search. */
+      list: () => {
+        const q = search.value.trim().toLowerCase();
+        names = galleryOrder(Object.keys(G.clips)).filter((n) => !q || n.includes(q) || (used[n] || []).some((u) => u.toLowerCase().includes(q)));
+        list.textContent = ''; items = {};
+        let group = null;
+        for (const n of names) {
+          const gname = n.startsWith('pm001') ? 'Board Game Island (pm001)' : n.startsWith('pm000') ? 'Shared by every board (pm000)' : 'Other boards and minigames';
+          if (gname !== group) { group = gname; list.appendChild(el('div', 'font-weight:bold;font-size:12px;margin:6px 0 2px;opacity:.9', gname)); }
+          const C = G.clips[n], u = used[n];
+          const b = button('', () => this.playClip(n), u ? '#6a3a7a' : '#2a4a66');
+          b.style.textAlign = 'left'; b.style.padding = '4px 8px';
+          b.innerHTML = `<b>${n}</b>${u ? ` &middot; ${u.join(', ')}` : ''}<span style="float:right;opacity:.7">${C.frames}f ${C.loop ? 'loop' : 'once'}</span>`;
+          list.appendChild(b); items[n] = b;
+        }
+        const total = Object.keys(G.clips).length;
+        status.textContent = G.more === 'loading' ? `${total} clips; loading the other boards' and minigames' clips...`
+          : G.more === 'failed' ? `${total} clips (the other boards' and minigames' clips could not be loaded: they need mii/clips/ next to the page)`
+          : `${total} clips` + (q ? `, ${names.length} found` : '');
+        shown = null; G.ui.update(true);
+      },
       update(full) {
-        const C = ALL_CLIPS[G.clip]; if (!C) return;
+        const C = G.clips[G.clip]; if (!C) return;
         if (full || shown !== G.clip) {
           if (shown && items[shown]) items[shown].style.outline = '';
           if (items[G.clip]) { items[G.clip].style.outline = '2px solid #ffd84a'; if (shown !== G.clip && items[G.clip].scrollIntoView) items[G.clip].scrollIntoView({ block: 'nearest' }); }
@@ -374,5 +415,6 @@ export class ViewerScene extends BoardScene {
         now.innerHTML = `<b style="font-size:15px">${G.clip}</b><br>${u ? `The game plays it as: <b>${u.join(', ')}</b>` : 'Not used by the game now'}<br>Frame ${Math.round(G.f)} / ${C.frames - 1} &middot; ${C.loop ? 'loops' : 'plays once'} &middot; ${(C.frames / 60).toFixed(2)} s`;
       },
     };
+    G.ui.list();
   }
 }

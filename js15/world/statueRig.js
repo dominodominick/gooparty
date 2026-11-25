@@ -148,7 +148,7 @@ export function statueTimeline(color, dur = STATUE_DUR) {
   const release = red ? ms(352) : ms(300 + 66), after = dur - release;
   const T = {
     red, clips, release, ms,
-    land: release + after * 0.51, walk: release + after * 0.72, dur,
+    land: release + after * 0.51, walk: release + after * (red ? 0.77 : 0.72), dur, // (red: they sit there dazed and get up first)
     hop: red ? null : [ms(262), ms(288)],   // blue: from the space onto the flat hands
     grab: red ? ms(258) : null,             // red: the hands close round the player
     lift: red ? ms(288) : ms(300),          // the player starts moving with the hands

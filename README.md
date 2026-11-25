@@ -351,6 +351,13 @@ The hand-built island is gone. The game now runs on the converted Wii Party map 
   sinks away. The game's "broken" message did not say who broke it, so the scene had no player to animate and
   only waited, then hid the wall.
 
+## Build 93
+
+- Dragon's fireball: the Mii is knocked off their feet onto the space behind (pm001_04), sits there dazed (pm001_05), then gets back up (pm206_03). The move takes 2.2 s (was 1.1 s).
+- Red statue: landing on its platform, the Mii is down on their bottom, dazed (pm001_05), then gets up (pm206_03) before walking off. The blue statue is unchanged.
+- The getting-up clip was filed with another board's clips (pm206_03); it was found by matching the pose pm001_05 ends in.
+- The animation gallery now has all 480 of Wii Party's Mii clips, not just pm000 and pm001, with a search box. The other 418 (pm002 and up: other boards and minigames) are in `mii/clips/more-clips.json` (made by `tools/extract_wp_mii.py --more`) and load when the gallery opens.
+
 ## Build 92
 
 - Standing on a spring (blue, red or green) as it winds up, the Mii now plays Wii Party's pm001_08 (`springWind`), timed to end as the spring fires, instead of standing idle. The blue spring keeps its look-around (pm001_02) before that.

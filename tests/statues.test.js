@@ -135,3 +135,8 @@ const pitch = (model, clip, name, f) => { const m = boneMatrix(D, D[model], D[mo
   assert.ok(b.land - b.release > 3000, 'a good long flight');
 }
 console.log('statue tests passed');
+{ // v93: on the red statue's platform they sit there dazed for a while, then get up, before walking off
+  const r = statueTimeline('red'), b = statueTimeline('blue');
+  assert.ok(r.walk - r.land >= 600 + 900, 'red: time to sit dazed and get up');
+  assert.ok(b.walk - b.land < r.walk - r.land && r.walk < r.dur - 1000, 'blue as it was; red still walks off');
+}

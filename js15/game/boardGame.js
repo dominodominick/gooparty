@@ -40,7 +40,7 @@ export const DUR = {
   vinePause: 1000, // standing on the landing spot after the vine, before walking the rest
   wall: 4800,    // hitting a wall three times until it breaks
   fire: 1700,    // the dragon spits the fireball in its mouth at the player
-  knock: 1100,   // ...and they are blown back onto the space behind them in one arc
+  knock: 2200,   // ...and they are blown back onto the space behind them in one arc, sit there dazed, and get up
   pit: 1800,     // the statue opens its jaws and spits the spike ball out at a player who failed
   spikeCount: 2600, // then the camera pans to the number beside the statue and it fades to the next one down
   swim: 3000,    // a crate breaks and the player swims across

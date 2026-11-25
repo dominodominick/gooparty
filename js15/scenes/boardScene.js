@@ -84,6 +84,7 @@ const STATUE_PLATFORMS = {
 };
 const hop = (a, b, t, h) => ({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t + Math.sin(Math.PI * t) * h, z: a.z + (b.z - a.z) * t });
 const lerp3v = (a, b, t) => ({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t, z: a.z + (b.z - a.z) * t });
+const KNOCK_FRAMES = 26, GETUP_FRAMES = 36, GETUP_MS = 600; // pm001_04 (knocked down), pm206_03 (getting up): frames, and how long getting up takes
 const WIND_FRAMES = 41; // pm001_08, standing on the spring as it winds up (frames)
 const SPRING_H = 2.4; // how tall the spring stands when fully out
 const TORNADO_SIZE = 2; // the game's tornado, twice the map's own scale: a funnel well taller than the player riding its top
@@ -1013,16 +1014,16 @@ export class BoardScene {
       };
       a.cleanup = () => { sp.group.visible = false; sp.set(0.001); };
     } else if (ev.mode === 'knock') {
-      // Blown back by the dragon's fireball: one low arc backwards onto the space behind, still facing the dragon, then on their feet.
-      const faceYaw = Math.atan2(A.x - B.x, A.z - B.z), lift = 1.6, T1 = 0.7;
+      // Blown back by the dragon's fireball, as in Wii Party: knocked off their feet in one low arc backwards onto the
+      // space behind (pm001_04, which ends sitting), sat there dazed (pm001_05), then back up (pm206_03). Facing the dragon.
+      const faceYaw = Math.atan2(A.x - B.x, A.z - B.z), lift = 1.6, D = ev.dur || 2200;
+      const T1 = Math.min(0.45, 600 / D), T3 = Math.max(T1, 1 - GETUP_MS / D); // in the air until T1; getting up from T3
       if (count) this.setCounter(count, count.total);
       a.step = (u) => {
         const f = clamp01(u / T1), e = 1 - (1 - f) * (1 - f); // fast off the ground, slowing into the landing
         const x = A.x + (B.x - A.x) * e, z = A.z + (B.z - A.z) * e, y = A.y + (B.y - A.y) * e + Math.sin(f * Math.PI) * lift;
         pawn.x = x; pawn.y = y; pawn.z = z; pawn.yaw = pawn.faceYaw = faceYaw;
-        const land = clamp01((u - T1) / (1 - T1)); // a little stagger on landing, then upright
-        pawn.fx = f < 1 ? { x, y, z, yaw: faceYaw, tilt: 0.55 * Math.sin(f * Math.PI) + 0.2, arms: [-2.4, -2.4], legs: [0.5, -0.3], groundY: Math.min(A.y, B.y) }
-          : land < 1 ? { x, y, z, yaw: faceYaw, tilt: 0.25 * (1 - land), arms: [-1.2 * (1 - land), -1.2 * (1 - land)] } : null;
+        pawn.fx = u >= 1 ? null : this.downAndUp({ x, y, z, yaw: faceYaw }, u * D, T1 * D, T3 * D, f < 1 ? Math.min(A.y, B.y) : null);
         if (count) this.setCounter(count, f < 1 ? count.total : 0);
         this.place(pawn);
       };
@@ -1416,6 +1417,17 @@ export class BoardScene {
   }
 
   /**
+   * Knocked down, sat there dazed, back up: a set piece's pose `p` (where they are, facing) `t` ms in, knocked down until
+   * `down` ms (pm001_04: from standing onto their bottom), dazed until `up` (pm001_05), then getting up (pm206_03).
+   * `groundY`: in the air (still flying back) or null.
+   */
+  downAndUp(p, t, down, up, groundY = null) {
+    if (t < down) return { ...p, clip: 'knock', clipF: Math.min(KNOCK_FRAMES - 1, t / down * (KNOCK_FRAMES - 1)), groundY };
+    if (t < up) return { ...p, clip: 'sitStunned', clipF: (t - down) / 1000 * 60 };
+    return { ...p, clip: 'getUp', clipF: Math.min(GETUP_FRAMES - 1, (t - up) / GETUP_MS * (GETUP_FRAMES - 1)) };
+  }
+
+  /**
    * A statue throw, as in the Wii game: the statue plays the game's own animation, with its own cameras.
    *  - a wide shot of the statue with the player on the space in front of it. It wakes up: it rattles, its hands jiggle
    *    and its eyes and gem light up;
@@ -1492,10 +1504,11 @@ export class BoardScene {
         pawn.x = x; pawn.y = y; pawn.z = z;
         pawn.fx = { x, y, z, yaw: faceStatue + f * Math.PI * 6, arms: [-2.8, -2.8], legs: [0.6, -0.5], tilt: -0.6 * Math.sin(f * Math.PI), groundY: gy };
         if (count) this.setCounter(count, Math.round(count.total * (1 - f)));
-      } else if (t < TL.walk) { // a thump on the platform, then a moment standing there
+      } else if (t < TL.walk) { // a thump on the platform, then a moment standing there (red: down on their bottom, dazed, and back up)
         const k = clamp01((t - TL.land) / (dur * 0.03));
         pawn.x = P.x; pawn.y = P.y; pawn.z = P.z;
-        pawn.fx = { x: P.x, y: P.y - Math.sin(k * Math.PI) * 0.3, z: P.z, yaw: walkYaw, arms: [-0.7 * (1 - k), -0.7 * (1 - k)], legs: [0.5 * (1 - k), -0.5 * (1 - k)] };
+        pawn.fx = red ? this.downAndUp({ x: P.x, y: P.y, z: P.z, yaw: walkYaw }, t - TL.land, 0, Math.max(0, TL.walk - TL.land - GETUP_MS))
+          : { x: P.x, y: P.y - Math.sin(k * Math.PI) * 0.3, z: P.z, yaw: walkYaw, arms: [-0.7 * (1 - k), -0.7 * (1 - k)], legs: [0.5 * (1 - k), -0.5 * (1 - k)] };
         if (count) this.setCounter(count, 0);
       } else { // walk to the edge, step down, walk onto the space
         const k = (t - TL.walk) / (dur - TL.walk), s1 = { x: edge.x + (B.x - edge.x) * 0.35, y: B.y, z: edge.z + (B.z - edge.z) * 0.35 };
@@ -1766,7 +1779,7 @@ export class BoardScene {
     if (W.blend < 1 && W.prev) { wp.pose(W.prev, W.prevF); wp.pose(clip, f, W.blend); } else wp.pose(clip, f);
     // the body stays where the game puts the pawn: the clip's own travel (its root bone moving off) is left out
     const root = wp.bones.ske_root;
-    if (root) { root.position.x = 0; root.position.z = 0; if (flying || clip === 'hang' || clip === 'fly' || clip === 'tumble') root.position.y = 60; }
+    if (root) { root.position.x = 0; root.position.z = 0; if ((flying && clip !== 'knock') || clip === 'hang' || clip === 'fly' || clip === 'tumble') root.position.y = 60; } // (knock: falling onto their bottom as they land, not held up)
   }
 
   /**

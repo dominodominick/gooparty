@@ -141,7 +141,8 @@ for (const hw of [{ height: 0, build: 0 }, { height: 127, build: 127 }, { height
   const { WP_MII } = await import('../js15/world/wpMiiData.js');
   const names = Object.keys(ALL_CLIPS);
   assert.ok(names.length >= 60 && names.every((n) => /^pm00[01]_\d\d$/.test(n)), 'pm000 and pm001, all of them');
-  for (const [k, v] of Object.entries(WP_MII.source)) assert.ok(ALL_CLIPS[v], `the game's ${k} (${v}) is in the gallery`);
+  const more = JSON.parse(fs.readFileSync(path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'mii', 'clips', 'more-clips.json'), 'utf8')).clips;
+  for (const [k, v] of Object.entries(WP_MII.source)) assert.ok(ALL_CLIPS[v] || more[v], `the game's ${k} (${v}) is in the gallery`);
   for (const n of names) assert.ok(ALL_CLIPS[n].frames > 0 && ALL_CLIPS[n].bones && Object.keys(ALL_CLIPS[n].bones).length, n);
   const src = fs.readFileSync(path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'js15', 'scenes', 'viewerScene.js'), 'utf8');
   assert.ok(/export function clipUses/.test(src) && /Animation gallery/.test(src), 'the gallery is in the viewer');
@@ -152,5 +153,21 @@ for (const hw of [{ height: 0, build: 0 }, { height: 127, build: 127 }, { height
   const src = fs.readFileSync(path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'js15', 'scenes', 'boardScene.js'), 'utf8');
   const m = /const WIND_FRAMES = (\d+)/.exec(src); assert.ok(m && Number(m[1]) === WP_MII.clips.springWind.frames, 'WIND_FRAMES is the clip\'s length');
   assert.ok(/clip: 'springWind', clipF: \(u \/ T2\)/.test(src), 'played over the wind-up, before the launch');
+}
+{ // v93: knocked down (pm001_04), dazed (pm001_05) and back up (pm206_03); the gallery can load every other clip
+  const { WP_MII } = await import('../js15/world/wpMiiData.js');
+  assert.equal(WP_MII.source.knock, 'pm001_04'); assert.equal(WP_MII.source.sitStunned, 'pm001_05'); assert.equal(WP_MII.source.getUp, 'pm206_03');
+  const C = WP_MII.clips, rootY = (c, i) => { const r = C[c].bones.ske_root; return r[i < 0 ? r.length + i : i][5]; };
+  assert.ok(rootY('knock', 0) > 55 && rootY('knock', -1) < 20, 'knock: from standing onto their bottom');
+  assert.ok(Math.abs(rootY('sitStunned', 0) - rootY('knock', -1)) < 0.5 && Math.abs(rootY('getUp', 0) - rootY('knock', -1)) < 0.5, 'dazed and getting up start where the fall ends');
+  assert.ok(Math.abs(rootY('getUp', -1) - rootY('idle', 0)) < 0.5, 'getting up ends standing');
+  const src = fs.readFileSync(path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'js15', 'scenes', 'boardScene.js'), 'utf8');
+  const m = /const KNOCK_FRAMES = (\d+), GETUP_FRAMES = (\d+)/.exec(src); assert.ok(m && +m[1] === C.knock.frames && +m[2] === C.getUp.frames, 'the frame counts are the clips\'');
+  const more = JSON.parse(fs.readFileSync(path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'mii', 'clips', 'more-clips.json'), 'utf8'));
+  const names = Object.keys(more.clips);
+  assert.ok(names.length > 400 && names.every((n) => !/^pm00[01]_/.test(n)) && more.clips.pm206_03, 'the other boards\' and minigames\' clips, for the gallery');
+  assert.equal(more.step, WP_MII.step);
+  const { galleryOrder } = await import('../js15/scenes/viewerScene.js').catch(() => ({}));
+  if (galleryOrder) assert.deepEqual(galleryOrder(['pm206_03', 'pm000_01', 'pm001_02', 'pm001_01']), ['pm001_01', 'pm001_02', 'pm000_01', 'pm206_03']);
 }
 console.log('mii tests passed');

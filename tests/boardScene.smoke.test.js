@@ -680,15 +680,17 @@ assert.ok(DUR.fly >= 2400 && DUR.drop >= 1800);
     for (let u = 0; u <= 1.0001; u += 0.05) { note.step(Math.min(1, u)); assert.ok(Math.hypot(pw.x - A.x, pw.z - A.z) < 1e-9, 'the fireball itself does not move the player'); }
     note.end();
     const mv = sc.beginMove({ t: 'move', slot: 0, mode: 'knock', path: [{ track: 'island', idx: 23 }], count: { total: 1, dir: 'back' }, dur: DUR.knock });
-    let ups = 0, lastY = pw.y, rising = null, peaks = 0, lastD = 0, back = true;
+    let ups = 0, lastY = pw.y, rising = null, peaks = 0, lastD = 0, back = true, clips = [];
     for (let u = 0.02; u <= 1.0001; u += 0.02) {
       mv.step(Math.min(1, u));
+      if (pw.fx && pw.fx.clip && clips[clips.length - 1] !== pw.fx.clip) clips.push(pw.fx.clip);
       const d = Math.hypot(pw.x - A.x, pw.z - A.z); if (d + 1e-9 < lastD) back = false; lastD = d;
       const r = pw.y > lastY + 1e-6; if (rising === true && !r) peaks++; rising = r; lastY = pw.y; if (r) ups++;
     }
     assert.equal(peaks, 1, 'a single arc, no hopping about'); assert.ok(back, 'always moving away from the dragon');
     assert.ok(Math.hypot(pw.x - B.x, pw.z - B.z) < 1e-6, 'lands on the space behind');
     assert.equal(pw.fx, null, 'on their feet at the end');
+    assert.deepEqual(clips, ['knock', 'sitStunned', 'getUp'], 'v93: knocked down, dazed, back up (pm001_04, pm001_05, pm206_03)');
     mv.end && mv.end();
   }
   // everyone below the spike ball runs at the same time: a move marked "with" plays alongside the one before it
@@ -1039,7 +1041,7 @@ for (const type of ['plus5', 'minus4', 'ufo', 'tornado', 'skull', 'volcano', 'mg
     rig.mesh.updateWorldMatrix = () => {}; rig.mesh.getWorldQuaternion = (q) => q.setFromAxisAngle({ x: 0, y: 1, z: 0 }, yaw);
     const A = { x: at.x + s * 10.4, y: at.y, z: at.z + c * 10.4 }, B = { x: 30, y: 3, z: 40 };
     const shots = [], eyes = { material: { color: { v: 1, setScalar(v) { this.v = v; } } }, userData: {} }, st = { rig, eyes }, pawn = { x: A.x, y: A.y, z: A.z };
-    const fake = { T: { Vector3: V3, Quaternion: Q, Matrix4: M4 }, place() {}, setCounter() {}, statueEyes: BoardScene.prototype.statueEyes,
+    const fake = { T: { Vector3: V3, Quaternion: Q, Matrix4: M4 }, place() {}, setCounter() {}, statueEyes: BoardScene.prototype.statueEyes, downAndUp: BoardScene.prototype.downAndUp,
       set camHold(v) { if (v && this.snapCamera) { shots.push(v); this.snapCamera = false; } this._h = v; }, get camHold() { return this._h; } };
     const anim = BoardScene.prototype.statueThrowAnim.call(fake, { statue: color, dur: 13000 }, pawn, st, A, B, null);
     const TL = statueTimeline(color, 13000), at_ = (ms) => { anim.step(ms / 13000); return { ...pawn, fx: pawn.fx && { ...pawn.fx } }; };
@@ -1064,6 +1066,12 @@ for (const type of ['plus5', 'minus4', 'ufo', 'tornado', 'skull', 'volcano', 'mg
     const fly = at_((TL.release + TL.land) / 2); assert.ok(fly.y > go.y + 20, `${color}: high over the island`);
     assert.ok(rig.clip !== null, `${color}: the statue still holds its pose while the player is in the air`);
     at_(TL.land + 100); assert.equal(rig.clip, null, `${color}: asleep again once the camera is over the platform`); assert.ok(eyes.material.color.v < 0.3);
+    { // v93: red: down on their bottom on the platform (pm001_05), then back up (pm206_03) before walking off; blue lands on its feet
+      const sit = at_(TL.land + 300), rise = at_(TL.walk - 200), walk = at_(TL.walk + 200);
+      if (color === 'red') { assert.equal(sit.fx.clip, 'sitStunned', 'red: sat dazed on the platform'); assert.equal(rise.fx.clip, 'getUp', 'red: then gets up'); }
+      else assert.ok(!sit.fx.clip && !rise.fx.clip, 'blue: as it was');
+      assert.equal(walk.fx, null, `${color}: walking off`);
+    }
     const end = at_(13000); assert.ok(d2(end, B) < 0.01 && pawn.fx === null, `${color}: walks off onto the space`);
     const names = shots.map((h) => (h === shots[0] ? 'wide' : h.y > A.y + 40 ? 'sky' : 'other'));
     assert.ok(names[0] === 'wide' && names.includes('sky') && shots.length === 4, `${color}: wide, by the statue, sky, platform (${shots.length} cuts)`);
