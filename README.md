@@ -351,6 +351,12 @@ The hand-built island is gone. The game now runs on the converted Wii Party map 
   sinks away. The game's "broken" message did not say who broke it, so the scene had no player to animate and
   only waited, then hid the wall.
 
+## Build 89
+
+- The Miis are 15% bigger (`PAWN_SCALE` 0.66 -> 0.76), measured against the gameplay video: in Wii Party a Mii standing on
+  a space is about 0.55 of the space's width tall (0.56 on the skull space, 0.51 at the start); they were 0.48. Their
+  shadows, player numbers and every animation scale with them.
+
 ## Build 88
 
 - The island has its real sky: deep blue at the top, paler toward the horizon, with the clouds. The map's sky file has

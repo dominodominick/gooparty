@@ -11,7 +11,7 @@ export const HAIR = [
 export const MII_HEIGHT = 3.35;
 // How big the players stand on the board: matched to the Wii game, where a Mii is a little under two-thirds of the way
 // from one space's centre to the next. Build 82: 0.66 with Wii Party's own body (the head about a sixth of a space wide).
-export const PAWN_SCALE = 0.66; // the Miis as big, next to a space, as in Wii Party (measured against a screenshot of the game: a Mii on the UFO space)
+export const PAWN_SCALE = 0.76; // the Miis as big, next to a space, as in Wii Party (measured against the gameplay video: a Mii stands about 0.55 of a space's width tall)
 export const MII_NECK = 1.85; // head pivot height
 
 export const LEG_PIVOT = { x: 0.27, y: 0.9, z: 0 };   // hips (x is mirrored)
