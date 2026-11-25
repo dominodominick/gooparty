@@ -26,6 +26,7 @@ CLIPS = {
     'fly': 'pm001_11', 'tumble': 'pm001_09', 'knock': 'pm001_04', 'sitStunned': 'pm001_05', 'land': 'pm001_12',
     'swim': 'pm001_14', 'hang': 'pm001_13', 'hit': 'pm001_06', 'cheer': 'pm001_10', 'sad': 'pm001_16', 'win': 'pm001_17',
     'scared': 'pm001_19', 'springUp': 'pm001_15',
+    'springWind': 'pm001_08',  # standing on a spring as it winds up, before it bounces them forward or back
 }
 
 def load(p):

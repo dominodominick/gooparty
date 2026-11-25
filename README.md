@@ -351,6 +351,10 @@ The hand-built island is gone. The game now runs on the converted Wii Party map 
   sinks away. The game's "broken" message did not say who broke it, so the scene had no player to animate and
   only waited, then hid the wall.
 
+## Build 92
+
+- Standing on a spring (blue, red or green) as it winds up, the Mii now plays Wii Party's pm001_08 (`springWind`), timed to end as the spring fires, instead of standing idle. The blue spring keeps its look-around (pm001_02) before that.
+
 ## Build 91
 
 - `pm001_02` is no longer called "boardIdle": it is **wonder**, the Mii looking around ("what is about to happen?"). It

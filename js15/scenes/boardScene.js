@@ -84,6 +84,7 @@ const STATUE_PLATFORMS = {
 };
 const hop = (a, b, t, h) => ({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t + Math.sin(Math.PI * t) * h, z: a.z + (b.z - a.z) * t });
 const lerp3v = (a, b, t) => ({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t, z: a.z + (b.z - a.z) * t });
+const WIND_FRAMES = 41; // pm001_08, standing on the spring as it winds up (frames)
 const SPRING_H = 2.4; // how tall the spring stands when fully out
 const TORNADO_SIZE = 2; // the game's tornado, twice the map's own scale: a funnel well taller than the player riding its top
 const ease01 = (t) => { t = Math.min(1, Math.max(0, t)); return t * t * (3 - 2 * t); };
@@ -999,7 +1000,7 @@ export class BoardScene {
         else ext = 1 - ease01((u - T3) / (1 - T3));
         sp.set(Math.max(0.001, ext));
         const top = A.y + H * Math.max(0, ext); // the player stands on the spring's top until it fires
-        if (u < T2) { yOff = top - A.y; pawn.x = A.x; pawn.z = A.z; pawn.y = A.y + yOff; pawn.fx = { x: A.x, y: A.y + yOff, z: A.z, yaw: faceYaw, arms: [-0.4, -0.4], groundY: A.y }; }
+        if (u < T2) { yOff = top - A.y; pawn.x = A.x; pawn.z = A.z; pawn.y = A.y + yOff; pawn.fx = { x: A.x, y: A.y + yOff, z: A.z, yaw: faceYaw, arms: [-0.4, -0.4], groundY: A.y, clip: 'springWind', clipF: (u / T2) * (WIND_FRAMES - 1) }; } // (bracing as it winds up: Wii Party's pm001_08, ending as it fires)
         else {
           const f = clamp01((u - T2) / (T3 - 0.06 - T2)), y0 = A.y + H;
           const x = A.x + (B.x - A.x) * f, z = A.z + (B.z - A.z) * f, y = y0 + (B.y - y0) * f + Math.sin(f * Math.PI) * lift;

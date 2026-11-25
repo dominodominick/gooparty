@@ -146,4 +146,11 @@ for (const hw of [{ height: 0, build: 0 }, { height: 127, build: 127 }, { height
   const src = fs.readFileSync(path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'js15', 'scenes', 'viewerScene.js'), 'utf8');
   assert.ok(/export function clipUses/.test(src) && /Animation gallery/.test(src), 'the gallery is in the viewer');
 }
+{ // v92: standing on a spring as it winds up plays pm001_08, all the way through, until it fires
+  const { WP_MII } = await import('../js15/world/wpMiiData.js');
+  assert.equal(WP_MII.source.springWind, 'pm001_08');
+  const src = fs.readFileSync(path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'js15', 'scenes', 'boardScene.js'), 'utf8');
+  const m = /const WIND_FRAMES = (\d+)/.exec(src); assert.ok(m && Number(m[1]) === WP_MII.clips.springWind.frames, 'WIND_FRAMES is the clip\'s length');
+  assert.ok(/clip: 'springWind', clipF: \(u \/ T2\)/.test(src), 'played over the wind-up, before the launch');
+}
 console.log('mii tests passed');
