@@ -29,10 +29,10 @@ export function bodyScale() { return { y: 1, xz: 1 }; }
  * `mii` is a parsed Mii (miic.parseMii) or null (then the slot's own stand-in look). The body is scaled so its neck is
  * where the old pawn's was.
  */
-export function makeFigure(T, slot, mii) {
+export function makeFigure(T, slot, mii, D = WP_MII) { // (D: the body and clips; the viewer's gallery passes every clip)
   const shirt = PLAYER_COLORS[slot % PLAYER_COLORS.length].hex; // the player's colour (player 1 blue, 2 red, ...), whatever the Mii's favourite colour, as in Wii Party
   const skin = mii ? SKIN_COLORS[mii.skin] || SKINS[0] : SKINS[slot % SKINS.length];
-  const body = makeWpBody(T, WP_MII, { shirt, pants: MII_PANTS, skin });
+  const body = makeWpBody(T, D, { shirt, pants: MII_PANTS, skin });
   const g = new T.Group(), k = MII_NECK / WP_NECK; // (Wii Party's units -> the game's)
   body.root.scale.setScalar(k);
   g.add(body.root);

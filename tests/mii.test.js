@@ -136,4 +136,14 @@ for (const hw of [{ height: 0, build: 0 }, { height: 127, build: 127 }, { height
   c.set({ x: 1, y: 2, z: 3 }, { x: 0, y: 2, z: 0 }, { x: 0, y: -1, z: 0 }, 0.25); assert.equal(c.material.opacity, 0.25);
   assert.ok(c.material.stencilWrite && c.material.stencilRef === 1, 'one even shadow (the stencil)');
 }
+{ // v90: the viewer's animation gallery has every shared and Board Game Island clip, and says which the game uses
+  const { ALL_CLIPS } = await import('../js15/world/wpMiiAllClips.js');
+  const { WP_MII } = await import('../js15/world/wpMiiData.js');
+  const names = Object.keys(ALL_CLIPS);
+  assert.ok(names.length >= 60 && names.every((n) => /^pm00[01]_\d\d$/.test(n)), 'pm000 and pm001, all of them');
+  for (const [k, v] of Object.entries(WP_MII.source)) assert.ok(ALL_CLIPS[v], `the game's ${k} (${v}) is in the gallery`);
+  for (const n of names) assert.ok(ALL_CLIPS[n].frames > 0 && ALL_CLIPS[n].bones && Object.keys(ALL_CLIPS[n].bones).length, n);
+  const src = fs.readFileSync(path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'js15', 'scenes', 'viewerScene.js'), 'utf8');
+  assert.ok(/export function clipUses/.test(src) && /Animation gallery/.test(src), 'the gallery is in the viewer');
+}
 console.log('mii tests passed');

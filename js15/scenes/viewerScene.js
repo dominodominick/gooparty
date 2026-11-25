@@ -5,6 +5,21 @@ import { BoardScene } from './boardScene.js';
 import { ISLAND } from '../game/boardData.js';
 import { DUR, walkForward, walkBack } from '../game/boardGame.js';
 import { stopOfSpace, VOLCANO_OFFSET, terrainHeight } from '../game/boardLayout.js';
+import { makeFigure, fitFFLHead } from '../world/miiPawn.js';
+import { shadeLikeFace } from '../world/wpMii.js';
+import { WP_MII } from '../world/wpMiiData.js';
+import { ALL_CLIPS } from '../world/wpMiiAllClips.js';
+import { makeShadowCaster } from '../world/miiShadow.js';
+import { parseMii } from '../world/miic.js';
+import { PAWN_SCALE } from '../world/miis.js';
+import { loadMiiRenderer } from '../world/miiHead.js';
+
+/** Which of the game's moments plays each clip (from WP_MII.source: the game's name -> Wii Party's clip). */
+export function clipUses(source = WP_MII.source || {}) {
+  const used = {};
+  for (const [k, v] of Object.entries(source)) (used[v] ||= []).push(k);
+  return used;
+}
 
 const stopOf = (type) => ISLAND.findIndex((n) => n.type === type);
 
@@ -22,11 +37,14 @@ export class ViewerScene extends BoardScene {
     const want = (typeof window !== 'undefined' && window.__VIEW_AT) || ((typeof location !== 'undefined' && location.hash) || '').slice(1), slug = (t) => t.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
     const hit = want && this.places().find(([label]) => slug(label) === want);
     if (hit) this.lookAt(hit[1]);
+    // ... or open the animation gallery: #animation-gallery, #animation-gallery-pm001_10
+    if (want && want.startsWith('animation-gallery')) this.wantGallery = want.slice('animation-gallery-'.length) || true; // (opened once the board is in)
     // ... or play one of the set pieces over and over: #play-tornado-back-5, #play-red-statue-throw ...
     this.loopDemo = want && want.startsWith('play-') ? want.slice(5) : null; this.loopWait = 4;
   }
 
   exit() {
+    if (this.gallery) this.closeGallery(true);
     for (const [t, f] of this.orbitHandlers || []) removeEventListener(t, f, true);
     super.exit();
   }
@@ -136,6 +154,8 @@ export class ViewerScene extends BoardScene {
   syncIdle() { this.idle = true; }
 
   tickAnim(dt) {
+    if (this.wantGallery && this.board && this.pawns && this.pawns[0]) { const c = this.wantGallery; this.wantGallery = null; this.openGallery(c === true ? null : c); }
+    if (this.gallery) { this.stepGallery(dt); return; }
     if (this.loopDemo && !this.anim && !this.demo.length && this.board && this.pawns && this.pawns[0] && (this.loopWait -= dt) <= 0) {
       const slug = (t) => t.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''), all = this.demos();
       const d = this.loopDemo === 'all' ? all[(this.loopIdx = ((this.loopIdx ?? -1) + 1) % all.length)] : all.find(([n]) => slug(n) === this.loopDemo); // ('all': each in turn)
@@ -165,7 +185,7 @@ export class ViewerScene extends BoardScene {
       if (Math.abs(fx.x - o.tx) > 200 || this.snapCamera) { o.tx = fx.x; o.ty = fx.y + 1.5; o.tz = fx.z; this.snapCamera = false; } // a jump into the volcano, or a cut: cut
       else { o.tx += (fx.x - o.tx) * k; o.ty += (fx.y + 1.5 - o.ty) * k; o.tz += (fx.z - o.tz) * k; }
     }
-    this.setAmbience(o.tx > VOLCANO_OFFSET.x / 2 ? 'volcano' : 'island');
+    if (!this.gallery) this.setAmbience(o.tx > VOLCANO_OFFSET.x / 2 ? 'volcano' : 'island');
     const cp = Math.cos(o.pitch), dist = o.dist * ((typeof window !== 'undefined' && window.__VIEW_ZOOM) || 1); // (__VIEW_ZOOM: a page can bring the camera in, for checking the Miis by eye)
     this.camera.position.set(o.tx + Math.sin(o.yaw) * cp * dist, o.ty + Math.sin(o.pitch) * dist, o.tz + Math.cos(o.yaw) * cp * dist);
     this.camera.lookAt(o.tx, o.ty, o.tz);
@@ -195,9 +215,11 @@ export class ViewerScene extends BoardScene {
     const btn = (label, fn, bg = '#2a5a86') => { const b = document.createElement('button'); b.textContent = label; b.style.cssText = `background:${bg};color:#fff;border:0;border-radius:8px;padding:6px 8px;text-align:left;font:13px sans-serif;cursor:pointer`; b.onclick = fn; panel.appendChild(b); return b; };
     const head = (t) => { const h = document.createElement('div'); h.textContent = t; h.style.cssText = 'font-weight:bold;margin-top:6px;opacity:.8'; panel.appendChild(h); };
     head('Go to');
-    for (const [label, v] of this.places()) btn(label, () => { this.follow = false; this.lookAt(v); });
+    for (const [label, v] of this.places()) btn(label, () => { if (this.gallery) this.closeGallery(true); this.follow = false; this.lookAt(v); });
+    head('Mii animations');
+    btn('Animation gallery', () => this.openGallery(), '#8a4a9a');
     head('Play');
-    for (const [label, fn] of this.demos()) btn(label, () => { if (!this.anim) fn(); }, '#3c7a4a');
+    for (const [label, fn] of this.demos()) btn(label, () => { if (!this.anim && !this.gallery) fn(); }, '#3c7a4a');
     const second = btn('Second player on the spike stretch: off', () => { this.secondPlayer = !this.secondPlayer; second.textContent = `Second player on the spike stretch: ${this.secondPlayer ? 'on' : 'off'}`; }, '#4a4a7a');
     const slow = btn('Slow motion: off', () => { this.slow = this.slow === 0.15 ? 0.04 : this.slow === 0.04 ? 1 : 0.15; slow.textContent = `Slow motion: ${this.slow === 0.04 ? 'very slow' : this.slow < 1 ? 'on' : 'off'}`; }, '#4a4a7a'); // off -> on -> very slow -> off
     head('');
@@ -207,5 +229,149 @@ export class ViewerScene extends BoardScene {
     tip.textContent = 'Drag to turn, scroll to zoom, right-drag or shift-drag to slide.'; panel.appendChild(tip);
     app.ui.appendChild(panel);
     for (const id of ['.wp-left', '.wp-order', '.wp-map', '.wp-pause', '.hud-bottom', '#turnmsg', '#counter', '#banner']) { const el = app.ui.querySelector(id); if (el && el.style) el.style.display = 'none'; }
+  }
+
+  // ---------------------------------------------------------------- the animation gallery
+  // A separate stage (the island is hidden; only the sky stays) with one Mii, the first player's, and every Mii animation
+  // Wii Party has for the boards (pm000_xx, shared) and for Board Game Island (pm001_xx): pick one to watch it, slow it
+  // down, pause it and scrub it frame by frame. Each clip says which of the game's moments plays it now, if any.
+
+  /** Open the gallery (on `clip`, or the first). */
+  openGallery(clip = null) {
+    if (this.gallery || !this.board || typeof document === 'undefined') return;
+    if (this.anim) { this.anim = null; this.demo = []; } // (a set piece stops)
+    const T = this.T, root = new T.Group(), G = { root, f: 0, speed: 1, playing: true, repeat: true, lock: true, hold: 0 };
+    this.gallery = G;
+    // the stage: a round of grass with a sandy edge, like a spot on the island
+    const disc = new T.Mesh(new T.CylinderGeometry(4.2, 4.6, 0.6, 48), [new T.MeshLambertMaterial({ color: 0xc9b07a }), new T.MeshLambertMaterial({ color: 0x6cbf3f }), new T.MeshLambertMaterial({ color: 0xa88f5c })]);
+    disc.position.y = -0.3; root.add(disc);
+    const mark = new T.Mesh(new T.RingGeometry(0.9, 1.0, 40), new T.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.5 }));
+    mark.rotation.x = -Math.PI / 2; mark.position.y = 0.01; root.add(mark);
+    const mii = parseMii(this.miiDataOf(0));
+    const fig = makeFigure(T, 0, mii, { ...WP_MII, clips: ALL_CLIPS });
+    fig.group.scale.setScalar(PAWN_SCALE); root.add(fig.group);
+    G.fig = fig; G.mii = mii;
+    try { G.caster = makeShadowCaster(T, fig.body.root, 9); } catch (e) { G.caster = null; }
+    // everything else in the scene is hidden while the gallery is open (the sky and the lights stay)
+    const keep = new Set([this.board.sky, this.camera, this.hemi, this.sun]);
+    G.hidden = this.scene3d.children.filter((o) => o.visible && !keep.has(o));
+    for (const o of G.hidden) o.visible = false;
+    this.board.sky.visible = true;
+    this.scene3d.add(root);
+    this.follow = false;
+    Object.assign(this.orbit, { tx: 0, ty: 1.3, tz: 0, dist: 5.5, pitch: 0.2, yaw: 0 });
+    // the real head and the face's shading, once the Mii renderer is there
+    loadMiiRenderer().then((F) => {
+      if (!F || this.gallery !== G || !this.renderer) return;
+      try { shadeLikeFace(T, fig.body, F); } catch (e) { /* plain lighting */ }
+      try { fitFFLHead(fig.head, F.head(mii.ffl, this.renderer)); } catch (e) { /* the stand-in head */ }
+      try { if (G.caster) G.caster.rebuild(); } catch (e) { /* */ }
+      G.fflMats = null;
+    }).catch(() => {});
+    this.buildGalleryUi();
+    const names = Object.keys(ALL_CLIPS).sort();
+    this.playClip(clip && ALL_CLIPS[clip] ? clip : names[0]);
+  }
+
+  /** Back to the island. */
+  closeGallery(quiet = false) {
+    const G = this.gallery; if (!G) return;
+    this.gallery = null;
+    if (G.root.parent) G.root.parent.remove(G.root);
+    for (const o of G.hidden) o.visible = true;
+    if (G.panel && G.panel.parentNode) G.panel.parentNode.removeChild(G.panel);
+    if (G.keys) removeEventListener('keydown', G.keys, true);
+    const main = app.ui && app.ui.querySelector('.viewer-panel'); if (main) main.style.display = '';
+    if (!quiet) this.lookAt(this.places()[0][1]);
+  }
+
+  playClip(name) {
+    const G = this.gallery; if (!G || !ALL_CLIPS[name]) return;
+    G.clip = name; G.f = 0; G.hold = 0; G.playing = true;
+    if (G.ui) G.ui.update(true);
+  }
+
+  stepGallery(dt) {
+    const G = this.gallery, C = G && ALL_CLIPS[G.clip]; if (!C) return;
+    const last = C.frames - 1;
+    if (G.playing) {
+      if (C.loop) G.f = (G.f + dt * 60 * G.speed) % C.frames;
+      else if (G.f < last) G.f = Math.min(last, G.f + dt * 60 * G.speed);
+      else if (G.repeat && (G.hold += dt) > 1) { G.f = 0; G.hold = 0; } // (a clip that plays once: hold its end a second, then again)
+    }
+    const b = G.fig.body; b.rest(); b.pose(G.clip, G.f);
+    if (G.lock && b.bones.ske_root) { const r = b.bones.ske_root; r.position.x = 0; r.position.z = 0; } // (in place, as the game plays them)
+    if (G.caster && this.sun) { const L = this.sun.position, l = Math.hypot(L.x, L.y, L.z) || 1; G.caster.set({ x: 0, y: 0.03, z: 0 }, { x: 0, y: 1, z: 0 }, { x: -L.x / l, y: -L.y / l, z: -L.z / l }, 0.3); }
+    if (G.ui) G.ui.update(false);
+  }
+
+  lightMiis() {
+    super.lightMiis();
+    const G = this.gallery; if (!G || !this.sun || !this.camera) return;
+    const T = this.T, L = (this._galleryLight ||= { sun: new T.Vector3(), ffl: new T.Vector3(-0.4531539381, 0.4226179123, 0.7848858833), dir: new T.Vector3() });
+    L.sun.copy(this.sun.position).normalize().transformDirection(this.camera.matrixWorldInverse);
+    L.dir.copy(L.sun).multiplyScalar(0.6).addScaledVector(L.ffl, 0.4).normalize();
+    if (!G.fflMats) { G.fflMats = []; G.fig.group.traverse((o) => { if (o.material && o.material.uniforms && o.material.uniforms.u_light_dir) G.fflMats.push(o.material); }); if (!G.fflMats.length) G.fflMats = null; }
+    for (const m of G.fflMats || []) m.uniforms.u_light_dir.value.copy(L.dir);
+  }
+
+  buildGalleryUi() {
+    const G = this.gallery, used = clipUses(), names = Object.keys(ALL_CLIPS).sort();
+    const main = app.ui.querySelector('.viewer-panel'); if (main) main.style.display = 'none';
+    const panel = document.createElement('div');
+    panel.className = 'viewer-panel gallery-panel';
+    panel.style.cssText = 'position:absolute;right:12px;top:12px;bottom:12px;width:280px;display:flex;flex-direction:column;gap:6px;background:rgba(16,32,48,.9);color:#fff;border-radius:14px;padding:10px;font:13px sans-serif;pointer-events:auto';
+    const el = (tag, css, text) => { const e = document.createElement(tag); if (css) e.style.cssText = css; if (text != null) e.textContent = text; return e; };
+    const button = (label, fn, bg = '#2a5a86') => { const b = el('button', `background:${bg};color:#fff;border:0;border-radius:8px;padding:6px 8px;font:13px sans-serif;cursor:pointer`, label); b.onclick = fn; return b; };
+    panel.appendChild(el('div', 'font-weight:bold;font-size:15px', 'Animation gallery'));
+    const now = el('div', 'background:#0006;border-radius:8px;padding:6px 8px;line-height:1.4'); panel.appendChild(now);
+    const row = el('div', 'display:flex;gap:5px;flex-wrap:wrap'); panel.appendChild(row);
+    const play = button('Pause', () => { G.playing = !G.playing; G.hold = 0; G.ui.update(true); });
+    const speeds = [1, 0.5, 0.25, 0.1];
+    const speed = button('Speed 1x', () => { G.speed = speeds[(speeds.indexOf(G.speed) + 1) % speeds.length]; G.ui.update(true); }, '#4a4a7a');
+    const restart = button('Restart', () => { G.f = 0; G.hold = 0; G.playing = true; G.ui.update(true); }, '#4a4a7a');
+    const lock = button('In place: on', () => { G.lock = !G.lock; G.ui.update(true); }, '#4a4a7a');
+    row.append(play, speed, restart, lock);
+    const scrub = el('input'); scrub.type = 'range'; scrub.min = 0; scrub.step = 1; scrub.style.cssText = 'width:100%';
+    scrub.oninput = () => { G.playing = false; G.f = +scrub.value; G.hold = 0; G.ui.update(true); };
+    panel.appendChild(scrub);
+    const step = el('div', 'display:flex;gap:5px');
+    step.append(button('< frame', () => { G.playing = false; G.f = Math.max(0, Math.round(G.f) - 1); G.ui.update(true); }, '#4a4a7a'), button('frame >', () => { G.playing = false; G.f = Math.min(ALL_CLIPS[G.clip].frames - 1, Math.round(G.f) + 1); G.ui.update(true); }, '#4a4a7a'));
+    panel.appendChild(step);
+    panel.appendChild(el('div', 'opacity:.75;font-size:11px', 'pm000 = shared by every board, pm001 = Board Game Island. Purple = the game plays it now (as the name after it). Up/down arrows: next clip; space: pause.'));
+    const list = el('div', 'flex:1;overflow:auto;display:flex;flex-direction:column;gap:3px;min-height:80px'); panel.appendChild(list);
+    const items = {};
+    for (const n of names) {
+      const C = ALL_CLIPS[n], u = used[n];
+      const b = button('', () => this.playClip(n), u ? '#6a3a7a' : '#2a4a66');
+      b.style.textAlign = 'left'; b.style.padding = '4px 8px';
+      b.innerHTML = `<b>${n}</b>${u ? ` &middot; ${u.join(', ')}` : ''}<span style="float:right;opacity:.7">${C.frames}f ${C.loop ? 'loop' : 'once'}</span>`;
+      list.appendChild(b); items[n] = b;
+    }
+    panel.appendChild(button('Back to the island', () => this.closeGallery(), '#7a2a3a'));
+    app.ui.appendChild(panel);
+    G.panel = panel;
+    G.keys = (e) => {
+      if (!this.gallery) return;
+      const i = names.indexOf(G.clip);
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); this.playClip(names[(i + (e.key === 'ArrowDown' ? 1 : -1) + names.length) % names.length]); }
+      else if (e.key === ' ') { e.preventDefault(); G.playing = !G.playing; G.ui.update(true); }
+    };
+    addEventListener('keydown', G.keys, true);
+    let shown = null;
+    G.ui = {
+      update(full) {
+        const C = ALL_CLIPS[G.clip]; if (!C) return;
+        if (full || shown !== G.clip) {
+          if (shown && items[shown]) items[shown].style.outline = '';
+          if (items[G.clip]) { items[G.clip].style.outline = '2px solid #ffd84a'; if (shown !== G.clip && items[G.clip].scrollIntoView) items[G.clip].scrollIntoView({ block: 'nearest' }); }
+          shown = G.clip; scrub.max = C.frames - 1;
+          play.textContent = G.playing ? 'Pause' : 'Play'; speed.textContent = `Speed ${G.speed}x`; lock.textContent = `In place: ${G.lock ? 'on' : 'off'}`;
+        }
+        scrub.value = Math.round(G.f);
+        const u = used[G.clip];
+        now.innerHTML = `<b style="font-size:15px">${G.clip}</b><br>${u ? `The game plays it as: <b>${u.join(', ')}</b>` : 'Not used by the game now'}<br>Frame ${Math.round(G.f)} / ${C.frames - 1} &middot; ${C.loop ? 'loops' : 'plays once'} &middot; ${(C.frames / 60).toFixed(2)} s`;
+      },
+    };
   }
 }

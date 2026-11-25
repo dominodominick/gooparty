@@ -351,6 +351,16 @@ The hand-built island is gone. The game now runs on the converted Wii Party map 
   sinks away. The game's "broken" message did not say who broke it, so the scene had no player to animate and
   only waited, then hid the wall.
 
+## Build 90
+
+- The island viewer has an **Animation gallery** (its own button, or open the viewer at `#animation-gallery`, or
+  `#animation-gallery-pm001_10` for one clip): a separate stage with the first player's Mii and every Mii animation Wii
+  Party has for the boards, 62 clips: `pm000_xx` (shared by every board) and `pm001_xx` (Board Game Island's own). Each
+  clip in the list shows its length, whether it loops, and which of the game's moments plays it now (purple). Pause,
+  slow it down (1x, 0.5x, 0.25x, 0.1x), scrub or step it frame by frame, and turn "in place" off to see the clip move the
+  Mii the way it was made. Up/down arrows go through the list. (`tools/extract_wp_mii.py --gallery` writes
+  `js15/world/wpMiiAllClips.js`.)
+
 ## Build 89
 
 - The Miis are 15% bigger (`PAWN_SCALE` 0.66 -> 0.76), measured against the gameplay video: in Wii Party a Mii standing on
