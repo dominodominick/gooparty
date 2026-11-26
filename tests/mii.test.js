@@ -170,4 +170,24 @@ for (const hw of [{ height: 0, build: 0 }, { height: 127, build: 127 }, { height
   const { galleryOrder } = await import('../js15/scenes/viewerScene.js').catch(() => ({}));
   if (galleryOrder) assert.deepEqual(galleryOrder(['pm206_03', 'pm000_01', 'pm001_02', 'pm001_01']), ['pm001_01', 'pm001_02', 'pm000_01', 'pm206_03']);
 }
+{ // v94: the gallery's dropdown: the clips each board, mode and minigame loads (from the disc's program modules)
+  const { LOADERS, SHARED } = await import('../js15/world/wpClipLoaders.js');
+  const by = (id) => LOADERS.find((L) => L.id === id);
+  assert.equal(by('mr001').name, 'Board Game Island'); assert.equal(by('mr001').clips.length, 54);
+  assert.ok(by('mr001').clips.includes('pm206_03') && by('mr001').clips.includes('pm001_08'), 'Board Game Island loads the get-up and the spring wind-up');
+  assert.equal(by('mg100').name, 'Commuter Count'); assert.equal(by('mr031').name, 'Globe Trot');
+  assert.ok(LOADERS.length > 100 && LOADERS.every((L) => ['board', 'minigame', 'other'].includes(L.group)));
+  assert.equal(SHARED.length, 63);
+  const more = JSON.parse(fs.readFileSync(path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'mii', 'clips', 'more-clips.json'), 'utf8')).clips;
+  const { ALL_CLIPS } = await import('../js15/world/wpMiiAllClips.js');
+  const every = new Set([...Object.keys(ALL_CLIPS), ...Object.keys(more)]);
+  for (const L of LOADERS) for (const c of L.clips) assert.ok(every.has(c), `${L.id}'s ${c} is in the gallery`);
+  const { galleryFilters, clipLoadedBy } = await import('../js15/scenes/viewerScene.js');
+  const F = galleryFilters([...every]);
+  assert.equal(F[0].value, 'all'); assert.equal(F[0].clips, null);
+  assert.ok(F.some((f) => f.value === 'mr001' && /Board Game Island/.test(f.label)) && F.some((f) => f.value === 'shared') && F.some((f) => f.value === 'unnamed'));
+  const named = new Set(SHARED); for (const L of LOADERS) L.clips.forEach((c) => named.add(c));
+  assert.equal(F.find((f) => f.value === 'unnamed').clips.length, [...every].filter((n) => !named.has(n)).length);
+  assert.ok(clipLoadedBy('pm206_03').includes('Board Game Island'));
+}
 console.log('mii tests passed');

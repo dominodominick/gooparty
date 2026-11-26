@@ -9,6 +9,29 @@ import { makeFigure, fitFFLHead } from '../world/miiPawn.js';
 import { shadeLikeFace } from '../world/wpMii.js';
 import { WP_MII } from '../world/wpMiiData.js';
 import { ALL_CLIPS } from '../world/wpMiiAllClips.js';
+import { LOADERS, SHARED } from '../world/wpClipLoaders.js';
+
+/**
+ * The gallery's dropdown: every board, mode and minigame of Wii Party with the clips its program module loads, the list
+ * every module shares, and the clips no module names. { value, label, group, clips } ('all': every clip).
+ */
+export function galleryFilters(allNames = []) {
+  const named = new Set(SHARED); for (const L of LOADERS) for (const c of L.clips) named.add(c);
+  const out = [{ value: 'all', label: `All animations${allNames.length ? ` (${allNames.length})` : ''}`, group: null, clips: null }];
+  const groups = [['board', 'Boards and modes'], ['minigame', 'Minigames'], ['other', 'Menus and screens']];
+  for (const [g, title] of groups) {
+    const ls = LOADERS.filter((L) => L.group === g).sort((a, b) => (a.name === b.name ? (a.id < b.id ? -1 : 1) : a.name < b.name ? -1 : 1));
+    for (const L of ls) out.push({ value: L.id, label: `${L.name} (${L.id}) · ${L.clips.length || 'none named'}`, group: title, clips: L.clips });
+  }
+  out.push({ value: 'shared', label: `In every module's shared code (${SHARED.length})`, group: 'Other lists', clips: SHARED });
+  const never = allNames.filter((n) => !named.has(n));
+  out.push({ value: 'unnamed', label: `Not named by any module${allNames.length ? ` (${never.length})` : ''}`, group: 'Other lists', clips: never, unnamed: true });
+  return out;
+}
+/** Which boards, modes and minigames load a clip: their names. */
+export function clipLoadedBy(name) {
+  return LOADERS.filter((L) => L.clips.includes(name)).map((L) => L.name);
+}
 
 // The rest of Wii Party's Mii clips (other boards' and the minigames': pm002 and up), loaded when the gallery opens:
 // mii/clips/more-clips.json, made by tools/extract_wp_mii.py --more (too big to go in the page).
@@ -360,7 +383,23 @@ export class ViewerScene extends BoardScene {
     const step = el('div', 'display:flex;gap:5px');
     step.append(button('< frame', () => { G.playing = false; G.f = Math.max(0, Math.round(G.f) - 1); G.ui.update(true); }, '#4a4a7a'), button('frame >', () => { G.playing = false; G.f = Math.min(G.clips[G.clip].frames - 1, Math.round(G.f) + 1); G.ui.update(true); }, '#4a4a7a'));
     panel.appendChild(step);
-    panel.appendChild(el('div', 'opacity:.75;font-size:11px', 'pm001 = Board Game Island, pm000 = shared by every board, pm002 and up = the other boards and the minigames. Purple = the game plays it now (as the name after it). Up/down arrows: next clip; space: pause.'));
+    panel.appendChild(el('div', 'opacity:.75;font-size:11px', 'Pick a board, mode or minigame to see the clips Wii Party loads for it. Purple = Party Island plays it now (as the name after it). Up/down arrows: next clip; space: pause.'));
+    // which game's clips to show: every board, mode and minigame (from the disc: tools/extract_clip_loaders.py)
+    const pick = el('select', 'width:100%;box-sizing:border-box;border:0;border-radius:8px;padding:6px 8px;font:13px sans-serif');
+    pick.addEventListener('keydown', (e) => e.stopPropagation()); // (the arrow keys pick in the dropdown here)
+    let filters = [];
+    const fillPick = () => {
+      const keep = pick.value || G.filter || 'all';
+      filters = galleryFilters(Object.keys(G.clips)); pick.textContent = ''; let og = null, cur = null;
+      for (const f of filters) {
+        if (f.group !== cur) { cur = f.group; og = f.group ? el('optgroup') : null; if (og) { og.label = f.group; pick.appendChild(og); } }
+        const o = el('option', null, f.label); o.value = f.value; if (f.clips && !f.clips.length) o.disabled = true;
+        (og || pick).appendChild(o);
+      }
+      pick.value = filters.some((f) => f.value === keep) ? keep : 'all';
+    };
+    pick.onchange = () => { G.filter = pick.value; G.ui.list(); };
+    panel.appendChild(pick);
     const search = el('input'); search.type = 'search'; search.placeholder = 'Find a clip (e.g. pm206 or 206_03)';
     search.style.cssText = 'width:100%;box-sizing:border-box;border:0;border-radius:8px;padding:6px 8px;font:13px sans-serif';
     search.addEventListener('keydown', (e) => e.stopPropagation()); // (typing here is not the arrow keys or space)
@@ -380,11 +419,20 @@ export class ViewerScene extends BoardScene {
     };
     addEventListener('keydown', G.keys, true);
     let shown = null;
+    const loadedBy = (n) => { // which of Wii Party's games load it (on the disc)
+      const sel = LOADERS.find((L) => L.id === pick.value), shared = SHARED.includes(n);
+      const by = clipLoadedBy(n).sort((a, b) => (sel ? (b === sel.name) - (a === sel.name) : 0)); // (the game picked first)
+      if (!by.length) return `<span style="opacity:.75">Wii Party: ${shared ? 'only in every module\'s shared code' : 'not named by any game'}</span>`;
+      const show = by.length > 4 ? `${by.slice(0, 4).join(', ')} and ${by.length - 4} more` : by.join(', ');
+      return `<span style="opacity:.9">Wii Party loads it in: ${show}${shared ? ' (and in every module\'s shared code)' : ''}</span>`;
+    };
     G.ui = {
       /** (Re)build the list: every clip there is so far that matches the search. */
       list: () => {
         const q = search.value.trim().toLowerCase();
-        names = galleryOrder(Object.keys(G.clips)).filter((n) => !q || n.includes(q) || (used[n] || []).some((u) => u.toLowerCase().includes(q)));
+        fillPick();
+        const f = filters.find((x) => x.value === pick.value), only = f && f.clips ? new Set(f.clips) : null;
+        names = galleryOrder(Object.keys(G.clips)).filter((n) => (!only || only.has(n)) && (!q || n.includes(q) || (used[n] || []).some((u) => u.toLowerCase().includes(q))));
         list.textContent = ''; items = {};
         let group = null;
         for (const n of names) {
@@ -399,7 +447,7 @@ export class ViewerScene extends BoardScene {
         const total = Object.keys(G.clips).length;
         status.textContent = G.more === 'loading' ? `${total} clips; loading the other boards' and minigames' clips...`
           : G.more === 'failed' ? `${total} clips (the other boards' and minigames' clips could not be loaded: they need mii/clips/ next to the page)`
-          : `${total} clips` + (q ? `, ${names.length} found` : '');
+          : (only ? `${names.length} of ${total} clips` + (f.value !== 'shared' && !f.unnamed && G.more !== 'in' ? ' so far' : '') : `${total} clips` + (q ? `, ${names.length} found` : ''));
         shown = null; G.ui.update(true);
       },
       update(full) {
@@ -412,7 +460,7 @@ export class ViewerScene extends BoardScene {
         }
         scrub.value = Math.round(G.f);
         const u = used[G.clip];
-        now.innerHTML = `<b style="font-size:15px">${G.clip}</b><br>${u ? `The game plays it as: <b>${u.join(', ')}</b>` : 'Not used by the game now'}<br>Frame ${Math.round(G.f)} / ${C.frames - 1} &middot; ${C.loop ? 'loops' : 'plays once'} &middot; ${(C.frames / 60).toFixed(2)} s`;
+        now.innerHTML = `<b style="font-size:15px">${G.clip}</b><br>${u ? `Party Island plays it as: <b>${u.join(', ')}</b>` : 'Not used by Party Island now'}<br>${loadedBy(G.clip)}<br>Frame ${Math.round(G.f)} / ${C.frames - 1} &middot; ${C.loop ? 'loops' : 'plays once'} &middot; ${(C.frames / 60).toFixed(2)} s`;
       },
     };
     G.ui.list();

@@ -352,7 +352,7 @@ __mods["js15/config.js"] = (() => {
 
 const GAME_TITLE = 'Party Island'; // placeholder name: pick your own
 
-const BUILD = '93'; // shown in the menu and in games; every player must have the same build
+const BUILD = '94'; // shown in the menu and in games; every player must have the same build
 
 const MAX_PLAYERS = 6;
 
@@ -7194,6 +7194,129 @@ const ALL_CLIPS = {"pm000_01":{"frames":120,"loop":true,"bones":{"nw4r_root":[[0
 
 return { ALL_CLIPS };
 })();
+__mods["js15/world/wpClipLoaders.js"] = (() => {
+// Which of Wii Party's Mii clips each board, mode and minigame loads (made by tools/extract_clip_loaders.py:
+// the clip file paths named in each program module, files/rel/<id>.rel.lz, and the names from files/locale/en_US/mess.bin).
+// SHARED: the list of clips every module holds (shared code compiled into all of them), kept apart.
+const LOADERS = [{"id":"boot","name":"Boot","group":"other","clips":[]},
+  {"id":"inst","name":"Instructions screens","group":"other","clips":["pm000_01","pm000_05","pm000_06","pm000_07","pm000_08","pm000_12","pm000_13","pm000_14","pm000_15","pm011_11"]},
+  {"id":"loading","name":"Loading screen","group":"other","clips":[]},
+  {"id":"menu","name":"Menus","group":"other","clips":["pm000_01","pm000_03","pm000_04","pm000_07","pm000_30","pm000_31","pm000_44","pm011_05","pm011_10","pm011_11","pm031_04","pm205_07","pm210_02","pm219_06","pm407_01","pm420_04","pm430_04","pm432_02","pm500_02","pm721_04","pm721_06"]},
+  {"id":"mg100","name":"Commuter Count","group":"minigame","clips":["pm000_01","pm000_03","pm000_04","pm000_11","pm001_02","pm011_05","pm011_10","pm100_01","pm100_02","pm100_03","pm100_04","pm100_05","pm100_06","pm102_11"]},
+  {"id":"mg101","name":"Timber Topple","group":"minigame","clips":["pm101_01","pm101_02","pm101_03","pm101_04","pm101_05","pm101_06","pm101_07","pm101_08","pm101_09","pm101_10"]},
+  {"id":"mg102","name":"Delivery Duel","group":"minigame","clips":["pm000_01","pm000_03","pm011_05","pm011_11","pm102_01","pm102_02","pm102_03","pm102_04","pm102_05","pm102_06","pm102_07","pm102_08","pm102_09","pm102_10","pm102_11"]},
+  {"id":"mg103","name":"0","group":"minigame","clips":["pm001_04","pm001_05","pm103_01","pm103_02","pm103_03","pm103_04","pm103_05","pm103_06","pm103_07","pm103_08","pm103_09"]},
+  {"id":"mg104","name":"Roll to the Goal","group":"minigame","clips":["pm000_01","pm000_04","pm001_09","pm001_10"]},
+  {"id":"mg106","name":"Channel Changers","group":"minigame","clips":["pm011_05","pm011_10","pm407_01","pm408_01","pm409_01"]},
+  {"id":"mg107","name":"Spring Time","group":"minigame","clips":["pm000_01","pm000_03","pm000_04","pm011_11","pm107_01","pm107_02"]},
+  {"id":"mg108","name":"Jangle Wranglers","group":"minigame","clips":["pm000_01","pm000_03","pm000_04","pm001_06","pm108_01"]},
+  {"id":"mg109","name":"Poppin' Pilots","group":"minigame","clips":["pm207_01"]},
+  {"id":"mg110","name":"Flag Footrace","group":"minigame","clips":["pm000_01","pm000_03","pm000_04","pm001_02","pm011_07","pm011_09","pm011_11","pm411_01","pm411_02","pm411_03","pm411_04","pm411_05","pm411_06","pm411_07","pm411_08","pm411_09","pm411_10","pm411_11","pm411_12","pm411_13","pm411_14","pm411_15","pm411_16","pm411_17"]},
+  {"id":"mg111","name":"Pop-Up Bandits","group":"minigame","clips":["pm001_07","pm408_01","pm408_02","pm408_03","pm408_04"]},
+  {"id":"mg112","name":"Fruit Focus","group":"minigame","clips":["pm000_01","pm000_04","pm000_06","pm000_13","pm000_15","pm000_16","pm000_17","pm000_18","pm000_38","pm000_40","pm000_41","pm001_07","pm011_06","pm011_07","pm011_12","pm112_01","pm112_02","pm112_03","pm112_04"]},
+  {"id":"mg200","name":"Flycycle Team","group":"minigame","clips":["pm200_01","pm200_02","pm200_03","pm200_04","pm200_05","pm200_06"]},
+  {"id":"mg201","name":"Fishin' Buddies","group":"minigame","clips":["pm201_01","pm201_02","pm201_03","pm201_04","pm201_05","pm201_06","pm201_07"]},
+  {"id":"mg202","name":"Bumper Crops","group":"minigame","clips":["pm202_01","pm202_02","pm202_03","pm202_04","pm202_05","pm202_06"]},
+  {"id":"mg203","name":"Robot Factory","group":"minigame","clips":[]},
+  {"id":"mg204","name":"Flashlight Frights","group":"minigame","clips":["pm000_01","pm000_02","pm000_03","pm000_04","pm000_05","pm204_01","pm204_02","pm204_03","pm204_04"]},
+  {"id":"mg205","name":"Basket Bonanza","group":"minigame","clips":["pm000_01","pm000_03","pm000_04","pm001_06","pm001_07","pm011_11","pm102_01","pm200_02","pm205_01","pm205_02","pm205_03","pm205_04","pm205_05","pm205_07","pm205_08","pm205_09","pm205_10","pm205_11"]},
+  {"id":"mg206","name":"Meet and Greet","group":"minigame","clips":["pm000_01","pm000_03","pm000_04","pm000_07","pm000_09","pm000_14","pm001_02","pm001_03","pm001_04","pm001_05","pm001_07","pm206_01","pm206_02","pm206_03","pm206_04","pm206_05","pm206_06","pm206_07","pm301_06","pm301_07","pm301_08"]},
+  {"id":"mg208","name":"Paddle Pals","group":"minigame","clips":["pm208_01","pm208_02","pm208_03","pm208_04","pm208_05","pm208_06","pm208_07","pm208_08","pm208_09","pm208_10"]},
+  {"id":"mg209","name":"Pop Coaster","group":"minigame","clips":["pm000_01","pm000_03","pm209_01","pm209_02"]},
+  {"id":"mg210","name":"Tippy Traverse","group":"minigame","clips":["pm000_01","pm000_03","pm000_04","pm001_01","pm001_06","pm205_04","pm210_01","pm210_02","pm405_01"]},
+  {"id":"mg211","name":"Pump Cart Panic","group":"minigame","clips":["pm001_11","pm211_01","pm211_02","pm211_03","pm211_04","pm211_05"]},
+  {"id":"mg212","name":"Sheep Crossing","group":"minigame","clips":["pm000_01","pm000_03","pm000_04","pm102_11","pm405_01","pm405_03","pm405_06","pm405_08","pm443_03","pm443_04","pm443_06"]},
+  {"id":"mg213","name":"Banana Blockade","group":"minigame","clips":["pm000_01","pm000_04","pm000_11","pm001_02","pm001_07","pm001_15","pm213_01","pm213_02","pm213_03"]},
+  {"id":"mg214","name":"Spring Ringers","group":"minigame","clips":["pm000_01","pm000_03","pm000_08","pm000_15","pm011_11","pm205_07","pm214_01","pm214_02","pm214_03","pm214_04","pm214_05","pm214_06","pm214_07","pm214_08","pm214_09","pm214_10"]},
+  {"id":"mg215","name":"Can Poppers","group":"minigame","clips":["pm001_07","pm408_01","pm408_02","pm408_03","pm408_04"]},
+  {"id":"mg216","name":"Clover Hunt","group":"minigame","clips":["pm000_01","pm000_03","pm000_16","pm000_17","pm000_18","pm011_05","pm011_07","pm011_08","pm011_09","pm102_11","pm205_07","pm206_04","pm301_09"]},
+  {"id":"mg218","name":"Rodent Rundown","group":"minigame","clips":["pm000_01","pm000_03","pm000_04","pm000_08","pm000_15","pm001_03","pm218_01","pm218_02","pm218_03","pm218_04","pm218_05","pm218_06"]},
+  {"id":"mg219","name":"Jump Rope Jam","group":"minigame","clips":["pm000_01","pm000_03","pm000_04","pm000_11","pm000_15","pm001_04","pm001_05","pm011_07","pm011_09","pm011_11","pm206_03","pm219_01","pm219_02","pm219_03","pm219_04","pm219_05","pm219_06","pm219_07","pm420_03"]},
+  {"id":"mg221","name":"Bobsled Highway","group":"minigame","clips":["pm221_01","pm221_02","pm221_03","pm221_04","pm221_05","pm221_06","pm221_07"]},
+  {"id":"mg222","name":"Color Coordination","group":"minigame","clips":["pm000_01","pm000_03","pm000_04","pm000_09","pm000_11","pm001_03","pm001_11"]},
+  {"id":"mg223","name":"Teamwork Temple","group":"minigame","clips":["pm000_01","pm000_04","pm000_07","pm000_08","pm000_09","pm000_15","pm000_17","pm001_03","pm011_06","pm011_09","pm102_11","pm218_06","pm223_01","pm223_02","pm223_03","pm223_04","pm405_01","pm405_02","pm405_05","pm413_03"]},
+  {"id":"mg224","name":"Blastronauts","group":"minigame","clips":["pm407_01","pm407_04","pm422_01"]},
+  {"id":"mg300","name":"Flying Fruit","group":"minigame","clips":["pm000_01","pm000_03","pm000_04","pm011_07"]},
+  {"id":"mg301","name":"Lumber Whacks","group":"minigame","clips":["pm000_01","pm301_01","pm301_02","pm301_03","pm301_04","pm301_05","pm301_06","pm301_07","pm301_08","pm301_09","pm301_10","pm301_11","pm301_12","pm301_13","pm301_14"]},
+  {"id":"mg302","name":"Splash Bash","group":"minigame","clips":["pm000_01","pm000_33","pm000_34","pm001_11","pm209_01","pm301_06","pm302_01","pm302_02","pm302_03","pm302_04","pm302_05","pm405_05"]},
+  {"id":"mg303","name":"Poserobics","group":"minigame","clips":["pm000_01","pm000_03","pm000_04","pm000_11","pm001_07","pm011_11","pm303_01","pm303_02","pm303_03","pm303_04","pm303_05","pm303_10","pm303_11","pm420_03","pm442_02"]},
+  {"id":"mg304","name":"Hide-and-Peek","group":"minigame","clips":["pm000_01","pm000_03","pm000_04","pm000_11","pm000_15","pm000_17","pm001_02","pm001_07","pm011_07","pm011_13","pm011_14","pm221_01","pm405_09","pm411_01","pm412_05","pm420_03","pm442_02"]},
+  {"id":"mg400","name":"Derby Dash","group":"minigame","clips":["pm400_01","pm400_02","pm400_03","pm400_04"]},
+  {"id":"mg401","name":"Smile Snap","group":"minigame","clips":["pm000_01","pm000_03","pm000_04","pm000_16","pm000_17","pm000_18","pm011_07","pm401_01"]},
+  {"id":"mg402","name":"Chop Chops","group":"minigame","clips":["pm000_01","pm000_12","pm402_01","pm402_02"]},
+  {"id":"mg403","name":"Walk-Off","group":"minigame","clips":["pm000_01","pm000_02","pm000_03","pm000_04","pm000_08","pm000_11","pm000_12","pm000_15","pm001_06","pm001_07","pm011_06","pm011_12"]},
+  {"id":"mg404","name":"Shifty Gifts","group":"minigame","clips":["pm200_02","pm404_01","pm404_03","pm404_04","pm404_05"]},
+  {"id":"mg405","name":"Flap Hurdles","group":"minigame","clips":["pm000_01","pm000_02","pm000_03","pm000_04","pm000_11","pm000_12","pm011_07","pm405_01","pm405_02","pm405_03","pm405_04","pm405_05","pm405_06","pm405_07","pm405_08","pm405_09","pm405_10","pm407_05","pm440_01"]},
+  {"id":"mg406","name":"Jumbo Jump","group":"minigame","clips":["pm000_08","pm000_15","pm210_01","pm406_01","pm406_02","pm406_03","pm406_04","pm406_05","pm406_06","pm406_07","pm406_08","pm406_09","pm406_10"]},
+  {"id":"mg407","name":"Moon Landing","group":"minigame","clips":["pm000_01","pm000_40","pm000_41","pm407_01","pm407_02","pm407_03","pm407_04","pm407_05"]},
+  {"id":"mg408","name":"Popgun Posse","group":"minigame","clips":["pm001_07","pm408_01","pm408_02","pm408_03","pm408_04"]},
+  {"id":"mg410","name":"Friendly Face-Off","group":"minigame","clips":[]},
+  {"id":"mg411","name":"Flag Fracas","group":"minigame","clips":["pm000_01","pm000_03","pm000_04","pm001_02","pm011_07","pm011_09","pm011_11","pm411_01","pm411_02","pm411_03","pm411_04","pm411_05","pm411_06","pm411_07","pm411_08","pm411_09","pm411_10","pm411_11","pm411_12","pm411_13","pm411_14","pm411_15","pm411_16","pm411_17"]},
+  {"id":"mg412","name":"Shutterpup","group":"minigame","clips":["pm401_01"]},
+  {"id":"mg413","name":"Lucky Launch","group":"minigame","clips":["pm000_01","pm000_04","pm000_05","pm000_08","pm000_12","pm000_15","pm000_16","pm000_17","pm000_18","pm001_03","pm001_07","pm011_05","pm011_07","pm011_09","pm011_13","pm011_14","pm413_01","pm413_02","pm413_03","pm413_04"]},
+  {"id":"mg414","name":"Saucer Snap","group":"minigame","clips":["pm000_01","pm401_01","pm401_02"]},
+  {"id":"mg415","name":"Maze Daze","group":"minigame","clips":["pm000_01","pm000_03","pm000_06","pm000_07","pm000_13","pm000_14","pm000_16","pm000_17","pm000_18","pm000_37","pm001_03","pm001_07","pm011_05","pm011_07","pm205_07","pm415_01","pm415_02","pm415_03","pm441_01","pm441_02","pm441_03","pm441_04"]},
+  {"id":"mg416","name":"Quicker Chipper","group":"minigame","clips":["pm000_01","pm416_01"]},
+  {"id":"mg417","name":"0","group":"minigame","clips":["pm001_07","pm408_01","pm408_02","pm408_03","pm408_04"]},
+  {"id":"mg418","name":"Barrel Daredevil","group":"minigame","clips":["pm001_04","pm001_05","pm103_01","pm103_02","pm103_03","pm103_04","pm103_05","pm103_06","pm103_07","pm103_08","pm103_09"]},
+  {"id":"mg419","name":"Face Flip","group":"minigame","clips":[]},
+  {"id":"mg420","name":"Goal Getters","group":"minigame","clips":["pm000_01","pm000_03","pm000_04","pm000_08","pm001_01","pm001_06","pm420_01","pm420_02","pm420_03","pm420_04","pm420_05","pm420_06"]},
+  {"id":"mg421","name":"Stop Watchers","group":"minigame","clips":["pm000_01","pm000_08","pm000_11","pm000_12","pm000_15","pm011_10","pm421_01","pm421_02"]},
+  {"id":"mg422","name":"Chopper Hoppers","group":"minigame","clips":["pm000_01","pm000_02","pm000_03","pm000_04","pm000_11","pm001_02","pm001_05","pm001_06","pm001_13","pm001_16","pm011_07","pm011_11","pm205_07","pm411_05","pm411_06","pm411_08","pm422_01","pm422_02"]},
+  {"id":"mg423","name":"Puzzle Pick-Up","group":"minigame","clips":[]},
+  {"id":"mg424","name":"Feathered Frenzy","group":"minigame","clips":["pm409_01"]},
+  {"id":"mg426","name":"Follow Your Face","group":"minigame","clips":["pm000_01","pm000_11","pm001_07","pm001_10","pm011_05","pm011_06","pm011_09","pm011_11","pm102_06"]},
+  {"id":"mg427","name":"Strategy Steps","group":"minigame","clips":["pm000_01","pm000_03","pm000_04","pm000_08","pm000_15","pm001_06","pm001_07","pm011_07","pm011_08","pm011_09","pm405_01","pm405_02","pm405_03","pm405_06","pm405_07","pm405_08","pm407_05","pm427_01","pm427_02","pm427_03","pm427_04","pm427_05"]},
+  {"id":"mg428","name":"Tropical Punch","group":"minigame","clips":["pm001_11","pm428_01","pm428_02","pm428_03","pm428_04"]},
+  {"id":"mg430","name":"Zombie Tag","group":"minigame","clips":["pm000_01","pm001_02","pm001_03","pm001_05","pm001_06","pm405_04","pm430_01","pm430_02","pm430_03","pm430_04"]},
+  {"id":"mg431","name":"Pearl Plunder","group":"minigame","clips":["pm431_01","pm431_02","pm431_03","pm431_04"]},
+  {"id":"mg432","name":"Hammer Heads","group":"minigame","clips":["pm000_03","pm000_16","pm000_17","pm000_18","pm011_07","pm011_09","pm205_07","pm432_01","pm432_02","pm432_03","pm432_04","pm432_05"]},
+  {"id":"mg433","name":"Crash Balls","group":"minigame","clips":["pm000_01","pm000_02","pm000_03","pm000_04","pm000_05","pm001_01","pm001_02","pm001_15","pm011_06","pm011_10","pm411_03"]},
+  {"id":"mg434","name":"Rope Sling","group":"minigame","clips":["pm000_01","pm000_03","pm001_05","pm001_09","pm001_10","pm001_11","pm001_12","pm001_13","pm011_07","pm011_10","pm011_11","pm102_11","pm405_02","pm405_09","pm434_01","pm434_02"]},
+  {"id":"mg436","name":"Space Brawl","group":"minigame","clips":["pm500_01","pm500_02","pm500_06","pm500_07","pm500_08","pm500_10","pm500_13","pm500_14"]},
+  {"id":"mg437","name":"Dicey Descent","group":"minigame","clips":["pm000_01","pm000_03","pm000_04","pm000_07","pm000_14","pm001_05","pm001_09","pm001_10","pm001_12","pm206_03","pm437_01","pm437_02","pm437_03","pm437_04","pm437_05","pm437_06"]},
+  {"id":"mg438","name":"Cosmic Capers","group":"minigame","clips":["pm500_01","pm500_02","pm500_06","pm500_07","pm500_08","pm500_10","pm500_13","pm500_14"]},
+  {"id":"mg439","name":"Cry Babies","group":"minigame","clips":["pm000_01","pm000_03","pm209_01","pm439_01","pm439_02","pm439_03","pm439_04","pm439_05","pm439_06","pm439_07","pm439_08","pm439_09","pm439_10","pm439_11"]},
+  {"id":"mg440","name":"Ram Jam","group":"minigame","clips":["pm000_01","pm000_03","pm000_04","pm000_08","pm000_15","pm420_04","pm440_01"]},
+  {"id":"mg441","name":"Spotlight Fight","group":"minigame","clips":["pm000_01","pm000_04","pm000_08","pm000_11","pm011_10","pm011_11","pm041_01","pm102_11","pm420_03","pm441_01","pm441_02","pm441_03","pm441_04","pm443_10"]},
+  {"id":"mg442","name":"Chin-Up Champ","group":"minigame","clips":["pm000_01","pm000_08","pm000_15","pm000_42","pm000_43","pm001_04","pm001_05","pm001_06","pm001_07","pm001_16","pm011_05","pm011_06","pm011_07","pm011_08","pm011_09","pm011_11","pm011_12","pm102_11","pm205_07","pm407_05","pm442_01","pm442_02","pm442_03","pm442_04","pm442_05","pm442_06","pm442_07","pm442_08"]},
+  {"id":"mg443","name":"Risky Railroad","group":"minigame","clips":["pm000_01","pm000_04","pm000_14","pm443_01","pm443_02","pm443_03","pm443_04","pm443_05","pm443_06","pm443_07","pm443_08","pm443_09","pm443_10","pm443_11","pm443_12","pm443_13"]},
+  {"id":"mg445","name":"Balloon Buggies","group":"minigame","clips":["pm422_01"]},
+  {"id":"mg446","name":"Back Attack","group":"minigame","clips":["pm422_02","pm446_01","pm446_02"]},
+  {"id":"mg501","name":"Marching Orders","group":"minigame","clips":["pm000_01","pm000_03","pm000_08","pm000_11","pm000_15","pm001_01","pm001_04","pm001_05","pm001_11","pm206_03","pm301_06","pm301_07","pm407_05","pm501_01"]},
+  {"id":"mg502","name":"Garden Gridlock","group":"minigame","clips":["pm000_01","pm000_03","pm000_08","pm000_15","pm001_01","pm001_04","pm001_05","pm001_08","pm001_09","pm001_10","pm001_11","pm100_04","pm100_05","pm100_06","pm212_01","pm213_02","pm218_01","pm218_02","pm218_03","pm223_01","pm405_01","pm405_03","pm421_02","pm432_01","pm432_02","pm432_03","pm432_04"]},
+  {"id":"mg503","name":"Shifty Gifts","group":"minigame","clips":["pm000_01","pm000_03","pm000_04","pm001_03","pm001_08","pm001_09","pm001_10","pm102_01","pm102_02","pm102_03","pm102_07","pm102_08","pm107_01","pm107_02","pm200_02","pm219_05","pm303_05","pm303_06","pm404_01","pm404_03","pm404_04","pm405_04","pm405_10","pm500_01","pm500_02","pm501_01"]},
+  {"id":"mg504","name":"Tippy Traverse","group":"minigame","clips":["pm000_01","pm000_03","pm000_04","pm001_01","pm001_06","pm205_04","pm210_01","pm210_02","pm405_01"]},
+  {"id":"mg505","name":"Banana Blockade","group":"minigame","clips":["pm000_01","pm000_04","pm000_11","pm001_02","pm001_07","pm001_15","pm213_01","pm213_02","pm213_03"]},
+  {"id":"mg506","name":"Clover Hunt","group":"minigame","clips":["pm000_01","pm000_03","pm000_16","pm000_17","pm000_18","pm011_05","pm011_07","pm011_08","pm011_09","pm102_11","pm205_07","pm206_04","pm301_09"]},
+  {"id":"mg507","name":"About Face","group":"minigame","clips":["pm000_01"]},
+  {"id":"mg508","name":"About Face","group":"minigame","clips":["pm000_01"]},
+  {"id":"mg509","name":"About Face","group":"minigame","clips":["pm000_01"]},
+  {"id":"mr001","name":"Board Game Island","group":"board","clips":["pm000_02","pm000_03","pm000_04","pm000_07","pm000_08","pm000_11","pm000_15","pm000_16","pm000_17","pm000_40","pm000_41","pm001_01","pm001_02","pm001_03","pm001_04","pm001_05","pm001_06","pm001_07","pm001_08","pm001_09","pm001_10","pm001_11","pm001_12","pm001_13","pm001_14","pm001_15","pm001_16","pm001_17","pm001_18","pm001_19","pm011_06","pm011_07","pm011_08","pm011_09","pm011_10","pm011_12","pm102_11","pm206_03","pm301_01","pm301_02","pm301_03","pm301_04","pm301_05","pm405_01","pm405_02","pm405_03","pm405_04","pm405_09","pm434_01","pm434_02","pm441_01","pm441_02","pm441_03","pm441_04"]},
+  {"id":"mr011","name":"Spin-Off","group":"board","clips":[]},
+  {"id":"mr031","name":"Globe Trot","group":"board","clips":["pm000_01","pm000_03","pm000_04","pm000_05","pm000_06","pm000_07","pm000_08","pm000_11","pm000_12","pm000_13","pm000_14","pm000_15","pm000_16","pm000_17","pm000_18","pm000_25","pm000_26","pm000_40","pm000_41","pm001_01","pm001_02","pm001_03","pm001_04","pm001_05","pm001_06","pm001_07","pm001_09","pm001_10","pm001_11","pm001_12","pm011_05","pm011_06","pm011_07","pm011_09","pm011_11","pm011_12","pm031_01","pm031_02","pm031_03","pm031_04","pm031_05","pm102_11","pm206_03","pm303_01","pm406_09","pm441_01","pm441_02","pm441_03","pm441_04","pm500_01","pm500_02","pm500_13"]},
+  {"id":"mr041","name":"Swap Meet","group":"board","clips":[]},
+  {"id":"mr051","name":"Balance Boat","group":"board","clips":["pm000_07","pm000_14","pm000_15","pm011_10"]},
+  {"id":"mr052","name":"Balance Boat","group":"board","clips":["pm000_07","pm000_14","pm000_15","pm011_10"]},
+  {"id":"mr062","name":"Friend Connection","group":"board","clips":["pm000_01","pm000_03","pm000_04","pm000_05","pm000_07","pm000_08","pm000_11","pm000_12","pm000_15","pm000_16","pm000_17","pm000_18","pm000_19","pm000_20","pm000_21","pm000_22","pm000_23","pm000_24","pm000_26","pm000_27","pm000_28","pm000_29","pm000_30","pm000_31","pm001_04","pm001_06","pm001_07","pm001_09","pm011_06","pm011_07","pm011_09","pm011_10","pm011_11","pm011_13","pm011_14","pm206_03","pm405_01","pm405_08"]},
+  {"id":"mr083","name":"Match-Up","group":"board","clips":[]},
+  {"id":"mr701","name":"Buddy Quiz","group":"board","clips":["pm000_01","pm000_03","pm000_04","pm000_07","pm000_08","pm000_11","pm000_13","pm000_14","pm000_15","pm000_16","pm000_17","pm000_18","pm000_21","pm000_22","pm000_23","pm000_24","pm000_40","pm000_41","pm001_06","pm001_07","pm011_07","pm011_09","pm011_10","pm011_11","pm041_01","pm102_11","pm421_01","pm421_02"]},
+  {"id":"mr711","name":"Time Bomb","group":"board","clips":["pm000_01","pm000_03","pm000_16","pm000_17","pm000_18","pm000_40","pm000_41","pm001_05","pm001_11","pm001_12","pm011_07","pm011_08","pm011_10","pm209_01","pm301_06","pm405_04","pm406_05","pm711_01","pm711_02","pm711_03","pm711_04","pm711_05","pm711_06","pm711_07","pm711_08","pm711_09","pm713_01","pm713_04","pm713_06","pm713_07"]},
+  {"id":"mr713","name":"Word Bomb","group":"board","clips":["pm000_01","pm000_03","pm000_04","pm000_16","pm000_17","pm000_18","pm000_40","pm000_41","pm001_05","pm001_11","pm001_12","pm011_07","pm011_08","pm011_10","pm301_06","pm406_05","pm711_06","pm711_09","pm713_01","pm713_02","pm713_03","pm713_04","pm713_05","pm713_06","pm713_07","pm713_08"]},
+  {"id":"mr721","name":"Animal Tracker","group":"board","clips":["pm000_01","pm000_03","pm000_04","pm000_11","pm000_12","pm000_13","pm000_16","pm000_17","pm000_18","pm000_37","pm001_06","pm011_07","pm011_08","pm011_09","pm011_10","pm011_11","pm442_02","pm721_01","pm721_02","pm721_03","pm721_04","pm721_05"]},
+  {"id":"mr722","name":"Quick Draw","group":"board","clips":[]},
+  {"id":"mr731","name":"Hide 'n' Hunt","group":"board","clips":["pm000_01","pm000_03","pm000_04","pm000_07","pm000_08","pm000_11","pm000_14","pm000_15","pm000_16","pm000_17","pm000_18","pm000_37","pm000_40","pm000_41","pm001_07","pm011_07","pm011_10","pm011_11","pm206_01","pm206_06","pm731_01","pm731_02","pm731_03","pm731_04","pm731_05","pm731_06"]},
+  {"id":"mr741","name":"Bingo","group":"board","clips":["pm000_01","pm000_03","pm000_04","pm000_05","pm000_07","pm000_11","pm000_12","pm000_14","pm000_15","pm000_16","pm000_17","pm000_18","pm000_25","pm001_06","pm011_07","pm011_08","pm011_10","pm011_11"]},
+  {"id":"mr751","name":"Spot the Sneak","group":"board","clips":["pm000_01","pm000_04","pm000_08","pm000_11","pm000_16","pm000_17","pm000_25","pm000_26","pm000_31","pm000_40","pm000_41","pm001_06","pm001_07","pm011_05","pm011_06","pm011_07","pm011_08","pm011_09","pm011_10","pm011_11","pm011_12","pm011_13","pm011_14","pm041_01","pm406_09","pm441_02","pm441_03","pm441_04"]},
+  {"id":"ms601","name":"Minigame mode ms601","group":"board","clips":["pm000_01","pm000_03","pm000_07","pm000_08","pm000_11","pm000_14","pm000_15","pm000_16","pm000_17","pm000_18","pm000_39","pm000_40","pm000_41","pm001_04","pm001_05","pm001_06","pm011_05","pm011_06","pm011_07","pm011_09","pm011_11","pm011_12","pm206_03"]},
+  {"id":"ms602","name":"Minigame mode ms602","group":"board","clips":["pm000_01","pm000_03","pm000_07","pm000_08","pm000_11","pm000_14","pm000_15","pm000_16","pm000_17","pm000_18","pm000_39","pm000_40","pm000_41","pm001_04","pm001_05","pm001_06","pm011_05","pm011_06","pm011_07","pm011_09","pm011_11","pm011_12","pm206_03"]},
+  {"id":"ms603","name":"Minigame mode ms603","group":"board","clips":["pm000_01","pm000_03","pm000_04","pm000_07","pm000_11","pm000_14","pm000_16","pm000_17","pm000_18","pm001_01","pm001_04","pm001_05","pm001_06","pm001_07","pm001_09","pm001_10","pm001_11","pm001_12","pm011_06","pm011_07","pm011_10","pm011_11","pm011_12","pm011_13","pm011_14","pm102_11","pm206_03","pm405_01","pm405_02","pm405_03","pm441_01","pm441_02","pm441_03","pm441_04"]},
+  {"id":"openmess","name":"Opening messages","group":"other","clips":[]},
+  {"id":"ranking","name":"Rankings","group":"other","clips":[]}];
+const SHARED = ["pm000_02", "pm000_03", "pm000_04", "pm000_05", "pm000_06", "pm000_09", "pm000_11", "pm001_03", "pm001_04", "pm001_05", "pm001_06", "pm001_10", "pm001_12", "pm001_14", "pm011_06", "pm041_01", "pm100_02", "pm100_04", "pm101_03", "pm101_07", "pm102_08", "pm204_02", "pm205_06", "pm205_08", "pm205_09", "pm205_10", "pm205_11", "pm213_02", "pm213_03", "pm218_02", "pm218_04", "pm219_05", "pm219_06", "pm222_02", "pm222_03", "pm301_07", "pm301_08", "pm302_02", "pm302_03", "pm303_06", "pm303_08", "pm404_02", "pm405_03", "pm405_04", "pm405_08", "pm411_02", "pm411_03", "pm411_04", "pm411_07", "pm411_08", "pm411_09", "pm411_10", "pm411_15", "pm411_17", "pm415_03", "pm420_03", "pm420_04", "pm428_02", "pm430_02", "pm430_03", "pm430_04", "pm432_02", "pm442_01"];
+
+return { LOADERS, SHARED };
+})();
 __mods["js15/scenes/viewerScene.js"] = (() => {
 // Island viewer: the board exactly as the game draws it (same scene, same props, same tiles), with no game running.
 // Drag to turn, scroll to zoom, right-drag (or shift-drag) to slide. Buttons jump to each place and play the set pieces.
@@ -7206,6 +7329,29 @@ const { makeFigure, fitFFLHead } = __mods["js15/world/miiPawn.js"];
 const { shadeLikeFace } = __mods["js15/world/wpMii.js"];
 const { WP_MII } = __mods["js15/world/wpMiiData.js"];
 const { ALL_CLIPS } = __mods["js15/world/wpMiiAllClips.js"];
+const { LOADERS, SHARED } = __mods["js15/world/wpClipLoaders.js"];
+
+/**
+ * The gallery's dropdown: every board, mode and minigame of Wii Party with the clips its program module loads, the list
+ * every module shares, and the clips no module names. { value, label, group, clips } ('all': every clip).
+ */
+function galleryFilters(allNames = []) {
+  const named = new Set(SHARED); for (const L of LOADERS) for (const c of L.clips) named.add(c);
+  const out = [{ value: 'all', label: `All animations${allNames.length ? ` (${allNames.length})` : ''}`, group: null, clips: null }];
+  const groups = [['board', 'Boards and modes'], ['minigame', 'Minigames'], ['other', 'Menus and screens']];
+  for (const [g, title] of groups) {
+    const ls = LOADERS.filter((L) => L.group === g).sort((a, b) => (a.name === b.name ? (a.id < b.id ? -1 : 1) : a.name < b.name ? -1 : 1));
+    for (const L of ls) out.push({ value: L.id, label: `${L.name} (${L.id}) · ${L.clips.length || 'none named'}`, group: title, clips: L.clips });
+  }
+  out.push({ value: 'shared', label: `In every module's shared code (${SHARED.length})`, group: 'Other lists', clips: SHARED });
+  const never = allNames.filter((n) => !named.has(n));
+  out.push({ value: 'unnamed', label: `Not named by any module${allNames.length ? ` (${never.length})` : ''}`, group: 'Other lists', clips: never, unnamed: true });
+  return out;
+}
+/** Which boards, modes and minigames load a clip: their names. */
+function clipLoadedBy(name) {
+  return LOADERS.filter((L) => L.clips.includes(name)).map((L) => L.name);
+}
 
 // The rest of Wii Party's Mii clips (other boards' and the minigames': pm002 and up), loaded when the gallery opens:
 // mii/clips/more-clips.json, made by tools/extract_wp_mii.py --more (too big to go in the page).
@@ -7557,7 +7703,23 @@ class ViewerScene extends BoardScene {
     const step = el('div', 'display:flex;gap:5px');
     step.append(button('< frame', () => { G.playing = false; G.f = Math.max(0, Math.round(G.f) - 1); G.ui.update(true); }, '#4a4a7a'), button('frame >', () => { G.playing = false; G.f = Math.min(G.clips[G.clip].frames - 1, Math.round(G.f) + 1); G.ui.update(true); }, '#4a4a7a'));
     panel.appendChild(step);
-    panel.appendChild(el('div', 'opacity:.75;font-size:11px', 'pm001 = Board Game Island, pm000 = shared by every board, pm002 and up = the other boards and the minigames. Purple = the game plays it now (as the name after it). Up/down arrows: next clip; space: pause.'));
+    panel.appendChild(el('div', 'opacity:.75;font-size:11px', 'Pick a board, mode or minigame to see the clips Wii Party loads for it. Purple = Party Island plays it now (as the name after it). Up/down arrows: next clip; space: pause.'));
+    // which game's clips to show: every board, mode and minigame (from the disc: tools/extract_clip_loaders.py)
+    const pick = el('select', 'width:100%;box-sizing:border-box;border:0;border-radius:8px;padding:6px 8px;font:13px sans-serif');
+    pick.addEventListener('keydown', (e) => e.stopPropagation()); // (the arrow keys pick in the dropdown here)
+    let filters = [];
+    const fillPick = () => {
+      const keep = pick.value || G.filter || 'all';
+      filters = galleryFilters(Object.keys(G.clips)); pick.textContent = ''; let og = null, cur = null;
+      for (const f of filters) {
+        if (f.group !== cur) { cur = f.group; og = f.group ? el('optgroup') : null; if (og) { og.label = f.group; pick.appendChild(og); } }
+        const o = el('option', null, f.label); o.value = f.value; if (f.clips && !f.clips.length) o.disabled = true;
+        (og || pick).appendChild(o);
+      }
+      pick.value = filters.some((f) => f.value === keep) ? keep : 'all';
+    };
+    pick.onchange = () => { G.filter = pick.value; G.ui.list(); };
+    panel.appendChild(pick);
     const search = el('input'); search.type = 'search'; search.placeholder = 'Find a clip (e.g. pm206 or 206_03)';
     search.style.cssText = 'width:100%;box-sizing:border-box;border:0;border-radius:8px;padding:6px 8px;font:13px sans-serif';
     search.addEventListener('keydown', (e) => e.stopPropagation()); // (typing here is not the arrow keys or space)
@@ -7577,11 +7739,20 @@ class ViewerScene extends BoardScene {
     };
     addEventListener('keydown', G.keys, true);
     let shown = null;
+    const loadedBy = (n) => { // which of Wii Party's games load it (on the disc)
+      const sel = LOADERS.find((L) => L.id === pick.value), shared = SHARED.includes(n);
+      const by = clipLoadedBy(n).sort((a, b) => (sel ? (b === sel.name) - (a === sel.name) : 0)); // (the game picked first)
+      if (!by.length) return `<span style="opacity:.75">Wii Party: ${shared ? 'only in every module\'s shared code' : 'not named by any game'}</span>`;
+      const show = by.length > 4 ? `${by.slice(0, 4).join(', ')} and ${by.length - 4} more` : by.join(', ');
+      return `<span style="opacity:.9">Wii Party loads it in: ${show}${shared ? ' (and in every module\'s shared code)' : ''}</span>`;
+    };
     G.ui = {
       /** (Re)build the list: every clip there is so far that matches the search. */
       list: () => {
         const q = search.value.trim().toLowerCase();
-        names = galleryOrder(Object.keys(G.clips)).filter((n) => !q || n.includes(q) || (used[n] || []).some((u) => u.toLowerCase().includes(q)));
+        fillPick();
+        const f = filters.find((x) => x.value === pick.value), only = f && f.clips ? new Set(f.clips) : null;
+        names = galleryOrder(Object.keys(G.clips)).filter((n) => (!only || only.has(n)) && (!q || n.includes(q) || (used[n] || []).some((u) => u.toLowerCase().includes(q))));
         list.textContent = ''; items = {};
         let group = null;
         for (const n of names) {
@@ -7596,7 +7767,7 @@ class ViewerScene extends BoardScene {
         const total = Object.keys(G.clips).length;
         status.textContent = G.more === 'loading' ? `${total} clips; loading the other boards' and minigames' clips...`
           : G.more === 'failed' ? `${total} clips (the other boards' and minigames' clips could not be loaded: they need mii/clips/ next to the page)`
-          : `${total} clips` + (q ? `, ${names.length} found` : '');
+          : (only ? `${names.length} of ${total} clips` + (f.value !== 'shared' && !f.unnamed && G.more !== 'in' ? ' so far' : '') : `${total} clips` + (q ? `, ${names.length} found` : ''));
         shown = null; G.ui.update(true);
       },
       update(full) {
@@ -7609,14 +7780,14 @@ class ViewerScene extends BoardScene {
         }
         scrub.value = Math.round(G.f);
         const u = used[G.clip];
-        now.innerHTML = `<b style="font-size:15px">${G.clip}</b><br>${u ? `The game plays it as: <b>${u.join(', ')}</b>` : 'Not used by the game now'}<br>Frame ${Math.round(G.f)} / ${C.frames - 1} &middot; ${C.loop ? 'loops' : 'plays once'} &middot; ${(C.frames / 60).toFixed(2)} s`;
+        now.innerHTML = `<b style="font-size:15px">${G.clip}</b><br>${u ? `Party Island plays it as: <b>${u.join(', ')}</b>` : 'Not used by Party Island now'}<br>${loadedBy(G.clip)}<br>Frame ${Math.round(G.f)} / ${C.frames - 1} &middot; ${C.loop ? 'loops' : 'plays once'} &middot; ${(C.frames / 60).toFixed(2)} s`;
       },
     };
     G.ui.list();
   }
 }
 
-return { loadMoreClips, galleryOrder, clipUses, ViewerScene };
+return { galleryFilters, clipLoadedBy, loadMoreClips, galleryOrder, clipUses, ViewerScene };
 })();
 __mods["js15/world/wiiBoard.js"] = (() => {
 // Board Game Island loader for three.js
