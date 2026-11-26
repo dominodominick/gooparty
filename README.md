@@ -355,6 +355,7 @@ The hand-built island is gone. The game now runs on the converted Wii Party map 
 
 - The animation gallery has a dropdown of every Wii Party board, mode and minigame (by name), showing only the clips that game loads, plus "All animations", the 63 clips in every module's shared code, and the 47 that no module names. The clip being played also says which games load it.
 - Where this comes from: each game's program module on the disc (`files/rel/<id>.rel.lz`) names the clip files it loads; the names come from the game's English text (`files/locale/en_US/mess.bin`). Made by `tools/extract_clip_loaders.py` into `js15/world/wpClipLoaders.js`. A module that picks clips some other way (Spin-Off, Swap Meet and Match-Up name none) shows "none named".
+- Test fix: the networked-game test now shortens every timing, so it no longer runs out of time (about half the time) when a random game hits a timing added since (the look-around, the tornado).
 
 ## Build 93
 
