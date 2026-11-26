@@ -360,4 +360,38 @@ for (const k of ['vine', 'dragon', 'crates', 'spike']) {
   fx.broken.spike = false; fx.showSpikeNumber(5);
   assert.ok(!blank.visible && numbers[5].visible, 'a fresh game shows the number again');
 }
+// ---------- v95: the game's own hit / break animations (breakData.js + breakRig.js) ----------
+{
+  const { BREAKS } = await import('../js15/world/breakData.js');
+  const { rigBreak, breakMats, matchPieces } = await import('../js15/world/breakRig.js');
+  assert.deepEqual(Object.keys(BREAKS).sort(), ['ball', 'dragon', 'gate']);
+  assert.deepEqual([BREAKS.dragon.clips.hit.frames, BREAKS.dragon.clips.break.frames, BREAKS.gate.clips.hit.frames, BREAKS.gate.clips.break.frames, BREAKS.ball.clips.explode.frames], [31, 101, 31, 101, 61]);
+  for (const h of ['hit1', 'hit2', 'hit3', 'hit4']) assert.ok(BREAKS.dragon.hooks[h], `the dragon wall's ${h}`);
+  for (const h of ['hit1', 'hit2', 'hit3', 'hit4', 'hit5', 'break']) assert.ok(BREAKS.gate.hooks[h], `the gate's ${h}`);
+  // frame 0 of each clip leaves every piece where it is (the map's mesh is the rest pose)
+  for (const [k, c] of [['dragon', 'hit'], ['dragon', 'break'], ['gate', 'hit'], ['gate', 'break']]) {
+    const B = BREAKS[k], M = breakMats(B, c, 0, new Float32Array(12 + B.movers.length * 12)), I = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0];
+    let worst = 0; for (let m = 1; m <= B.movers.length; m++) { if (Array.from(M.slice(12 * m, 12 * m + 12)).every((v) => v === 0)) continue; /* (hidden: the gate's sign goes as it breaks) */ for (let j = 0; j < 12; j++) worst = Math.max(worst, Math.abs(M[12 * m + j] - I[j]) * (j % 4 === 3 ? 0.01 : 1)); }
+    assert.ok(worst < 0.05, `${k} ${c}: starts at rest (${worst.toFixed(3)}: the game's own first frame, a few map units off at most)`);
+  }
+  // a mesh made of two of the dragon wall's pieces: every corner matched, blown apart by the break, put back by rest()
+  const B = BREAKS.dragon, P = B.points, byPiece = new Map();
+  for (let k = 0; k < P.length / 3; k++) { if (B.weights[4 * k] < 0.999) continue; const j = B.joints[4 * k]; if (!byPiece.has(j)) byPiece.set(j, []); byPiece.get(j).push(k); }
+  const pieces = [...byPiece.entries()].filter(([j, ks]) => j > 0 && ks.length >= 3).slice(0, 2);
+  assert.equal(pieces.length, 2);
+  const arr = []; for (const [, ks] of pieces) for (const k of ks.slice(0, 3)) arr.push(P[3 * k], P[3 * k + 1], P[3 * k + 2]);
+  const attr = { array: Float32Array.from(arr), count: arr.length / 3, needsUpdate: false, getX(i) { return this.array[3 * i]; }, getY(i) { return this.array[3 * i + 1]; }, getZ(i) { return this.array[3 * i + 2]; } };
+  const mesh = { geometry: { attributes: { position: attr }, index: null, userData: {} } };
+  const m = matchPieces([mesh], B); assert.equal(m.matched, 6, 'both triangles matched');
+  const rig = rigBreak([mesh], B), rest = Float32Array.from(attr.array);
+  rig.pose('break', 100);
+  let moved = 0; for (let i = 0; i < rest.length; i += 3) moved = Math.max(moved, Math.hypot(attr.array[i] - rest[i], attr.array[i + 1] - rest[i + 1], attr.array[i + 2] - rest[i + 2]));
+  assert.ok(moved > 100, `the break blows the pieces away (${moved.toFixed(0)} map units)`);
+  rig.rest(); assert.deepEqual(Array.from(attr.array), Array.from(rest), 'and rest() puts them back');
+  assert.ok(mesh.geometry.userData.breakRest, 'the pristine shape is kept on the geometry (a smash cut short cannot leave it broken)');
+}
+{ const { BREAKS } = await import('../js15/world/breakData.js'), { rigBreak } = await import('../js15/world/breakRig.js');
+  const r = rigBreak([], BREAKS.ball); const k = r.shownFrom('explode'); assert.ok(k > 0 && k < 20, `the ball's shards show from frame ${k} (whole until it bursts)`); }
+// the glint's pictures are the board's own (decoded from e001_00.breft)
+{ const G = await import('../js15/world/glintTex.js'); for (const k of ['GLINT_STAR', 'GLINT_GLOW', 'GLINT_RING', 'GLINT_STREAK']) assert.ok(G[k].startsWith('data:image/png;base64,'), k); }
 console.log('challengeFx tests passed');

@@ -137,18 +137,20 @@ export class ViewerScene extends BoardScene {
 
   // ---------------------------------------------------------------- the set pieces
   demos() {
-    const at = (idx) => { const p = this.pawns[0], q = this.pos.island[idx]; this.fx.unhide(p); this.camSlot = 0; for (const o of Object.values(this.pawns)) if (o !== p) o.group.visible = false; Object.assign(p, { track: 'island', idx, x: q.x, y: q.y + 0.05, z: q.z, scale: 1, fx: null }); p.group.visible = true; this.place(p); if (!(this.slow < 1)) { this.lookAt({ p: q, dist: 32, pitch: 0.45 }); this.follow = true; } return p; }; // (in slow motion the camera stays where you put it)
+    const at = (idx) => { const p = this.pawns[0], q = this.pos.island[idx]; this.fx.unhide(p); this.fx.unbreak(); for (const o of Object.values(this.pawns)) o.rollClip = null; this.camSlot = 0; for (const o of Object.values(this.pawns)) if (o !== p) o.group.visible = false; Object.assign(p, { track: 'island', idx, x: q.x, y: q.y + 0.05, z: q.z, scale: 1, fx: null }); p.group.visible = true; this.place(p); if (!(this.slow < 1)) { this.lookAt({ p: q, dist: 32, pitch: 0.45 }); this.follow = true; } return p; }; // (in slow motion the camera stays where you put it)
     const walk = (from, n, mode = 'fast', extra = {}) => { const path = []; const step = n > 0 ? 1 : -1; for (let i = 1; i <= Math.abs(n); i++) path.push({ track: 'island', idx: from + i * step }); return { t: 'move', slot: 0, mode, path, dur: Math.abs(n) * (mode === 'fast' ? 190 : 340) + 350 + DUR.cross, ...extra }; };
     const move = (ev) => () => this.wrapMove(ev, this.beginMove(ev));
     const throwBy = (s, color) => { const n = ISLAND[s].arg, w = (color === 'blue' ? walkForward : walkBack)({ track: 'island', idx: s }, n);
       return { t: 'move', slot: 0, mode: 'fly', statue: color, path: w.path, count: { total: n, dir: color === 'blue' ? 'fwd' : 'back' }, dur: DUR.statueThrow }; };
     const spring = (slot, from, n, color) => { const path = []; const st = n > 0 ? 1 : -1; for (let i = 1; i <= Math.abs(n); i++) path.push({ track: 'island', idx: from + i * st }); return { t: 'move', slot, mode: 'spring', spring: color, path, count: { total: Math.abs(n), dir: n > 0 ? 'fwd' : 'back' }, dur: DUR.spring }; };
     const look = (...slots) => () => { for (const s of slots) if (this.pawns[s]) this.pawns[s].wonder = true; return { t: 0, dur: DUR.wonder }; }; // ("what is about to happen?" while the banner shows, as in a game)
+    const rolling = (slot, ms = 1800) => () => { this.fx.begin(slot); return { t: 0, dur: ms, end: () => { if (this.pawns[slot]) this.pawns[slot].rollClip = null; } }; }; // (eager, or puzzled at the spike ball)
+    const done = () => () => { this.fx.release(); this.camHold = null; return { t: 0, dur: 0 }; };
     const put = (slot, idx) => { const p = this.pawns[slot], q = this.pos.island[idx]; Object.assign(p, { track: 'island', idx, x: q.x, y: q.y + 0.05, z: q.z, scale: 1, fx: null }); p.group.visible = true; this.place(p); return p; };
     return [
       ['Vine swing (4, then walk 2)', () => { const v = stopOf('vine'); at(v); this.fx.begin(0); this.demo.push(() => ({ t: 0, dur: 1200 }), move({ ...walk(v, 6, 'walk', { swing: 4 }), dur: 6 * 340 + 350 + DUR.cross + DUR.swing + DUR.vinePause })); }], // rolled 4 on the vine, 2 spaces left to walk
-      ['Dragon fireball', () => { const s = stopOf('dragon'), p = at(s); this.demo.push(look(0), () => this.fx.playNote({ fx: 'fireball', dur: DUR.fire }, p), move({ t: 'move', slot: 0, mode: 'knock', path: [{ track: 'island', idx: s - 1 }], count: { total: 1, dir: 'back' }, dur: DUR.knock })); }],
-      ['Smash dragon wall', () => { const p = at(stopOf('dragon')); this.demo.push(() => this.fx.brokenAnim({ challenge: 'dragon', dur: DUR.wall }, p)); }],
+      ['Dragon fireball', () => { const s = stopOf('dragon'), p = at(s); this.demo.push(rolling(0), look(0), () => this.fx.playNote({ fx: 'fireball', dur: DUR.fire }, p), move({ t: 'move', slot: 0, mode: 'knock', path: [{ track: 'island', idx: s - 1 }], count: { total: 1, dir: 'back' }, dur: DUR.knock }), done()); }],
+      ['Smash dragon wall', () => { const s = stopOf('dragon'), p = at(s); this.demo.push(rolling(0), () => this.fx.brokenAnim({ challenge: 'dragon', slot: 0, dur: DUR.wall }, p), move(walk(s, 3, 'walk')), done()); }], // rolled 4 or more: punches, cheer, walks on
       ['Blue statue throw', () => { const s = stopOf('statueBlue'); at(s); this.demo.push(move(throwBy(s, 'blue'))); }],
       ['Red statue throw', () => { const s = stopOf('statueRed'); at(s); this.demo.push(move(throwBy(s, 'red'))); }],
       ['Tornado (back 5)', () => { const s = stopOf('tornado') + 3; at(s); const w = walkBack({ track: 'island', idx: s }, 5); this.demo.push(look(0), move({ t: 'move', slot: 0, mode: 'fly', tornado: true, follow: true, path: w.path, count: { total: 5, dir: 'back' }, dur: DUR.tornado })); }], // a player a little past the tornado space is blown back 5
@@ -164,10 +166,13 @@ export class ViewerScene extends BoardScene {
         if (two) { const path = []; for (let i = from2 - 1; i >= last; i--) path.push({ track: 'island', idx: i }); side.push({ t: 'move', slot: 1, mode: 'fast', path, dur: path.length * 190 + 350 + DUR.cross, with: true, stopShort: true, to: bank }); }
         if ((this.fx.spikeNumber ?? 5) <= 2) this.fx.showSpikeNumber(5); // (the viewer starts again from 5 once it has reached 2)
         const n = this.fx.spikeNumber ?? 5, next = Math.max(2, n - 1);
-        this.demo.push(() => { this.fx.begin(0); return this.fx.playNote({ fx: 'pit', dur: DUR.pit }, p); }, () => { const a = this.wrapMove(main, this.beginMove(main)); return side.length ? this.together(main, a, side) : a; });
+        const shock = { t: 'spikeShock', slot: 0, slots: two ? [0, 1] : [0], dur: DUR.shock };
+        this.demo.push(rolling(0), () => { this.fx.expectShock = true; return this.fx.playNote({ fx: 'pit', dur: DUR.pit }, p); }, () => this.fx.shockAnim(shock), () => { const a = this.wrapMove(main, this.beginMove(main)); return side.length ? this.together(main, a, side) : a; });
         if (next !== n) this.demo.push(() => this.fx.playNote({ fx: 'spikeCount', from: n, to: next, dur: DUR.spikeCount }, p));
       }],
-      ['Smash spike statue', () => { const p = at(stopOf('spike')); this.demo.push(() => this.fx.brokenAnim({ challenge: 'spike', dur: DUR.wall }, p)); }],
+      ['Spike statue passed', () => { const s = stopOf('spike'), p = at(s); this.demo.push(rolling(0), move(walk(s, 3, 'walk')), () => ({ t: 0, dur: 900 }), () => this.fx.brokenAnim({ challenge: 'spike', slot: 0, later: true, dur: DUR.spikeBreak }, p), done()); }], // rolled high enough: on at once; the statue breaks once the turn is over
+      ['Summit: gate kicked open (win)', () => { const s = stopOf('final'), p = at(s); this.demo.push(rolling(0), () => this.fx.brokenAnim({ challenge: 'final', slot: 0, dur: DUR.gate }, p), move(walk(s, 1, 'walk')), () => { p.cheer = 'win'; return { t: 0, dur: 2200, end: () => { p.cheer = null; } }; }, done()); }],
+      ['Summit: missed', () => { const s = stopOf('final'), p = at(s); this.demo.push(rolling(0), () => this.fx.playNote({ fx: 'finalFail', dur: DUR.finalFail }, p), done()); }],
       ['Blue spring (+5)', () => { const s = stopOf('plus5'); at(s); this.demo.push(look(0), move(spring(0, s, 5, 'blue'))); }],
       ['Red spring (-4)', () => { const s = stopOf('minus4'); at(s); this.demo.push(move(spring(0, s, -4, 'red'))); }],
       ['1v1 won: green springs', () => { const s = stopOf('mg11'); at(s); const o = put(1, s + 2); this.demo.push(move(spring(0, s, 7, 'green')), () => { this.camSlot = 1; return move(spring(1, s + 2, -7, 'green'))(); }); void o; }],

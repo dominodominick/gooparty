@@ -5,7 +5,11 @@
 import { PAWN_SCALE } from '../world/miis.js';
 import { ISLAND, gapBetween } from '../game/boardData.js';
 const islandTypeAt = (i) => ISLAND[i] && ISLAND[i].type;
-import { DUR, SPIKE_START, SPIKE_MIN } from '../game/boardGame.js';
+import { DUR, SPIKE_START, SPIKE_MIN, SMASH, DRAGON_SMASH, GATE_SMASH } from '../game/boardGame.js';
+import { BREAKS } from '../world/breakData.js';
+import { rigBreak, restorePristine } from '../world/breakRig.js';
+import { GLINT_STAR, GLINT_GLOW, GLINT_RING, GLINT_STREAK } from '../world/glintTex.js';
+import { PLAYER_COLORS } from '../config.js';
 import { DRAGON } from '../world/dragonData.js';
 import { rigDragon, spatBallAt, DRAGON_FPS } from '../world/dragon.js';
 import { SPIKE_HEAD } from '../world/spikeHeadData.js';
@@ -96,6 +100,7 @@ export class ChallengeFX {
     // things that do not need the map's models
     const T = this.T;
     this.fire = new T.Mesh(new T.SphereGeometry(1.1, 12, 8), new T.MeshBasicMaterial({ color: 0xff8a2a })); this.fire.visible = false; this.root.add(this.fire);
+    this.glints = []; this.rigs = {};
     this.chips = [];
     for (let i = 0; i < 26; i++) { const m = new T.Mesh(new T.BoxGeometry(0.7, 0.5, 0.6), new T.MeshLambertMaterial({ color: i % 2 ? 0x9a948a : 0xb9b2a6 })); m.visible = false; this.root.add(m); this.chips.push(m); }
   }
@@ -115,11 +120,13 @@ export class ChallengeFX {
     // and is spat. The wall is always m001_35l's: it never moves.
     o.guard = make('m001_35l'); o.guard.position.set(sp.wall.at.x, sp.wall.at.y, sp.wall.at.z); o.guard.rotation.y = sp.wall.yaw;
     o.guardFire = make('m001_35'); o.guardFire.position.copy(o.guard.position); o.guardFire.rotation.y = sp.wall.yaw; o.guardFire.visible = false;
+    restorePristine(o.guardFire); restorePristine(this.s.gate); // (a smash cut short on another board left them in pieces)
     o.guardHead = []; o.guard.traverse((m) => { if (m.isMesh && /^mr001m067/.test((Array.isArray(m.material) ? m.material[0] : m.material)?.name || '')) o.guardHead.push(m); });
     try { o.dragon = rigDragon(o.guardFire, DRAGON); } catch (e) { o.dragon = null; }
     if (o.dragon) o.dragon.pose(0);
     // the spike ball: the map's own, re-centred so it can roll; its loose copies along the old course are hidden
     o.ball = this.mapBall(board);
+    if (o.ball) for (const m of o.ball.parts) restorePristine(m);
     // the spike ball statue: a monster head that holds the ball in its open mouth, sitting on a stone block. Both are part
     // of the map (m001_50), but the converted map left the head at the middle of the island, under the ground.
     o.statue = this.spikeHead(board);
@@ -394,6 +401,8 @@ export class ChallengeFX {
       return this.clearCam({ x: m.x - (w.at.x - w.stand.x) / d * 6, y: m.y, z: m.z - (w.at.z - w.stand.z) / d * 6 }, side, [11, 15, 20], [6, 9, 13], { x: m.x, y: m.y + 2.2, z: m.z }); }
     if (kind === 'crates') { const c = sp.crates, a = lerp3(c.lanes[0].a, c.lanes[1].a, 0.5), b = lerp3(c.lanes[0].b, c.lanes[1].b, 0.5), m = lerp3(a, b, 0.5), d = flat(a, b) || 1;
       return this.clearCam({ x: m.x, y: c.water, z: m.z }, { x: (a.x - b.x) / d, z: (a.z - b.z) / d }, [20, 25, 30], [11, 15, 20], { x: m.x, y: c.water + 1, z: m.z }); }
+    if (kind === 'final') { const f = this.finalStar(), g = this.gateAt(); if (!f || !g) return null; const m = lerp3(f, g, 0.5), d = flat(f, g) || 1, side = { x: -(g.z - f.z) / d, z: (g.x - f.x) / d };
+      return this.clearCam({ x: m.x - (g.x - f.x) / d * 6, y: m.y, z: m.z - (g.z - f.z) / d * 6 }, side, [11, 15, 20], [5, 8, 12], { x: m.x, y: f.y + 2.2, z: m.z }); }
     if (kind === 'spike') { const p = sp.pit, d = flat(p.stand, p.from) || 1, back = { x: (p.stand.x - p.from.x) / d, z: (p.stand.z - p.from.z) / d };
       return this.clearCam(p.stand, back, [10, 14], [7, 10, 14], { x: (p.stand.x + p.mid.x) / 2, y: p.stand.y + 2.5, z: (p.stand.z + p.mid.z) / 2 }); }
     return null;
@@ -404,7 +413,9 @@ export class ChallengeFX {
     const pawn = this.s.pawns[slot];
     if (!pawn || pawn.track !== 'island' || pawn.across) return; // (someone already past a challenge, on the spot after it, just rolls)
     const kind = ISLAND[pawn.idx].type;
-    if (!['vine', 'dragon', 'crates', 'spike'].includes(kind) || this.broken[kind]) return;
+    if (!['vine', 'dragon', 'crates', 'spike', 'final'].includes(kind) || this.broken[kind]) return;
+    // while the die spins: eager at the dragon wall and the summit gate (pm011_09), puzzled at the spike ball (pm011_07)
+    pawn.rollClip = kind === 'dragon' || kind === 'final' ? 'eager' : kind === 'spike' ? 'puzzled' : null;
     if (this.active && this.active.slot === slot && this.active.kind === kind) return;
     this.active = { slot, kind };
     const hold = this.holdFor(kind);
@@ -427,6 +438,19 @@ export class ChallengeFX {
     if (this.o && kind === 'spike') { if (this.o.ball) this.o.ball.show(false); if (this.o.statue) { this.o.statue.visible = false; this.statueRubble(1); } /* a broken stump and rubble stay */ /* the sign stays, blank */ this.numberBlank(1); if (this.o.jaws) this.o.jaws.rest(); } // the statue is broken for good
   }
 
+  /** Everything smashed stands again (the viewer, between its demos). */
+  unbreak() {
+    this.broken = {}; this.pendingChase = null;
+    for (const r of Object.values(this.rigs)) if (r) r.rest();
+    const o = this.o; if (!o) return;
+    o.guard.visible = true; o.guardFire.visible = false; for (const m of o.guardHead) m.visible = true;
+    if (o.statue) { this.statueStanding(); o.statue.visible = true; }
+    if (o.ball) o.ball.goHome();
+    this.showSpikeNumber(this.spikeNumber ?? SPIKE_START);
+    if (this.s.gate) this.s.gate.visible = true;
+    for (const m of this.s.rays || []) m.visible = false;
+  }
+
   burst(at, n = 26) {
     for (let i = 0; i < Math.min(n, this.chips.length); i++) {
       const m = this.chips[i], r = ((i * 37) % 11) / 11, a = i * 2.4;
@@ -438,7 +462,8 @@ export class ChallengeFX {
   /** The roller hits the thing in the way three times and it goes to pieces. */
   brokenAnim(ev, pawn) {
     const kind = ev.challenge, sp = this.sp, o = this.o;
-    if (kind === 'spike') return this.statueSmash(ev, pawn);
+    if (kind === 'spike') return ev.later ? this.spikeBreakAnim(ev, pawn) : this.statueSmash(ev, pawn);
+    if ((kind === 'dragon' || kind === 'final') && this.breakRig(kind === 'dragon' ? 'dragon' : 'gate')) return this.smashAnim(kind, ev, pawn);
     const target = sp.wall.at, obj = o ? o.guard : null;
     const from = { x: pawn.x, y: pawn.y, z: pawn.z }, d = flat(from, target) || 1, ux = (target.x - from.x) / d, uz = (target.z - from.z) / d;
     const reach = { x: target.x - ux * 3.8, y: from.y, z: target.z - uz * 3.8 }, yaw = Math.atan2(ux, uz);
@@ -461,6 +486,236 @@ export class ChallengeFX {
       this.s.place(pawn);
     };
     a.end = () => { pawn.fx = null; if (obj) { obj.visible = false; obj.rotation.x = 0; if (base) obj.position.set(base.x, base.y, base.z); } this.setBroken(kind); this.release(); };
+    return a;
+  }
+
+  // ------------------------------------------------------------------ the game's own smashing (breakRig.js)
+  /** Where the final challenge is faced (the last star) and the summit gate. */
+  finalStar() { const P = this.s.pos && this.s.pos.island, i = ISLAND.findIndex((n) => n.type === 'final'); return P && P[i] ? { x: P[i].x, y: P[i].y + 0.05, z: P[i].z } : null; }
+  gateAt() { const g = this.s.gate; return g ? { x: g.position.x, y: g.position.y, z: g.position.z } : null; }
+
+  /** The meshes of a model to smash: the dragon (the whole of m001_35, head and wall), the summit gate, the spike ball. */
+  breakMeshes(kind) {
+    const out = [], o = this.o;
+    const obj = kind === 'dragon' ? o && o.guardFire : kind === 'gate' ? this.s.gate : null;
+    if (kind === 'ball') return o && o.ball ? o.ball.parts : [];
+    if (obj) obj.traverse((m) => { if (m.isMesh && m.geometry && m.geometry.attributes && m.geometry.attributes.position) out.push(m); });
+    return out;
+  }
+
+  /** The game's hit and break animations on a model (made once): { pose, rest, hook } or null when the meshes do not match. */
+  breakRig(kind) {
+    if (kind in this.rigs) return this.rigs[kind];
+    let rig = null;
+    try {
+      const meshes = this.breakMeshes(kind), B = BREAKS[kind];
+      if (meshes.length && B) {
+        if (kind === 'dragon' && this.o.dragon) this.o.dragon.pose(0); // (the shooting rig shares the head's vertices: at rest)
+        const S = this.o.S || 1, h = this.sp.pit.from, off = kind === 'ball' ? [h.x / S, h.y / S, h.z / S] : [0, 0, 0];
+        rig = rigBreak(meshes, B, { off, split: kind !== 'dragon' }); // (the dragon's head is also the fireball rig's: it keeps its geometry)
+        rig.meshes = meshes;
+        if (rig.matched < rig.total * 0.5) rig = null; // (not the model we think it is: keep the old way)
+      }
+    } catch (e) { rig = null; }
+    return (this.rigs[kind] = rig);
+  }
+
+  /** A hit spot of a rigged model, in the scene (null without it). */
+  hookAt(kind, name) {
+    const rig = this.rigs[kind], h = rig && rig.hook(name), m = rig && rig.meshes[0];
+    if (!h || !m || !this.T.Vector3) return null;
+    m.updateWorldMatrix(true, false);
+    const v = m.localToWorld(new this.T.Vector3(h.x, h.y, h.z)); return { x: v.x, y: v.y, z: v.z };
+  }
+
+  /**
+   * The hit glint: a spiky burst with a soft glow and a ring of streaks (the board's effect e001_00_5, its own pictures),
+   * in the player's colour, flaring up and fading in a third of a second.
+   */
+  glint(at, color = '#3f7fe8', size = 1) {
+    const T = this.T;
+    if (!T.Sprite || !T.SpriteMaterial || !T.TextureLoader) return;
+    if (!this.glintTex) { const L = new T.TextureLoader(); this.glintTex = { star: L.load(GLINT_STAR), glow: L.load(GLINT_GLOW), ring: L.load(GLINT_RING), streak: L.load(GLINT_STREAK) }; }
+    const c = new T.Color(color), light = c.clone().lerp(new T.Color(0xffffff), 0.2);
+    const make = (tex, col, s0, s1, life, spin) => {
+      const m = new T.Sprite(new T.SpriteMaterial({ map: tex, color: col, transparent: true, depthWrite: false, blending: T.AdditiveBlending }));
+      m.position.set(at.x, at.y, at.z); m.renderOrder = 5; this.root.add(m);
+      return { m, s0: s0 * size, s1: s1 * size, life, spin };
+    };
+    const g = { t: 0, parts: [make(this.glintTex.glow, c, 2.4, 4.2, 0.42, 0), make(this.glintTex.ring, c, 1.6, 4.6, 0.36, 0.6), make(this.glintTex.streak, c, 1.2, 3.6, 0.3, -0.9), make(this.glintTex.star, light, 0.6, 2.4, 0.3, 0.35), make(this.glintTex.glow, new T.Color(0xffffff), 0.5, 1.1, 0.22, 0)] }; // (a small white-hot middle)
+    this.glints.push(g);
+  }
+
+  updateGlints(dt) {
+    for (const g of this.glints) {
+      g.t += dt;
+      for (const p of g.parts) {
+        const k = clamp01(g.t / p.life), grow = 1 - (1 - Math.min(1, k * 2.5)) ** 3; // flares up fast, then fades
+        p.m.scale.setScalar(p.s0 + (p.s1 - p.s0) * grow);
+        p.m.material.opacity = k < 0.25 ? 1 : 1 - (k - 0.25) / 0.75;
+        p.m.material.rotation = p.spin * g.t;
+        p.m.visible = k < 1;
+      }
+    }
+    const over = (g) => g.parts.every((p) => g.t >= p.life);
+    for (const g of this.glints) if (over(g)) for (const p of g.parts) { this.root.remove(p.m); p.m.material.dispose(); }
+    this.glints = this.glints.filter((g) => !over(g));
+  }
+
+  /**
+   * The camera after a smash, on the way on: from behind the star, low, looking along the path past the gap where the
+   * wall stood (the dragon wall), or into the opening the gate leaves (the summit). The player turns to face it.
+   */
+  smashCam(kind) {
+    const f = kind === 'dragon' ? this.sp.wall.stand : this.finalStar(), g = kind === 'dragon' ? this.sp.wall.at : this.gateAt();
+    if (!f || !g) return null;
+    const d = flat(f, g) || 1, ux = (g.x - f.x) / d, uz = (g.z - f.z) / d;
+    const back = kind === 'dragon' ? 7.5 : 7, up = kind === 'dragon' ? 3.4 : 3.2;
+    const cam = { x: f.x - ux * back, y: f.y + up, z: f.z - uz * back };
+    cam.y = Math.max(cam.y, terrainHeight(cam.x, cam.z) + 2.2);
+    return { ...cam, tx: f.x + ux * 3.5, ty: f.y + (kind === 'dragon' ? 1.2 : 1.8), tz: f.z + uz * 3.5 };
+  }
+
+  /** The dragon wall's fireball knocked them back: from the wall's side of them, low, looking back down the path at them. */
+  knockCam(B) {
+    const w = this.sp.wall, d = flat(w.stand, w.at) || 1, ux = (w.at.x - w.stand.x) / d, uz = (w.at.z - w.stand.z) / d;
+    const cam = { x: B.x + ux * 6.5, y: B.y + 3.1, z: B.z + uz * 6.5 };
+    cam.y = Math.max(cam.y, terrainHeight(cam.x, cam.z) + 2.2);
+    return { ...cam, tx: B.x - ux * 2.5, ty: B.y + 0.6, tz: B.z - uz * 2.5 };
+  }
+
+  /**
+   * Smashing the dragon wall (4 punches) or the summit gate (6 kicks), as in Wii Party. The player stays on the star
+   * and punches (pm301_03) or kicks (pm301_05) at the air; each time the fist or foot is out (frame 4), a glint in their
+   * colour bursts on one of the wall's hit spots and the wall jolts (the game's own animation). The last blow blows it to
+   * pieces (the game's break animation) while the player goes into the stance (pm301_01, dragon) or stands watching (gate).
+   * Then the camera cuts to the way on; they turn to it, stand a moment (dragon) and cheer (pm001_06).
+   */
+  smashAnim(kind, ev, pawn) {
+    const dragon = kind === 'dragon', rigName = dragon ? 'dragon' : 'gate', rig = this.breakRig(rigName), S = SMASH, o = this.o;
+    const obj = dragon ? o && o.guardFire : this.s.gate, target = dragon ? this.sp.wall.at : this.gateAt();
+    const here = { x: pawn.x, y: pawn.y, z: pawn.z }, yaw = Math.atan2(target.x - here.x, target.z - here.z);
+    const n = dragon ? S.punches : S.kicks, clip = dragon ? 'punch' : 'kick';
+    const hooks = dragon ? ['hit1', 'hit2', 'hit3', 'hit4'] : ['hit1', 'hit2', 'hit3', 'hit4', 'hit5', 'break'];
+    const blows = n * S.swing, impact = (k) => k * S.swing + S.impact, last = impact(n - 1);
+    const P = dragon ? DRAGON_SMASH : GATE_SMASH;
+    const cutAt = dragon ? blows + P.stance : blows + P.watch, cheerAt = cutAt + (dragon ? P.idle : P.beat), total = cheerAt + P.cheer;
+    const color = (PLAYER_COLORS[pawn.slot] || PLAYER_COLORS[0]).hex;
+    this.walkTo = null;
+    if (dragon && o) { o.guard.visible = false; o.guardFire.visible = true; for (const m of o.guardHead) m.visible = false; } // the whole model, which has the pieces
+    const a = { t: 0, dur: ev.dur, shown: 0, cut: false };
+    const cam = this.smashCam(kind);
+    a.step = (u) => {
+      const f = u * total;
+      // the player
+      pawn.faceYaw = a.cut && cam ? Math.atan2(cam.x - here.x, cam.z - here.z) : yaw; // (the scene turns each pawn to its heading)
+      if (f < blows) { const k = Math.floor(f / S.swing); pawn.fx = { ...here, yaw, clip, clipF: f - k * S.swing }; }
+      else if (f < cutAt) pawn.fx = dragon ? { ...here, yaw, clip: 'stance', clipF: f - blows } : { ...here, yaw, clip: 'idle' };
+      else {
+        if (!a.cut) { // the cut: the wall is gone, the player turns to the camera on the way on
+          a.cut = true;
+          if (cam) { this.s.camHold = cam; this.s.snapCamera = true; }
+          this.s.closeUp = true; // (no number badges in the close-up, as in the game)
+          if (obj) obj.visible = false; rig.rest();
+          if (!dragon) this.s.openSummit && this.s.openSummit();
+        }
+        const face = cam ? Math.atan2(cam.x - here.x, cam.z - here.z) : yaw;
+        pawn.fx = f < cheerAt ? { ...here, yaw: face, clip: 'idle' } : { ...here, yaw: face, clip: 'pumped', clipF: f - cheerAt };
+      }
+      // a glint on each blow
+      while (a.shown < n && f >= impact(a.shown)) {
+        const h = this.hookAt(rigName, hooks[a.shown % hooks.length]);
+        if (h) { const d = Math.hypot(here.x - h.x, here.z - h.z) || 1; this.glint({ x: h.x + (here.x - h.x) / d * 0.9, y: h.y, z: h.z + (here.z - h.z) / d * 0.9 }, color, dragon ? 1 : 1.15); }
+        a.shown++;
+      }
+      // the wall: a jolt on each blow, blown apart by the last
+      if (!a.cut) {
+        if (f >= last) rig.pose('break', f - last);
+        else { const k = Math.floor((f - S.impact) / S.swing), since = f - impact(k); if (k >= 0 && since < S.jolt) rig.pose('hit', since); else rig.rest(); }
+      }
+      this.s.place(pawn);
+    };
+    a.end = () => { pawn.fx = null; rig.rest(); if (obj) obj.visible = false; this.s.closeUp = false; this.setBroken(kind); this.release(); };
+    return a;
+  }
+
+  /** The final challenge missed: the same shot as the opened gate's, but shut; the player turns to the camera, let down (pm001_07). */
+  finalFailAnim(ev, pawn) {
+    const cam = this.smashCam('final'), S = SMASH, here = { x: pawn.x, y: pawn.y, z: pawn.z };
+    const total = S.beat + S.letdown + S.beat, a = { t: 0, dur: ev.dur };
+    const face = cam ? Math.atan2(cam.x - here.x, cam.z - here.z) : pawn.yaw;
+    a.step = (u) => {
+      const f = u * total;
+      if (cam && !a.cut) { a.cut = true; this.s.camHold = cam; this.s.snapCamera = true; this.s.closeUp = true; }
+      pawn.faceYaw = face; pawn.fx = f < S.beat ? { ...here, yaw: face, clip: 'idle' } : { ...here, yaw: face, clip: 'letdown', clipF: f - S.beat };
+      this.s.place(pawn);
+    };
+    a.end = () => { pawn.fx = null; this.s.closeUp = false; this.release(); };
+    return a;
+  }
+
+  /** The spike ball's whole stretch, from out beside it, a little above: everyone on it in one shot. */
+  stretchCam() {
+    const r = this.chaseRoute(), pts = [];
+    for (let k = 0; k <= 8; k++) pts.push(r.at(r.sLast * k / 8));
+    const mid = pts.reduce((m, p) => ({ x: m.x + p.x / pts.length, y: m.y + p.y / pts.length, z: m.z + p.z / pts.length }), { x: 0, y: 0, z: 0 });
+    const a = pts[0], b = pts[pts.length - 1], len = flat(a, b) || 1, side = { x: -(b.z - a.z) / len, z: (b.x - a.x) / len };
+    return this.clearCam({ x: mid.x, y: mid.y - this.sp.pit.R, z: mid.z }, side, [len * 0.75, len * 0.95, len * 1.15], [len * 0.3, len * 0.45, len * 0.6], { x: mid.x, y: mid.y - this.sp.pit.R + 1.2, z: mid.z });
+  }
+
+  /**
+   * The spike ball is out: everyone on the stretch below the statue jumps (pm001_03) at the same time, in one shot of the
+   * whole stretch. Then back to the ball's own shots, and they all run.
+   */
+  shockAnim(ev) {
+    const S = SMASH, total = S.beat + S.shock + S.beat, cam = this.stretchCam();
+    const pawns = (ev.slots || [ev.slot]).map((k) => this.s.pawns[k]).filter(Boolean);
+    const at = pawns.map((p) => ({ x: p.x, y: p.y, z: p.z, yaw: p.yaw }));
+    const a = { t: 0, dur: ev.dur };
+    a.step = (u) => {
+      const f = u * total;
+      if (!a.cut) { a.cut = true; if (cam) { this.s.camHold = cam; this.s.snapCamera = true; } }
+      pawns.forEach((p, i) => { p.fx = f < S.beat ? { ...at[i], clip: 'idle' } : { ...at[i], clip: 'shock', clipF: f - S.beat }; this.s.place(p); });
+    };
+    a.end = () => {
+      for (const p of pawns) p.fx = null;
+      const go = this.pendingChase; this.pendingChase = null; this.expectShock = false;
+      if (go) { this.startChase(go.slot, go.shots); this.s.snapCamera = true; } // cut back to the ball's own shots, and they run
+    };
+    return a;
+  }
+
+  /**
+   * The spike statue, passed: once that turn has played out, the camera cuts to the statue, everything rumbles, and the
+   * ball in its mouth shatters (the game's own animation, m001_50_2) as the head bursts; the number on its sign fades away.
+   */
+  spikeBreakAnim(ev, pawn) {
+    const S = SMASH, o = this.o, rig = this.breakRig('ball'), shots = this.spikeShots(pawn || {});
+    const t0 = S.beat * 2, t1 = t0 + S.rumble, t2 = t1 + S.shatter, total = t2 + S.beat * 3;
+    const P = this.statueParts(), box = P && P.box, c = box ? box.c : this.sp.pit.from;
+    const plate = (o && o.plate) || [], Sc = (o && o.S) || 1, body = P && P.body;
+    const bases = [body, ...plate].filter(Boolean).map((m) => ({ m, x: m.position.x, y: m.position.y, z: m.position.z }));
+    const shake = (sh) => { for (const b of bases) b.m.position.set(b.x + sh / Sc, b.y, b.z + sh * 0.6 / Sc); };
+    if (o && o.ball) { o.ball.goHome(); o.ball.show(true); } // the ball sits in its mouth
+    if (o && o.jaws) o.jaws.rest();
+    const a = { t: 0, dur: ev.dur };
+    a.step = (u) => {
+      const f = u * total;
+      if (!a.cut) { a.cut = true; if (shots) { this.s.camHold = shots.A0; this.s.snapCamera = true; } } // (the wider of the statue's shots: the shards fly out at the camera)
+      this.s.shake = f >= t0 && f < t1 + 10 ? 1 : 0; // the screen rumbles
+      shake(f >= t0 && f < t1 ? Math.sin(f * 2.1) * 0.12 * clamp01((f - t0) / 20) : 0);
+      if (f >= t1 && !a.burst) {
+        a.burst = true;
+        this.burst({ x: c.x, y: box ? box.min.y : c.y, z: c.z });
+        if (P) P.head.visible = false;
+      }
+      if (f >= t1) {
+        if (rig) rig.pose('explode', f - t1 + (a.from ??= rig.shownFrom('explode'))); else if (o && o.ball) o.ball.show(false); // (the ball, as its shards, stays whole until it bursts)
+        this.statueRubble(clamp01((f - t1) / 24));
+        this.numberBlank(clamp01((f - t1 - 10) / 30));
+      }
+    };
+    a.end = () => { this.s.shake = 0; shake(0); if (rig) rig.rest(); this.setBroken('spike'); this.release(); this.s.camHold = null; this.s.snapCamera = true; };
     return a;
   }
 
@@ -637,10 +892,15 @@ export class ChallengeFX {
         o.ball.set(q);
         if (t > OPEN + SPIT * 0.6) { const j = Math.abs(Math.sin((t - OPEN) * 14)) * 0.9; pawn.fx = { x: pawn.x, y: pawn.y + j, z: pawn.z, arms: [-2.8, -2.8] }; } // the player jumps in fright
       };
-      a.end = () => { pawn.fx = null; this.startChase(pawn.slot, shots); };
+      a.end = () => {
+        pawn.fx = null;
+        if ((this.s.queue && this.s.queue[0] && this.s.queue[0].t === 'spikeShock') || this.expectShock) this.pendingChase = { slot: pawn.slot, shots }; // (after everyone's jump)
+        else this.startChase(pawn.slot, shots);
+      };
       return a;
     }
     if (ev.fx === 'spikeCount') return this.countAnim(ev);
+    if (ev.fx === 'finalFail') return this.finalFailAnim(ev, pawn);
     return null;
   }
 
@@ -1094,6 +1354,7 @@ export class ChallengeFX {
   // ------------------------------------------------------------------ per frame
   update(dt) {
     const s = this.s, sp = this.sp, o = this.o;
+    if (this.glints && this.glints.length) this.updateGlints(dt);
     // swinging on the vine while the dice roll
     if (this.vine) {
       const pawn = s.pawns[this.vine.slot], v = sp.swing;

@@ -72,7 +72,7 @@ for (const hw of [{ height: 0, build: 0 }, { height: 127, build: 127 }, { height
   assert.equal(b.meshes.length, 2, 'v83: the explorer suit and the skin'); assert.equal(WP_MII.body, 'pl026');
   assert.ok(WP_MII.tex.wear00.rgb.startsWith('data:image/png') && WP_MII.tex.wear00.mix.startsWith('data:image/png') && WP_MII.meshes.find((m) => m.mat === 'wear00').uv, 'the suit has its picture (pockets, belt, boots) and where it goes'); assert.ok(b.meshes.every((m) => m.isSkinnedMesh));
   assert.ok(Math.abs(at('hook_head').y - WP_NECK) < 0.5, 'the neck is at WP_NECK at rest');
-  for (const c of ['idle', 'walk', 'run', 'jump', 'fly', 'tumble', 'hang', 'swim', 'scared', 'cheer', 'sad', 'win', 'land', 'knock', 'hit', 'springUp', 'wonder', 'sitStunned'])
+  for (const c of ['idle', 'walk', 'run', 'jump', 'fly', 'tumble', 'hang', 'swim', 'scared', 'cheer', 'sad', 'win', 'land', 'knock', 'pumped', 'springUp', 'wonder', 'sitStunned'])
     assert.ok(b.frames(c) > 0, `clip ${c}`);
   b.pose('idle', 0); const hand = at('L_hand'); assert.ok(hand.y < 80, 'idle: arms down at the sides');
   b.pose('win', 30); assert.ok(at('L_hand').y > at('hook_head').y, 'win: arms up over the head');

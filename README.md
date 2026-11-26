@@ -351,6 +351,18 @@ The hand-built island is gone. The game now runs on the converted Wii Party map 
   sinks away. The game's "broken" message did not say who broke it, so the scene had no player to animate and
   only waited, then hid the wall.
 
+## Build 95
+
+The three walls, as Wii Party plays them:
+
+- **Dragon wall.** While the die rolls the player waits, eager (pm011_09). Passed: they stay on the star and punch the air four times (pm301_03); each time the fist is out (frame 4) a glint in the player's colour bursts on one of the wall's hit spots and the wall jolts. The fourth blows it to pieces while they go into a fighting stance (pm301_01). Then a cut to the way on, behind the star (they turn to the camera), a moment standing, and a cheer (pm001_06) before they walk on. Missed: the fireball as before; when they land, a cut from the wall's side back down the path at them, sitting dazed and getting up.
+- **Spike ball statue.** While the die rolls: puzzled (pm011_07). Passed: they go on at once and their space plays out (a minigame and all); once the turn is over, a cut to the statue: it rumbles, the ball in its mouth shatters (the game's own animation) as the head bursts, and the number fades. Missed: as the ball is spat out, everyone on the stretch jumps (pm001_03) together in one shot of the whole stretch; then back to the ball's shots, and they run.
+- **Summit gate.** While the die rolls: eager (pm011_09). Passed: six kicks (pm301_05) with the same glints; the sixth blows the gate apart; a cut to the opening (they turn to the camera) and a cheer (pm001_06) before they run up. Missed: the same shot, the gate shut, they turn to the camera, let down (pm001_07).
+- The walls' jolts and breaks, and the ball's shattering, are the game's own animations (`m001_35_2`/`_3`, `m001_60_2`/`_3`, `m001_50_2`), sampled by `tools/extract_breaks.py` into `js15/world/breakData.js` and played on the map's own meshes by `js15/world/breakRig.js`. The glint is the board's own hit effect (`e001_00_5`): its pictures are decoded from `files/effect/e001_00.breft` by `tools/extract_glint.py`.
+- Timings come from the clips' frames (`SMASH` in `boardGame.js`), so the host waits exactly as long as the scene plays. No number badges in the close-ups.
+- pm001_06 is now called `pumped` (a cheer), not `hit`.
+- Viewer: new demos "Spike statue passed", "Summit: gate kicked open (win)", "Summit: missed"; the dragon and spike demos show the waiting while the die rolls.
+
 ## Build 94
 
 - The animation gallery has a dropdown of every Wii Party board, mode and minigame (by name), showing only the clips that game loads, plus "All animations", the 63 clips in every module's shared code, and the 47 that no module names. The clip being played also says which games load it.

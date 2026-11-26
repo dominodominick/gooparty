@@ -33,12 +33,34 @@ export const ERUPTION_STRETCHES = [[50, 60], [8, 17], [17, 27], [27, 35], [36, 4
 const LAVA_SAFE = new Set(['blank', 'start', 'volcano', 'vine', 'dragon', 'crates', 'volcanoOrNot', 'spike', 'final', 'finish']);
 // moveTail: after the last step the counter sits at its final number for a moment.
 // turnIntro: black fade out, the player's name on black, fade back in (then the dice start).
+/**
+ * The challenges' set pieces, in frames (60 a second) of the Mii clips and the game's own wall animations, so the host's
+ * timing and the scene's agree. Each punch (pm301_03) and kick (pm301_05) is 31 frames with the fist / foot out at
+ * frame 4 (the glint, and the wall's jolt); a wall's jolt is 31 frames and its break 101; pm301_01 (stance) 75,
+ * pm001_06 (cheer) 71, pm001_07 (let down) 76, pm001_03 (shock) 41; the spike ball shatters over 61.
+ */
+export const SMASH = {
+  swing: 31, impact: 4, punches: 4, kicks: 6, stance: 75, jolt: 31, breakUp: 101, cheer: 71, idle: 48, letdown: 76, shock: 41, shatter: 61,
+  beat: 12,     // a short pause around a cut
+  rumble: 60,   // the spike statue rumbles before its ball shatters
+};
+const F = (n) => Math.round(n * 1000 / 60);
+/** The dragon wall: 4 punches, the stance (the wall blows apart meanwhile), a cut to the way on, a moment standing, a cheer. */
+export const DRAGON_SMASH = { punches: SMASH.punches * SMASH.swing, stance: SMASH.stance, idle: SMASH.idle, cheer: SMASH.cheer };
+/** The summit gate: 6 kicks; the last one blows it apart (they stand and watch it go), a cut to the opening, a cheer. */
+export const GATE_SMASH = { kicks: SMASH.kicks * SMASH.swing, watch: (SMASH.kicks - 1) * SMASH.swing + SMASH.impact + SMASH.breakUp - SMASH.kicks * SMASH.swing, beat: SMASH.beat, cheer: SMASH.cheer };
+const sum = (o) => Object.values(o).reduce((a, b) => a + b, 0);
+
 export const DUR = {
   diceStop: 3600, wonder: 2000, walkStep: 185, fastStep: 140, moveTail: 350, fly: 2600, drop: 0, banner: 1100, round: 2600, turnIntro: 2000, flyover: 7000, eruption: 10000, meteorHit: 2200, minigame: 2200,
   cross: 1500,   // extra time for a step that crosses a gap (a jump over the pit, over the creek...)
   swing: 2400,   // the vine swing
   vinePause: 1000, // standing on the landing spot after the vine, before walking the rest
-  wall: 4800,    // hitting a wall three times until it breaks
+  wall: F(sum(DRAGON_SMASH)), // punching the dragon wall to pieces, then a cheer (see DRAGON_SMASH)
+  gate: F(sum(GATE_SMASH)),     // kicking the summit gate to pieces, then a cheer (see GATE_SMASH)
+  finalFail: F(SMASH.beat + SMASH.letdown + SMASH.beat), // the gate stays shut: they turn to the camera, let down
+  shock: F(SMASH.beat + SMASH.shock + SMASH.beat),       // everyone on the spike ball's stretch jumps as it is spat out
+  spikeBreak: F(SMASH.beat * 2 + SMASH.rumble + SMASH.shatter + SMASH.beat * 3), // later: the statue rumbles and its ball shatters
   fire: 1700,    // the dragon spits the fireball in its mouth at the player
   knock: 2200,   // ...and they are blown back onto the space behind them in one arc, sit there dazed, and get up
   pit: 1800,     // the statue opens its jaws and spits the spike ball out at a player who failed
@@ -147,6 +169,7 @@ export class BoardGame {
     this.eruptions = [];          // active volcano eruptions: { left: turns remaining, fresh }
     this.volcanoReturn = {};      // slot -> the island spot a player in the volcano comes back out at
     this.broken = {};             // walls broken for good: { dragon: true, spike: true }
+    this.pendingBreak = null;     // the spike statue, passed this turn: it breaks when the turn is over
     this.phase = 'waiting';       // 'waiting' | 'rolling' | 'choosing'
     this.step = null;             // what the current player must do next (null = a normal main roll)
     this.readyAt = 0; this.phaseAt = 0;
@@ -359,6 +382,10 @@ export class BoardGame {
 
   /** Finish this step: either the turn is over (next player / next round) or the same player continues. */
   _commit(now, events, endTurn) {
+    if (endTurn && this.pendingBreak) { // the spike statue: once the turn has played out (a minigame and all), it breaks
+      events.push({ t: 'broken', slot: this.pendingBreak.slot, challenge: this.pendingBreak.challenge, dur: DUR.spikeBreak, later: true });
+      this.pendingBreak = null;
+    }
     if (!this.over && endTurn) {
       this.step = null;
       const before = this.eruptions.length; // eruptions wear off after three other turns
@@ -431,7 +458,7 @@ export class BoardGame {
   _useTotal(slot, total, events) {
     if (this._atFinal(slot)) { // already waiting at the final challenge: these dice are the attempt
       if (total >= WIN_ROLL) this._win(slot, events);
-      else events.push(note(slot, `Needs ${WIN_ROLL} or more. Rolled ${total}.`));
+      else events.push(note(slot, `Needs ${WIN_ROLL} or more. Rolled ${total}.`, { fx: 'finalFail', dur: DUR.finalFail }));
       return true;
     }
     return this._after(slot, this._walkMain(slot, total, events), events);
@@ -482,7 +509,7 @@ export class BoardGame {
     switch (step.purpose) {
       case 'final':
         if (d >= WIN_ROLL) this._win(slot, events);
-        else events.push(note(slot, `Needs a ${WIN_ROLL}. Rolled ${d}. Try again next round!`));
+        else events.push(note(slot, `Needs a ${WIN_ROLL}. Rolled ${d}. Try again next round!`, { fx: 'finalFail', dur: DUR.finalFail }));
         return true;
       case 'vine': // wiki: no penalty; the roll is extra spaces
         events.push(note(slot, `Vine swing! +${d} spaces`));
@@ -504,10 +531,16 @@ export class BoardGame {
         this._intoVolcano(slot, { track: 'island', idx: VOLCANO_CHALLENGE_IDX, across: true }, events); // they come back out past the pit, short of the next space (not a space)
         return true;
       case 'spike': {
-        if (d >= this.spikeNeeds) return pass('The statue breaks!', 'spike');
+        if (d >= this.spikeNeeds) { // they go on at once; the statue breaks once everything this turn has played out
+          events.push(note(slot, 'You get past the spike ball!'));
+          this.broken.spike = true; this.pendingBreak = { challenge: 'spike', slot };
+          return this._pass(slot, step.remaining, events);
+        }
         const was = this.spikeNeeds;
         this.spikeNeeds = Math.max(SPIKE_MIN, this.spikeNeeds - 1); // easier for the next attempt
         events.push(note(slot, 'The spike ball chases you back!', { fx: 'pit', dur: DUR.pit }));
+        { const safe = VOLCANO_CHALLENGE_IDX + 1, on = this.players.filter((o) => o === slot || (this.positions[o].track === 'island' && this.positions[o].idx > safe && this.positions[o].idx < SPIKE_IDX));
+          events.push({ t: 'spikeShock', slot, slots: on, dur: DUR.shock }); } // (all of them at once, in one shot of the whole stretch)
         // everyone who runs from it ends past the space after the volcano challenge, on the spot just short of it (not a
         // space: the way on counts that space first)
         const bank = { track: 'island', idx: VOLCANO_CHALLENGE_IDX, across: true };
@@ -531,6 +564,7 @@ export class BoardGame {
 
   // ---- shared helpers ----
   _win(slot, events) {
+    events.push({ t: 'broken', slot, challenge: 'final', dur: DUR.gate }); // they kick the summit gate to pieces first
     this.positions[slot] = { track: 'island', idx: FINISH_IDX };
     events.push(move(slot, 'walk', [{ track: 'island', idx: FINISH_IDX }]));
     events.push({ t: 'win', slot, dur: DUR.round });

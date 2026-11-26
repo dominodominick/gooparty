@@ -529,6 +529,7 @@ export class BoardScene {
 
   startNext() {
     const ev = this.queue.shift();
+    if (ev.t !== 'diceStart' && ev.t !== 'diceStop' && ev.t !== 'choiceStart') for (const p of Object.values(this.pawns || {})) if (p) p.rollClip = null; // (the die has done its work)
     switch (ev.t) {
       case 'roundStart': {
         const names = ev.order.map((s) => esc(this.nameOf(s))).join(', ');
@@ -569,7 +570,9 @@ export class BoardScene {
         break;
       case 'broken': {
         const pawn = this.pawns[ev.slot ?? this.camSlot], show = pawn && this.fx ? this.fx.brokenAnim(ev, pawn) : null; // the smash itself (it used to be skipped: the event did not say who)
-        this.setBanner(`${ev.challenge === 'dragon' ? 'The dragon wall' : 'The spike ball'} is smashed!<small>Everyone can pass it now.</small>`);
+        this.setBanner(ev.challenge === 'final' ? `${esc(this.nameOf(ev.slot))} opens the summit!`
+          : `${ev.challenge === 'dragon' ? 'The dragon wall' : 'The spike ball statue'} is smashed!<small>Everyone can pass it now.</small>`);
+        if (ev.challenge !== 'spike' || !ev.later) this.clearBanner(); // (the smash itself speaks for itself; the statue gets a caption)
         this.anim = show || { t: 0, dur: ev.dur };
         const end = this.anim.end;
         this.anim.end = () => { if (end) end(); this.markBroken(ev.challenge); this.clearBanner(); };
@@ -616,6 +619,7 @@ export class BoardScene {
         break;
       }
       case 'ufo': this.stopWondering(ev.slot); this.anim = this.beginUfo(ev); break;
+      case 'spikeShock': this.anim = (this.fx && this.fx.shockAnim(ev)) || { t: 0, dur: ev.dur }; break; // everyone on the stretch jumps, in one shot
       case 'devJump': { // dev tools: the dice go away and the player is simply there
         this.control = null; this.stopSent = false; this.clearDice(); this.clearBanner();
         const pawn = this.pawns[ev.slot];
@@ -812,7 +816,7 @@ export class BoardScene {
       die.tx = die.x;
     });
     this.diceGroup.visible = this.dice.length > 0; // the UFO has a wheel but no dice
-    this.setBadges(!this.diceGroup.visible);
+    this.setBadges(!this.diceGroup.visible && !this.closeUp); // (closeUp: a close shot of a set piece, as the game frames it)
   }
 
   /** Each die turns to look straight at the eye, so the face it lands on is seen square-on (no top or side showing). */
@@ -1018,8 +1022,12 @@ export class BoardScene {
       // space behind (pm001_04, which ends sitting), sat there dazed (pm001_05), then back up (pm206_03). Facing the dragon.
       const faceYaw = Math.atan2(A.x - B.x, A.z - B.z), lift = 1.6, D = ev.dur || 2200;
       const T1 = Math.min(0.45, 600 / D), T3 = Math.max(T1, 1 - GETUP_MS / D); // in the air until T1; getting up from T3
+      // once they land: a cut, from the wall's side, back down the path at them (no number badge in the close-up)
+      const kc = this.fx && this.fx.knockCam ? this.fx.knockCam(B) : null;
+      if (kc) a.cleanup = () => { this.closeUp = false; if (this.camHold === kc) { this.camHold = null; this.snapCamera = true; } };
       if (count) this.setCounter(count, count.total);
       a.step = (u) => {
+        if (kc && u >= T1 && !a.knockCut) { a.knockCut = true; this.camHold = kc; this.snapCamera = true; this.closeUp = true; }
         const f = clamp01(u / T1), e = 1 - (1 - f) * (1 - f); // fast off the ground, slowing into the landing
         const x = A.x + (B.x - A.x) * e, z = A.z + (B.z - A.z) * e, y = A.y + (B.y - A.y) * e + Math.sin(f * Math.PI) * lift;
         pawn.x = x; pawn.y = y; pawn.z = z; pawn.yaw = pawn.faceYaw = faceYaw;
@@ -1107,7 +1115,7 @@ export class BoardScene {
     this.updateCamera(dt);
     this.updatePawnPose(dt);
     if (this.hidePawns) for (const p of Object.values(this.pawns || {})) { p.group.visible = false; const sh = p.group.userData.shadow; if (sh) sh.visible = false; } // (the eruption's cutscene: nobody on the board)
-    this.setBadges(!this.diceGroup.visible);
+    this.setBadges(!this.diceGroup.visible && !this.closeUp); // (closeUp: a close shot of a set piece, as the game frames it)
     for (const f of this.floaters) f.obj.position.y = f.base + Math.sin(this.t * 2) * 0.25;
     this.animateWorld(dt);
     this.faceDiceToEye();
@@ -1769,7 +1777,7 @@ export class BoardScene {
     else if (F) clip = 'idle';
     else if (pawn.wonder) clip = 'wonder'; // ("what is about to happen?": before the UFO, a blue spring, the fireball, the skull, the ! space, a tornado)
     else if (pawn.amp > 0.2) clip = speed > 16 ? 'run' : 'walk';
-    else clip = pawn.cheer || 'idle';
+    else clip = pawn.rollClip || pawn.cheer || 'idle'; // (rollClip: waiting on a challenge's die: eager, or puzzled at the spike ball)
     const W = pawn.wp || (pawn.wp = { clip: null, t: 0, prev: null, prevF: 0, blend: 1, dist: 0 });
     if (clip !== W.clip) { W.prev = W.clip; W.prevF = W.f || 0; W.clip = clip; W.t = 0; W.blend = W.prev ? 0 : 1; }
     W.t += dt; W.blend = Math.min(1, W.blend + dt / 0.2);

@@ -29,9 +29,17 @@ CLIPS = {
     'sitStunned': 'pm001_05',  # sat there dazed (after the fireball; landing on the red statue's platform)
     'getUp': 'pm206_03',       # back up off the ground (filed with another board's clips, pm206)
    
-    'swim': 'pm001_14', 'hang': 'pm001_13', 'hit': 'pm001_06', 'cheer': 'pm001_10', 'sad': 'pm001_16', 'win': 'pm001_17',
+    'swim': 'pm001_14', 'hang': 'pm001_13', 'cheer': 'pm001_10', 'sad': 'pm001_16', 'win': 'pm001_17',
     'scared': 'pm001_19', 'springUp': 'pm001_15',
     'springWind': 'pm001_08',  # standing on a spring as it winds up, before it bounces them forward or back
+    'pumped': 'pm001_06',      # a cheer: the wall or gate is smashed (it is not being hit)
+    'eager': 'pm011_09',       # excited, waiting: while the die rolls at the dragon wall and the final challenge
+    'puzzled': 'pm011_07',     # "what is about to happen?": while the die rolls at the spike ball statue
+    'shock': 'pm001_03',       # everyone on the spike ball's stretch, as it is spat out
+    'letdown': 'pm001_07',     # the final challenge failed: facing the camera, the gate still shut
+    'stance': 'pm301_01',      # a fighting stance (after the punches)
+    'punch': 'pm301_03',       # a right-handed punch: the fist is out at frame 4 (it starts and ends in the stance)
+    'kick': 'pm301_05',        # a left-legged kick: the foot is up at frame 4
 }
 
 def load(p):

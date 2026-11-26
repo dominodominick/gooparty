@@ -560,4 +560,43 @@ for (let i = 1; i < V.length; i++) {
   land(bg, 0, I(at('tornado'))); assert.deepEqual(wonders(stop(bg)), [[1]], 'the tornado: the one it sweeps back');
   bg = make(); { const d = at('dragon'); bg.positions[0] = I(d); bg.step = { kind: 'single', purpose: 'dragon', remaining: 0 }; bg.rigNext = 1; const e = []; bg._resolveSingle(0, e); assert.deepEqual(wonders(e), [[0]], 'the dragon wall: before the fireball'); }
 }
+// ---------- v95: the challenges' set pieces ----------
+{
+  const { DUR: D, SMASH, DRAGON_SMASH, GATE_SMASH } = await import('../js15/game/boardGame.js');
+  const at = (type, nth = 0) => ISLAND.map((n, i) => (n.type === type ? i : -1)).filter((i) => i >= 0)[nth];
+  const make = (n = 4, seed = 1) => { const bg = new BoardGame({ slots: [...Array(n).keys()], rng: mulberry32(seed), isNpc: () => true }); bg.start(0); bg.order = [...bg.players]; bg.turn = 0; return bg; };
+  const single = (bg, slot, purpose, d, remaining = 0) => { bg.step = { kind: 'single', purpose, remaining }; bg.rigNext = d; const e = []; const done = bg._resolveSingle(slot, e); return { e, done }; };
+  const F = (n) => Math.round(n * 1000 / 60);
+  // the timings are the clips' and the walls' own frames
+  assert.equal(D.wall, F(4 * 31 + 75 + 48 + 71), 'the dragon wall: 4 punches, the stance, a moment, the cheer');
+  assert.equal(D.gate, F(6 * 31 + (5 * 31 + 4 + 101 - 6 * 31) + 12 + 71), 'the summit gate: 6 kicks, the last one\'s break, a beat, the cheer');
+  assert.ok(GATE_SMASH.watch > 0 && SMASH.punches === 4 && SMASH.kicks === 6 && DRAGON_SMASH.stance === 75);
+  // the dragon wall, passed: the note, the smash (who does it), then they walk on
+  let bg = make(); { const d = at('dragon'); bg.positions[0] = I(d); const { e } = single(bg, 0, 'dragon', 5, 2); const t = e.map((x) => x.t);
+    assert.deepEqual(t.slice(0, 3), ['diceStop', 'space', 'broken']); assert.equal(e[2].dur, D.wall); assert.equal(e[2].slot, 0); assert.ok(t.indexOf('move') > 2, 'then on'); }
+  // the spike statue, passed: on at once; it breaks once the turn has played out (after the space they land on)
+  bg = make(); { const s = at('spike'); bg.positions[0] = I(s); bg.phase = 'rolling';
+    const { e, done } = single(bg, 0, 'spike', 6, 3);
+    assert.equal(bg.broken.spike, true, 'passable for everyone from now on');
+    assert.ok(!e.some((x) => x.t === 'broken'), 'not smashed before they go on'); assert.ok(e.some((x) => x.t === 'move' && x.slot === 0));
+    const r = bg._commit(0, e, done); const k = r.events.findIndex((x) => x.t === 'broken');
+    assert.ok(k > r.events.findIndex((x) => x.t === 'move'), 'it breaks after they have gone on');
+    assert.equal(r.events[k].later, true); assert.equal(r.events[k].challenge, 'spike'); assert.equal(r.events[k].dur, D.spikeBreak);
+    assert.equal(bg.pendingBreak, null); }
+  // ... and with a 1v1 to pick first: not until the turn is over
+  bg = make(); { const s = at('spike'), mg = at('mg11'); bg.positions[0] = I(s); bg.phase = 'rolling';
+    if (mg > s) { const { e, done } = single(bg, 0, 'spike', 6, mg - s); const r = bg._commit(0, e, done);
+      if (!done) { assert.ok(!r.events.some((x) => x.t === 'broken'), 'still choosing: not yet'); assert.ok(bg.pendingBreak); } } }
+  // the spike ball, missed: everyone on the stretch jumps together, then they run
+  bg = make(); { const s = at('spike'), safe = at('volcanoOrNot') + 1; bg.positions[0] = I(s); bg.positions[1] = I(s - 3); bg.positions[2] = I(safe - 2); bg.positions[3] = I(s);
+    const { e } = single(bg, 0, 'spike', 1); const k = e.findIndex((x) => x.t === 'spikeShock');
+    assert.ok(k > e.findIndex((x) => x.fx === 'pit'), 'after the ball is spat out'); assert.ok(k < e.findIndex((x) => x.t === 'move'), 'before anyone runs');
+    assert.deepEqual([...e[k].slots].sort(), [0, 1], 'the roller and whoever is on the stretch (not below it, not beside them on the star)'); assert.equal(e[k].dur, D.shock); }
+  // the summit: kicked open before the walk up and the win; a miss is shown
+  bg = make(); { bg.positions[0] = I(FINAL_IDX); const { e } = single(bg, 0, 'final', 6); const t = e.map((x) => x.t);
+    assert.ok(t.indexOf('broken') >= 0 && t.indexOf('broken') < t.indexOf('move') && t.indexOf('move') < t.indexOf('win'), 'kick, walk up, win');
+    assert.equal(e[t.indexOf('broken')].challenge, 'final'); assert.equal(e[t.indexOf('broken')].dur, D.gate); }
+  bg = make(); { bg.positions[0] = I(FINAL_IDX); const { e } = single(bg, 0, 'final', 3); const n = e.find((x) => x.t === 'space');
+    assert.equal(n.fx, 'finalFail'); assert.equal(n.dur, D.finalFail); assert.ok(!e.some((x) => x.t === 'broken')); }
+}
 console.log('board tests passed');
