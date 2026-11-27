@@ -65,6 +65,6 @@ at(90); W.end();
 assert.equal(ended, 1); assert.equal(pawn.fx, null); assert.equal(scene.camHold, null, 'the camera back to the game');
 // recording: the clips the set piece played, as recorded blocks
 const rec = recordedSequence('k', { innerFrames: 100, frames: [[0, 'idle', 0, null, 0], [10, 'idle', 10, null, 0], [20, 'punch', 0, null, 0], [50, 'punch', 30, null, 0]] });
-assert.deepEqual(rec.blocks.filter((b) => b.track === 'player').map((b) => [b.at, b.len, b.clip, !!b.rec]), [[0, 10, 'idle', true], [20, 30, 'punch', true]]);
+assert.deepEqual(rec.blocks.filter((b) => b.track === 'player').map((b) => [b.at, b.len, b.clip, !!b.rec]), [[0, 10, 'idle', true], [20, 80, 'punch', true]]);
 assert.equal(sequenceFrames(rec, 100), 100);
 console.log('director tests passed');

@@ -256,13 +256,13 @@ export function recordedSequence(key, rec) {
   const blocks = [{ track: 'builtin', at: 0, len: rec.innerFrames, from: 0, speed: 1 }, { track: 'camera', at: 0, len: rec.innerFrames, mode: 'builtin' }];
   for (const [track, ci, fi] of [['player', 1, 2], ['others', 3, 4]]) {
     let cur = null;
-    for (const f of rec.frames) {
-      const T = Math.round(f[0]), clip = f[ci];
-      if (cur && cur.clip === clip) { cur.len = Math.max(1, T - cur.at); continue; }
+    rec.frames.forEach((f, i) => {
+      const T = i === 0 ? 0 : Math.round(f[0]), clip = f[ci]; // (the first frame drawn is the start)
+      if (cur && cur.clip === clip) { cur.len = Math.max(1, T - cur.at); return; }
       if (cur) blocks.push(cur);
       cur = clip ? { track, at: T, len: 1, clip, from: Math.max(0, Math.round(f[fi])), speed: 1, face: 'auto', rec: true } : null;
-    }
-    if (cur) blocks.push(cur);
+    });
+    if (cur) { cur.len = Math.max(cur.len, rec.innerFrames - cur.at); blocks.push(cur); } // (the last one lasts to the end)
   }
   return { key, blocks };
 }

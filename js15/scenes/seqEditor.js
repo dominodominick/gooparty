@@ -56,9 +56,10 @@ export class SeqEditor {
     B('−', () => { this.zoom = Math.max(0.5, this.zoom / 1.5); this.draw(); }, '#4a4a7a', 'Zoom out');
     B('+', () => { this.zoom = Math.min(16, this.zoom * 1.5); this.draw(); }, '#4a4a7a', 'Zoom in');
     this.status = mk('span', 'opacity:.8;margin-left:6px'); bar.appendChild(this.status);
+    this.foldBtn = B('▾ Hide timeline', () => this.fold(), '#4a4a7a', 'Show the whole picture (H)');
     B('Close', () => this.close(), '#7a2a3a');
     root.appendChild(bar);
-    const body = mk('div', 'flex:1;display:flex;min-height:0');
+    const body = this.body = mk('div', 'flex:1;display:flex;min-height:0');
     this.lanesBox = mk('div', 'flex:1;overflow:auto;position:relative;min-width:0');
     this.inspector = mk('div', 'width:260px;overflow:auto;border-left:1px solid #fff2;padding:8px;display:flex;flex-direction:column;gap:5px');
     body.appendChild(this.lanesBox); body.appendChild(this.inspector);
@@ -70,10 +71,19 @@ export class SeqEditor {
       else if (e.key === 'ArrowLeft') { e.preventDefault(); this.seek(Math.max(0, this.T - (e.shiftKey ? 10 : 1))); }
       else if (e.key === 'ArrowRight') { e.preventDefault(); this.seek(this.T + (e.shiftKey ? 10 : 1)); }
       else if ((e.key === 'Delete' || e.key === 'Backspace') && this.sel) { e.preventDefault(); this.remove(this.sel); }
+      else if (e.key === 'h' || e.key === 'H') { e.preventDefault(); this.fold(); }
     };
     addEventListener('keydown', this.keys, true);
     const banner = document.querySelector('#banner'); if (banner) { this.bannerWas = banner.style.display; banner.style.display = ''; } // (captions show while editing)
     this.fillPick();
+  }
+
+  /** Fold the timeline away (just the toolbar), to see the whole picture as the game shows it; and back. */
+  fold() {
+    this.folded = !this.folded;
+    this.body.style.display = this.folded ? 'none' : 'flex';
+    this.root.style.height = this.folded ? 'auto' : '46vh'; this.root.style.minHeight = this.folded ? '0' : '300px';
+    this.foldBtn.textContent = this.folded ? '▴ Show timeline' : '▾ Hide timeline';
   }
 
   fillPick() {
@@ -154,7 +164,7 @@ export class SeqEditor {
       if (this.stopAt != null && this.stopAt - e.T < 14) this.v.slow = 1; // (slow down near the frame)
       if (this.stopAt != null && e.T >= this.stopAt) { // exactly there
         const a = this.v.anim, F = this.stopAt;
-        if (a && a.moment === this.key && a.step) { a.t = F * 1000 / 60; a.step(Math.min(1, a.t / a.dur)); }
+        if (a && a.moment === this.key && a.step) { a.t = F * 1000 / 60; a.step(Math.min(1, a.t / a.dur)); this.T = F; this.drawHead(); }
         this.stopAt = null; this.freeze();
       }
       if (e.done) { e.done = false; this.running = false; this.playBtn.textContent = '▶ Play'; }

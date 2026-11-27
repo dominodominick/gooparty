@@ -351,6 +351,16 @@ The hand-built island is gone. The game now runs on the converted Wii Party map 
   sinks away. The game's "broken" message did not say who broke it, so the scene had no player to animate and
   only waited, then hid the wall.
 
+## Build 96: the sequence editor
+
+In the island viewer: **Sequence editor** (or open the viewer at `#sequence-editor`, `#sequence-editor-smash.dragon`). Every moment the board plays is listed: landing on each kind of space (its note), every kind of move (walk, springs, the knock-back, tornado, statues, meteors, the vine, swimming, the drop), every challenge's outcomes, the UFO, the eruption, turns and rounds starting, minigames, the win.
+
+- **Record from the game** plays the moment as the game does it now and lays it out on the timeline: the game's own set piece, its camera, and the animations the player (and the others) played, as hatched blocks. Hatched blocks are only shown; edit one (or press Use) and it plays as you set it.
+- **Tracks**: *Game (built-in)*: the set piece's own motion and effects, which stretch plays when and how fast (speed 0 holds everything still: a wait). *Player* / *Others*: any Wii Party clip (the game's names or any pm code), from which frame, how fast, how many times, looping or holding, and which way they face (the camera, along or back down the path, or an angle). *Camera*: cut or glide to a captured shot (kept relative to the space the moment starts on, so it fits every space of that kind; or following the player), the game camera, or the set piece's own. *Effects*: the glint (at the player or a wall's hit spot), screen shake, a caption, a fade to black and back, a wall's jolt, stone chips, close-up (no number badges).
+- **Play / pause / step / scrub** (click the ruler or a lane; space, arrow keys). Paused, the camera is free: fly it where you want and **Capture shot**. **▾ Hide timeline** (H) shows the whole picture.
+- **Save** keeps the sequence in this browser; it plays like that in the viewer and, on the same site, in games. **Export / import** gives all saved sequences as text: send it to have them put in the game for everyone (`js15/game/sequences.js`). The host then waits as long as a sequence plays.
+- Built on `js15/scenes/director.js` (plays a sequence over the game's own set piece), `js15/game/moments.js` (every moment, by key), `js15/scenes/seqEditor.js` (the editor), `js15/world/clipTable.js` (every clip by name and by code: the board's pawns can play any of them).
+
 ## Build 95
 
 The three walls, as Wii Party plays them:
