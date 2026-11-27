@@ -1,20 +1,22 @@
-// The director: plays a moment's sequence (made in the sequence editor) over the game's own set piece.
+// The director: plays a moment's sequence (made in the sequence studio, studioScene.js) over the game's own set piece.
 //
-// A sequence is blocks on a timeline, in frames (60 a second), each on a track:
-//   builtin  the game's own set piece (its motion, its effects): which stretch of it plays when, how fast. Without any,
-//            it plays as it is, from the start. A block with speed 0 holds it (everyone waits).
-//   player   the Mii whose moment it is: which animation (any Wii Party clip), from which frame, how fast, which way
-//            they face. The game still moves them (an arc, a walk); this decides what their body does.
-//   others   the same for everyone else in the moment (the spike ball's stretch, a UFO swap).
-//   camera   a shot: cut to it, or glide to it over the block; 'game' = the normal camera, 'builtin' = the set piece's own.
-//            A shot is kept relative to the space the moment starts on (and the way the path goes there), so it fits
-//            every space of that kind; 'follow' keeps it relative to the player as they move.
-//   fx       something happens: a glint, the screen shaking, a caption, a fade to black, a wall's jolt, stone chips,
+// A sequence (see upgradeSequence in moments.js) has, in frames (60 a second):
+//   builtin  the game's own set piece (its motion, its effects): which stretch of it plays when, how fast. Without any
+//            blocks it plays as it is, from the start. A block with speed 0 holds it (everyone waits).
+//   miis     one entry per Mii in the moment (Mii 1 is the one whose moment it is; see castOf in moments.js), each with
+//            two tracks: `anim` (which Wii Party animation their body plays, from which frame, how fast, which way they
+//            face; the game still moves them, this is what the body does) and `face` (one of the seven Mii faces).
+//   camera   keyframes. A 'shot' key is a camera position and the point it looks at, kept relative to the space the
+//            moment starts on (and the way the path goes there) so it fits every space of that kind, or to a Mii
+//            (follow). Between two shot keys the camera moves smoothly (or at an even speed, or cuts at the second).
+//            An 'own' key hands the camera back to the set piece's own cameras; a 'normal' key to the board's camera.
+//            Before the first key, the set piece's own.
+//   fx       things that happen: a glint, the screen shaking, a caption, a fade to black, a wall's jolt, stone chips,
 //            close-up (no number badges).
 // A block recorded from the game (rec) is only shown: it is what the game does there now, to edit from.
 
 import { SEQUENCES } from '../game/sequences.js';
-import { momentKey, sequenceFrames } from '../game/moments.js';
+import { momentKey, sequenceFrames, upgradeSequence, sequenceIsEmpty } from '../game/moments.js';
 import { ISLAND, VOLCANO } from '../game/boardData.js';
 import { PLAYER_COLORS } from '../config.js';
 import { clipLength } from '../world/clipTable.js';
@@ -22,18 +24,18 @@ import { clipLength } from '../world/clipTable.js';
 const LOCAL = 'party-island-sequences';
 const FPS = 60;
 
-/** Sequences saved in this browser (the editor's), over the game's own. */
+/** Sequences saved in this browser (the studio's), over the game's own. */
 export function localSequences() {
   try { return JSON.parse((typeof localStorage !== 'undefined' && localStorage.getItem(LOCAL)) || '{}') || {}; } catch (e) { return {}; }
 }
 export function saveLocalSequences(all) {
   try { localStorage.setItem(LOCAL, JSON.stringify(all)); return true; } catch (e) { return false; }
 }
-/** The sequence a moment plays: this browser's (the editor's) if there is one, else the game's, else none. */
+/** The sequence a moment plays: this browser's (the studio's) if there is one, else the game's, else none. */
 export function sequenceFor(key) {
   const mine = localSequences();
-  if (mine[key]) return mine[key];
-  return SEQUENCES[key] || null;
+  if (mine[key]) return upgradeSequence(mine[key]);
+  return upgradeSequence(SEQUENCES[key] || null);
 }
 
 /** The kind of space a player is on (for a note: each kind of space has its own). */
@@ -68,29 +70,63 @@ export const shotToWorld = (A, s) => { const p = fromAnchor(A, s), t = fromAncho
 export const shotFromWorld = (A, w) => { const p = toAnchor(A, w), t = toAnchor(A, { x: w.tx, y: w.ty, z: w.tz }); return { x: round(p.x), y: round(p.y), z: round(p.z), tx: round(t.x), ty: round(t.y), tz: round(t.z) }; };
 const round = (v) => Math.round(v * 100) / 100;
 const ease = (k) => (k <= 0 ? 0 : k >= 1 ? 1 : k * k * (3 - 2 * k));
+const KEYS6 = ['x', 'y', 'z', 'tx', 'ty', 'tz'];
 
 /** Where the game's own set piece is (in its frames) at sequence frame T. */
 export function builtinFrame(blocks, T) {
-  const bs = blocks.filter((b) => b.track === 'builtin' && !b.rec).sort((a, b) => a.at - b.at);
+  const bs = (blocks || []).filter((b) => !b.rec).sort((a, b) => a.at - b.at);
   if (!bs.length) return T;
   let cur = null; for (const b of bs) if (b.at <= T) cur = b;
   if (!cur) return bs[0].from || 0;
   return (cur.from || 0) + Math.min(T - cur.at, cur.len || 0) * (cur.speed ?? 1);
 }
 
-/** The block of a track playing at frame T (the last one started; a camera or builtin block lasts until the next). */
-export function activeBlock(blocks, track, T, lasting = false) {
+/** The block of a list playing at frame T (the last one started that has not ended). */
+export function activeBlock(blocks, T) {
   let cur = null;
-  for (const b of blocks) if (b.track === track && !b.rec && b.at <= T && (lasting || T < b.at + (b.len || 0)) && (!cur || b.at >= cur.at)) cur = b;
+  for (const b of blocks || []) if (!b.rec && b.at <= T && T < b.at + Math.max(1, b.len || 0) && (!cur || b.at >= cur.at)) cur = b;
   return cur;
 }
 
-/** Who a moment is about: its player, and everyone else in it. */
-function actorsOf(scene, ev, anim) {
-  const slot = ev.slot ?? scene.camSlot ?? 0;
-  const others = new Set([...(ev.slots || []), ...((anim && anim.otherSlots) || []), ...(ev.victim != null ? [ev.victim] : []), ...(ev.other != null ? [ev.other] : [])]);
-  others.delete(slot);
-  return { slot, others: [...others] };
+/**
+ * Who a moment is about, in the order of its Mii tracks: its player, then the others the event names (the opponent,
+ * who they swap with, the stretch...), then everyone else by player number.
+ */
+export function castSlots(scene, ev, anim) {
+  const slot = ev.slot ?? scene.camSlot ?? 0, out = [slot];
+  const add = (s) => { if (s != null && !out.includes(s) && scene.pawns && scene.pawns[s]) out.push(s); };
+  for (const s of [ev.opp, ev.with, ev.victim, ev.other, ...(ev.cast || []), ...(ev.order || []), ...(ev.wonder || []), ...(ev.slots || []), ...((anim && anim.otherSlots) || [])]) add(s);
+  for (const s of Object.keys(scene.pawns || {}).map(Number).sort((a, b) => a - b)) add(s);
+  return out;
+}
+
+/** The camera at frame T from keyframes: { kind: 'none' | 'own' | 'normal' | 'shot', pose, cut }. `where(k)` gives a key's anchor. */
+export function cameraAt(keys, T, where) {
+  const ks = (keys || []).filter((k) => !k.rec).sort((a, b) => a.at - b.at);
+  let i = -1; for (let j = 0; j < ks.length; j++) if (ks[j].at <= T) i = j;
+  if (i < 0) return { kind: 'none' };
+  const k = ks[i];
+  if (k.kind === 'own' || k.kind === 'normal') return { kind: k.kind, key: k };
+  const pose = (q) => shotToWorld(where(q), q.shot);
+  const P1 = pose(k), next = ks[i + 1];
+  if (!next || next.kind !== 'shot' || next.ease === 'cut' || next.at <= k.at) return { kind: 'shot', pose: P1, key: k };
+  const raw = (T - k.at) / (next.at - k.at), u = next.ease === 'linear' ? raw : ease(raw);
+  const P2 = pose(next), prev = ks[i - 1], after = ks[i + 2];
+  const P0 = prev && prev.kind === 'shot' && k.ease !== 'cut' ? pose(prev) : P1, P3 = after && after.kind === 'shot' && after.ease !== 'cut' ? pose(after) : P2;
+  const out = {};
+  for (const c of KEYS6) out[c] = catmull(P0[c], P1[c], P2[c], P3[c], u); // (through every key, without corners)
+  return { kind: 'shot', pose: out, key: k, between: [k, next] };
+}
+function catmull(p0, p1, p2, p3, t) {
+  const t2 = t * t, t3 = t2 * t;
+  return 0.5 * ((2 * p1) + (-p0 + p2) * t + (2 * p0 - 5 * p1 + 4 * p2 - p3) * t2 + (-p0 + 3 * p1 - 3 * p2 + p3) * t3);
+}
+
+/** Show one of the seven Mii faces (0 normal, 1 smile, 2 anger, 3 sorrow, 4 surprise, 5 blink, 6 open mouth) on a pawn. */
+export function setPawnFace(p, n) {
+  const cm = p && p.fflHead && p.fflHead.userData && p.fflHead.userData.charModel;
+  if (!cm || p.face === n) return;
+  try { cm.setExpression(n); p.face = n; } catch (e) { /* this head was made without that face */ }
 }
 
 /**
@@ -99,67 +135,71 @@ function actorsOf(scene, ev, anim) {
  */
 export function direct(scene, anim, ev) {
   if (!anim || !ev) return anim;
-  const { slot, others } = actorsOf(scene, ev, anim);
-  const key = momentKey(ev, ev.t === 'space' ? spotOf(scene, slot) : null);
+  const cast = castSlots(scene, ev, anim), slot = cast[0];
+  const key = momentKey(ev, ev.t === 'space' && !ev.fx ? spotOf(scene, slot) : null);
   if (!key) return anim;
   anim.moment = key;
   const editing = scene.seqEdit && scene.seqEdit.key === key ? scene.seqEdit : null;
-  const seq = editing ? editing.seq : sequenceFor(key);
+  const seq = upgradeSequence(editing ? editing.seq : sequenceFor(key));
   const rec = scene.seqRecord && scene.seqRecord.key === key ? scene.seqRecord : null;
-  const blocks = ((seq && seq.blocks) || []).filter((b) => !b.rec);
-  if (!blocks.length && !rec && !editing) return anim;
+  if ((!seq || sequenceIsEmpty(seq)) && !rec && !editing) return anim;
+  const S = seq || { v: 2, builtin: [], miis: [], camera: [], fx: [] };
 
   const innerFrames = Math.max(1, Math.round((anim.dur || 0) * FPS / 1000));
-  const total = Math.max(1, blocks.length ? sequenceFrames({ blocks }, innerFrames) : innerFrames);
+  const total = Math.max(1, sequenceIsEmpty(S) && !S.len ? innerFrames : sequenceFrames(S, innerFrames));
   const A = anchorOf(scene, slot);
-  const st = { prevT: -1, innerHold: scene.camHold, ours: false, fired: new Set(), touched: new Set(), shake: false, banner: false, fade: false, closeUp: false, glideFrom: new Map(), lastShot: null };
   const pawn = (k) => scene.pawns && scene.pawns[k];
-  const record = rec ? { frames: [], innerFrames } : null;
+  const st = { prevT: -1, innerHold: scene.camHold, ours: false, fired: new Set(), touched: new Set(), faced: new Set(), shake: false, banner: false, fade: false, closeUp: false, lastKey: null, lastPose: null };
+  const record = rec ? { frames: [], innerFrames, cast: cast.length } : null;
+  // where a camera key is kept relative to: the space, or a Mii (follow), as they are now
+  const where = (k) => {
+    if (k.follow == null || k.follow === false) return A;
+    const p = pawn(cast[k.follow === true ? 0 : k.follow]);
+    if (!p) return A;
+    return { ...A, x: p.fx && p.fx.x != null ? p.fx.x : p.x, y: p.fx && p.fx.y != null ? p.fx.y : p.y, z: p.fx && p.fx.z != null ? p.fx.z : p.z };
+  };
 
   const W = {
-    t: 0, dur: total * 1000 / FPS, moment: key, inner: anim, ev,
+    t: 0, dur: total * 1000 / FPS, moment: key, inner: anim, ev, cast,
     step(u) {
       const T = u * total;
       // the game's own set piece, at its own time (its camera as it left it)
       if (st.ours) scene.camHold = st.innerHold;
-      const B = Math.max(0, Math.min(innerFrames, builtinFrame(blocks, T)));
+      const B = Math.max(0, Math.min(innerFrames, builtinFrame(S.builtin, T)));
       anim.t = B * 1000 / FPS;
       if (anim.step) anim.step(Math.min(1, anim.t / Math.max(1, anim.dur)));
       st.innerHold = scene.camHold;
-      if (editing) Object.assign(editing, { T, B, anchor: A, innerFrames, total }); // (the editor's playhead)
+      if (editing) Object.assign(editing, { T, B, anchor: A, innerFrames, total, cast }); // (the studio's playhead)
       if (record) { // (what the set piece asks for now; otherwise what the body chose last frame: a walk, idle)
-        const p = pawn(slot), o = others.map(pawn).filter(Boolean)[0], c = (q) => (q && q.fx && q.fx.clip ? [q.fx.clip, q.fx.clipF ?? (q.wp ? q.wp.f : 0)] : q && q.wp ? [q.wp.clip, q.wp.f] : [null, 0]);
-        record.frames.push([T, ...c(p), ...c(o)]);
+        const c = (q) => (q && q.fx && q.fx.clip ? [q.fx.clip, q.fx.clipF ?? (q.wp ? q.wp.f : 0)] : q && q.wp ? [q.wp.clip, q.wp.f] : [null, 0]);
+        record.frames.push([T, ...cast.slice(0, 6).map((s) => c(pawn(s)))]);
       }
-      // the bodies
-      applyBody(scene, blocks, 'player', T, [pawn(slot)], A, st);
-      applyBody(scene, blocks, 'others', T, others.map(pawn), A, st);
+      // each Mii: their body, their face
+      (S.miis || []).forEach((m, i) => {
+        const p = pawn(cast[i]); if (!p) return;
+        applyBody(scene, activeBlock(m.anim, T), T, p, A, st);
+        const f = activeBlock(m.face, T);
+        if (f) { setPawnFace(p, f.face | 0); st.faced.add(p); } else if (st.faced.has(p)) setPawnFace(p, 0);
+      });
       // the camera
-      const cb = activeBlock(blocks, 'camera', T, true);
-      if (cb && cb.mode !== 'builtin') {
-        if (cb.mode === 'game') { scene.camHold = null; }
-        else if (cb.shot) {
-          const p = pawn(slot), anchor = cb.follow && p ? { ...A, x: (p.fx && p.fx.x != null ? p.fx.x : p.x), y: (p.fx && p.fx.y != null ? p.fx.y : p.y), z: (p.fx && p.fx.z != null ? p.fx.z : p.z) } : A;
-          const to = shotToWorld(anchor, cb.shot);
-          let pose = to;
-          if (cb.mode === 'glide' && cb.len > 0 && T < cb.at + cb.len) {
-            if (!st.glideFrom.has(cb)) st.glideFrom.set(cb, st.lastShot || cameraPose(scene, to));
-            const f = st.glideFrom.get(cb), k = ease((T - cb.at) / cb.len);
-            pose = { x: f.x + (to.x - f.x) * k, y: f.y + (to.y - f.y) * k, z: f.z + (to.z - f.z) * k, tx: f.tx + (to.tx - f.tx) * k, ty: f.ty + (to.ty - f.ty) * k, tz: f.tz + (to.tz - f.tz) * k };
-          } else if (st.lastBlock !== cb) scene.snapCamera = true; // a cut
-          scene.camHold = pose; st.lastShot = pose;
-        }
-        st.ours = true; st.lastBlock = cb;
-      } else if (st.ours) { st.ours = false; st.lastBlock = null; scene.snapCamera = true; } // back to the set piece's own
+      const cam = cameraAt(S.camera, T, where);
+      if (cam.kind === 'shot') {
+        if (st.lastKey !== cam.key && !cam.between) scene.snapCamera = true; // (a cut)
+        scene.camHold = cam.pose; st.lastPose = cam.pose; st.ours = true; scene.snapCamera = true; st.lastKey = cam.key;
+      } else if (cam.kind === 'normal') {
+        if (!st.ours || st.lastKey !== cam.key) scene.snapCamera = true;
+        scene.camHold = null; st.ours = true; st.lastKey = cam.key;
+      } else if (st.ours) { st.ours = false; st.lastKey = null; scene.snapCamera = true; } // back to the set piece's own
       // things that happen
-      applyFx(scene, blocks, T, st, slot, A);
+      applyFx(scene, S.fx || [], T, st, cast, A);
       st.prevT = T;
     },
     end() {
       if (st.ours) scene.camHold = st.innerHold;
       if (anim.end) anim.end();
-      if (st.ours && scene.camHold === st.lastShot) { scene.camHold = null; scene.snapCamera = true; }
+      if (st.ours && (scene.camHold === st.lastPose || scene.camHold === null)) { scene.camHold = null; scene.snapCamera = true; }
       for (const p of st.touched) if (p && p.fx && p.fx.__dir) { p.fx = null; } // (bodies the sequence moved, back to the game's)
+      for (const p of st.faced) setPawnFace(p, 0);
       if (st.shake) scene.shake = 0;
       if (st.banner && scene.clearBanner) scene.clearBanner();
       if (st.closeUp) scene.closeUp = false;
@@ -171,70 +211,55 @@ export function direct(scene, anim, ev) {
   return W;
 }
 
-/** Where the camera is now, as a shot (for a glide to start from). */
-function cameraPose(scene, to) {
-  const c = scene.camera;
-  if (!c || !c.position) return to;
-  const d = Math.hypot(to.tx - to.x, to.ty - to.y, to.tz - to.z) || 10;
-  const dir = c.getWorldDirection ? c.getWorldDirection(new c.position.constructor()) : { x: 0, y: 0, z: -1 };
-  return { x: c.position.x, y: c.position.y, z: c.position.z, tx: c.position.x + dir.x * d, ty: c.position.y + dir.y * d, tz: c.position.z + dir.z * d };
-}
-
-/** The animation (and facing) a block gives the bodies on a track at frame T. */
-function applyBody(scene, blocks, track, T, pawns, A, st) {
-  const b = activeBlock(blocks, track, T);
+/** The animation (and facing) a block gives a body at frame T. */
+function applyBody(scene, b, T, p, A, st) {
   if (!b || !b.clip) return;
-  for (const p of pawns) {
-    if (!p) continue;
-    const base = p.fx || {}, x = base.x ?? p.x, y = base.y ?? p.y, z = base.z ?? p.z;
-    const frames = clipFrames(scene, b.clip), local = (T - b.at) * (b.speed ?? 1) + (b.from || 0);
-    const clipF = frames ? (b.loop === false ? Math.min(frames - 1, local) : local % frames) : local;
-    let yaw = base.yaw ?? p.yaw;
-    const cam = scene.camera && scene.camera.position;
-    if (b.face === 'camera' && cam) yaw = Math.atan2(cam.x - x, cam.z - z);
-    else if (b.face === 'forward') yaw = A.yaw;
-    else if (b.face === 'back') yaw = A.yaw + Math.PI;
-    else if (b.face === 'left') yaw = A.yaw + Math.PI / 2;
-    else if (b.face === 'right') yaw = A.yaw - Math.PI / 2;
-    else if (typeof b.face === 'number') yaw = A.yaw + b.face * Math.PI / 180;
-    p.fx = { ...base, x, y, z, yaw, clip: b.clip, clipF, __dir: true };
-    p.faceYaw = yaw;
-    st.touched.add(p);
-    if (scene.place) scene.place(p);
-  }
+  const base = p.fx || {}, x = base.x ?? p.x, y = base.y ?? p.y, z = base.z ?? p.z;
+  const frames = clipLength(b.clip), local = (T - b.at) * (b.speed ?? 1) + (b.from || 0);
+  const clipF = frames ? (b.loop === false ? Math.min(frames - 1, local) : local % frames) : local;
+  let yaw = base.yaw ?? p.yaw;
+  const cam = scene.camera && scene.camera.position;
+  if (b.facing === 'camera' && cam) yaw = Math.atan2(cam.x - x, cam.z - z);
+  else if (b.facing === 'forward') yaw = A.yaw;
+  else if (b.facing === 'back') yaw = A.yaw + Math.PI;
+  else if (b.facing === 'left') yaw = A.yaw + Math.PI / 2;
+  else if (b.facing === 'right') yaw = A.yaw - Math.PI / 2;
+  else if (typeof b.facing === 'number') yaw = A.yaw + b.facing * Math.PI / 180;
+  p.fx = { ...base, x, y, z, yaw, clip: b.clip, clipF, __dir: true };
+  p.faceYaw = yaw;
+  st.touched.add(p);
+  if (scene.place) scene.place(p);
 }
-
-/** How long a clip is (frames). */
-export function clipFrames(scene, clip) { return clipLength(clip); }
 
 function fadeEl(o) {
   const f = typeof document !== 'undefined' && document.querySelector && document.querySelector('#fade');
   if (f) { f.style.transition = 'none'; f.style.opacity = String(o); }
 }
 
-/** Where an effect goes: on the player, or one of a wall's hit spots ('dragon.hit1', 'gate.break'). */
-function fxAt(scene, where, slot) {
-  const p = scene.pawns && scene.pawns[slot];
+/** Where an effect goes: on a Mii ('mii1'...; 'player' is Mii 1), or one of a wall's hit spots ('dragon.hit1', 'gate.break'). */
+function fxAt(scene, where, cast) {
   if (where && where.includes('.') && scene.fx && scene.fx.breakRig) {
     const [model, hook] = where.split('.');
     if (scene.fx.breakRig(model)) { const h = scene.fx.hookAt(model, hook); if (h) return h; }
   }
+  const m = /^mii(\d)$/.exec(where || ''), p = scene.pawns && scene.pawns[cast[m ? Number(m[1]) - 1 : 0]];
   if (!p) return null;
   const x = p.fx && p.fx.x != null ? p.fx.x : p.x, y = p.fx && p.fx.y != null ? p.fx.y : p.y, z = p.fx && p.fx.z != null ? p.fx.z : p.z, yaw = (p.fx && p.fx.yaw) ?? p.yaw ?? 0;
-  return { x: x + Math.sin(yaw) * 0.7, y: y + 1.3, z: z + Math.cos(yaw) * 0.7 };
+  return { x: x + Math.sin(yaw) * 0.7, y: y + 1.3, z: z + Math.cos(yaw) * 0.7, slot: p.slot };
 }
 
-function applyFx(scene, blocks, T, st, slot, A) {
+function applyFx(scene, blocks, T, st, cast, A) {
   let shake = false, closeUp = false, fade = null;
   for (const b of blocks) {
-    if (b.track !== 'fx' || b.rec) continue;
+    if (b.rec) continue;
     const on = T >= b.at && T < b.at + Math.max(1, b.len || 1), starts = st.prevT < b.at && T >= b.at;
     if (starts && !st.fired.has(b)) {
       st.fired.add(b);
-      const at = fxAt(scene, b.where, slot), color = b.color && b.color !== 'player' ? b.color : (PLAYER_COLORS[slot] || PLAYER_COLORS[0]).hex;
+      const at = fxAt(scene, b.where, cast), who = at && at.slot != null ? at.slot : cast[0];
+      const color = b.color && b.color !== 'player' ? b.color : (PLAYER_COLORS[who] || PLAYER_COLORS[0]).hex;
       if (b.action === 'glint' && at && scene.fx && scene.fx.glint) scene.fx.glint(at, color, b.size || 1);
       if (b.action === 'chips' && at && scene.fx && scene.fx.burst) scene.fx.burst(at);
-      if (b.action === 'banner' && scene.setBanner) { scene.setBanner(b.text || ''); st.banner = true; }
+      if (b.action === 'banner' && scene.setBanner) { scene.setBanner(scene.fillNames ? scene.fillNames(b.text || '') : b.text || ''); st.banner = true; }
     }
     if (b.action === 'banner' && st.banner && T >= b.at + (b.len || 0) && st.prevT < b.at + (b.len || 0) && scene.clearBanner) { scene.clearBanner(); st.banner = false; }
     if (!on) continue;
@@ -249,20 +274,23 @@ function applyFx(scene, blocks, T, st, slot, A) {
 }
 
 /**
- * What the game did, as a sequence to start editing from: the set piece at its own pace, and the clips the player (and
- * the first of the others) played, as blocks marked 'rec' (shown, not played: edit one and it plays).
+ * What the game did, as a sequence to start editing from: the set piece at its own pace, and the clips each Mii played,
+ * as blocks marked 'rec' (shown, not played: change one and it plays).
  */
 export function recordedSequence(key, rec) {
-  const blocks = [{ track: 'builtin', at: 0, len: rec.innerFrames, from: 0, speed: 1 }, { track: 'camera', at: 0, len: rec.innerFrames, mode: 'builtin' }];
-  for (const [track, ci, fi] of [['player', 1, 2], ['others', 3, 4]]) {
+  const n = Math.max(1, Math.min(6, rec.cast || 1));
+  const out = { key, v: 2, builtin: [{ at: 0, len: rec.innerFrames, from: 0, speed: 1 }], miis: [], camera: [], fx: [] };
+  for (let m = 0; m < n; m++) {
+    const anim = [];
     let cur = null;
     rec.frames.forEach((f, i) => {
-      const T = i === 0 ? 0 : Math.round(f[0]), clip = f[ci]; // (the first frame drawn is the start)
+      const T = i === 0 ? 0 : Math.round(f[0]), [clip, cf] = f[1 + m] || [null, 0]; // (the first frame drawn is the start)
       if (cur && cur.clip === clip) { cur.len = Math.max(1, T - cur.at); return; }
-      if (cur) blocks.push(cur);
-      cur = clip ? { track, at: T, len: 1, clip, from: Math.max(0, Math.round(f[fi])), speed: 1, face: 'auto', rec: true } : null;
+      if (cur) anim.push(cur);
+      cur = clip ? { at: T, len: 1, clip, from: Math.max(0, Math.round(cf)), speed: 1, facing: 'auto', rec: true } : null;
     });
-    if (cur) { cur.len = Math.max(cur.len, rec.innerFrames - cur.at); blocks.push(cur); } // (the last one lasts to the end)
+    if (cur) { cur.len = Math.max(cur.len, rec.innerFrames - cur.at); anim.push(cur); } // (the last one lasts to the end)
+    out.miis.push({ anim, face: [] });
   }
-  return { key, blocks };
+  return out;
 }

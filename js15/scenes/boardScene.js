@@ -458,7 +458,7 @@ export class BoardScene {
       for (const p of Object.values(this.pawns)) {
         try { if (p.group.userData.wp) shadeLikeFace(this.T, p.group.userData.wp, F); } catch (e) { /* the body keeps its plain materials */ }
         if (!p.mii) continue;
-        try { p.fflHead = fitFFLHead(p.head, F.head(p.mii.ffl, this.renderer)); } catch (e) { /* this Mii keeps the stand-in head */ }
+        try { p.fflHead = fitFFLHead(p.head, F.head(p.mii.ffl, this.renderer, [0, 1, 2, 3, 4, 5, 6])); p.face = 0; } catch (e) { /* this Mii keeps the stand-in head */ } // (with Wii Party's seven faces, for the sequences)
         p.fflMats = null; // (lightMiis finds the new materials)
         try { const c = p.group.userData.caster; if (c) c.rebuild(); } catch (e) { /* the shadow keeps the old head's shape */ }
         const slot = p.slot; // and their face in the turn-order strip
@@ -1233,7 +1233,7 @@ export class BoardScene {
     // the tiles: lava everywhere once it is over; until then, the ones no meteor has hit yet stay as they were
     this.eruptionCount = ev.active; this.lavaPending = new Set(); ISLAND.forEach((n, i) => { if (isLava(i)) this.lavaPending.add(i); }); this.paintTiles();
     const wasShown = Object.values(this.pawns || {}).map((p) => [p, p.group.visible !== false]);
-    this.hidePawns = true; this.clearDice(); this.setCounter(null);
+    this.clearDice(); this.setCounter(null);
     this.setBanner('The volcano erupts!<small>Lava turns every special space into a -4 for three turns.</small>');
     // the summit shot: from the island's side of the volcano, looking up at the crater
     const toIsland = { x: -14 - top.x, z: -4 - top.z }, tl = Math.hypot(toIsland.x, toIsland.z) || 1, ux = toIsland.x / tl, uz = toIsland.z / tl;
@@ -1282,6 +1282,7 @@ export class BoardScene {
         if (s <= 0 || t > vol.t1) { r.m.grp.visible = false; continue; }
         r.m.at({ x: top.x + Math.cos(r.a) * s * 6, y: top.y + 1 + r.v * s - 4 * s * s, z: top.z + Math.sin(r.a) * s * 6 }, s * 4 + r.a);
       }
+      this.hidePawns = t > 0; // (nobody on the board while it plays; a sequence that holds it at its start can show the Miis first)
       // the cameras
       if (t < vol.t1) cut('volcano', volCam(clamp01(t / vol.t1)));
       else { const sh = shots.find((x) => t < x.t1) || shots[shots.length - 1]; if (sh) cut('s' + sh.stretch, sh.cam(clamp01((t - sh.t0) / (sh.t1 - sh.t0)))); }

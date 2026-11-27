@@ -29,6 +29,7 @@ export class MenuScene {
             <button class="btn" data-act="play">Play</button>
             <button class="btn ghost" data-act="settings">Settings</button>
             <button class="btn ghost" data-act="viewer">Island viewer</button>
+            <button class="btn ghost" data-act="studio">Sequence studio</button>
           </div>
           <p class="notice ${this.isError ? 'error' : ''}" role="status">${esc(this.notice)}</p>
           <p class="tagline" style="margin:8px 0 0;font-size:0.8rem">Build ${esc(BUILD)}</p>
@@ -103,6 +104,7 @@ export class MenuScene {
     else if (act === 'settings') { this.panel = 'settings'; this.render(); }
     else if (act === 'mii') this.editMii();
     else if (act === 'viewer') app.openViewer();
+    else if (act === 'studio') app.openStudio(null, 'menu');
     else if (act === 'back') { this.panel = 'main'; this.notice = ''; this.render(); }
     else if (act === 'create') this.create();
     else if (act === 'offline') this.create(true);

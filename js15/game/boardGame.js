@@ -487,12 +487,12 @@ export class BoardGame {
     } else {
       events.push({ t: 'diceStop', slot, dice: [], total: 0, doubles: false, wheel: { target: victim }, dur: DUR.diceStop });
       const a = { ...this.positions[slot] }, b = { ...this.positions[victim] };
-      events.push(note(slot, `UFO! You swap places with {${victim}}!`, { wonder: [slot, victim] }));
+      events.push(note(slot, `UFO! You swap places with {${victim}}!`, { wonder: [slot, victim], cast: [victim] }));
       // the UFO beams up the roller, then the other player, drops the other player on the roller's spot, then the roller
-      events.push({ t: 'ufo', phase: 'up', slot, dur: DUR.ufo });
-      events.push({ t: 'ufo', phase: 'up', slot: victim, dur: DUR.ufo });
-      events.push({ t: 'ufo', phase: 'down', slot: victim, to: a, dur: DUR.ufo });
-      events.push({ t: 'ufo', phase: 'down', slot, to: b, dur: DUR.ufo });
+      events.push({ t: 'ufo', phase: 'up', slot, with: victim, dur: DUR.ufo });
+      events.push({ t: 'ufo', phase: 'up', slot: victim, with: slot, dur: DUR.ufo });
+      events.push({ t: 'ufo', phase: 'down', slot: victim, with: slot, to: a, dur: DUR.ufo });
+      events.push({ t: 'ufo', phase: 'down', slot, with: victim, to: b, dur: DUR.ufo });
       this.positions[slot] = b; this.positions[victim] = a;
     }
     return this._afterEffects(slot);
@@ -665,7 +665,7 @@ export class BoardGame {
 
   /** Placeholder for the 1v1 minigame (none are built yet): 45% win, 45% lose, 10% tie. */
   _duel(slot, opp, events) {
-    events.push(note(slot, `1 vs 1! {${slot}} challenges {${opp}}`));
+    events.push(note(slot, `1 vs 1! {${slot}} challenges {${opp}}`, { cast: [opp] }));
     events.push({ t: 'minigame', kind: 'duel', slot, opp, dur: DUR.minigame });
     const r = this.rng();
     if (r < 0.45) {
@@ -729,7 +729,7 @@ export class BoardGame {
         this.eruptions.push({ left: ERUPTION_TURNS, fresh: true });
         const others = ERUPTION_STRETCHES.map((_, i) => i).slice(1), hit = [0];
         while (hit.length < 3) hit.push(others.splice(Math.floor(this.rng() * others.length) % others.length, 1)[0]);
-        events.push({ t: 'eruption', active: this.eruptions.length, dur: DUR.eruption, stretches: hit });
+        events.push({ t: 'eruption', slot, active: this.eruptions.length, dur: DUR.eruption, stretches: hit });
         break;
       }
       case 'mgRest': { // placeholder minigame: the solo player wins with probability 1 / players

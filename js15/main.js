@@ -6,6 +6,7 @@ import { LobbyScene } from './scenes/lobbyScene.js';
 import { PointerTestScene } from './scenes/pointerTestScene.js';
 import { BoardScene } from './scenes/boardScene.js';
 import { ViewerScene } from './scenes/viewerScene.js';
+import { StudioScene } from './scenes/studioScene.js';
 import { loadBoard } from './world/islandLoader.js';
 import { BoardGame } from './game/boardGame.js';
 import { currentMii } from './identity.js';
@@ -18,7 +19,7 @@ const TEST = window.__PARTY_TEST || null;
 if (TEST) TEST.app = app;
 app.loadBoard = () => (TEST && TEST.board ? Promise.resolve(TEST.board) : loadBoard('assets/board-game-island/', window.__BOARD_ASSETS || null));
 app.loadBoard().catch(() => {}); // the board scene reports a failure when it needs the map
-app.scenes = { menu: MenuScene, lobby: LobbyScene, pointerTest: PointerTestScene, board: BoardScene, viewer: ViewerScene };
+app.scenes = { menu: MenuScene, lobby: LobbyScene, pointerTest: PointerTestScene, board: BoardScene, viewer: ViewerScene, studio: StudioScene };
 
 app.canvas = document.getElementById('stage');
 app.canvas3d = document.getElementById('stage3d');
@@ -146,14 +147,18 @@ function frame(now) {
 
 const room = new URLSearchParams(location.search).get('room');
 /** The island viewer: the board on its own, with nobody playing (a stand-in session that never changes). */
-app.openViewer = () => {
+function standInSession() {
   const bg = new BoardGame({ slots: [0, 1, 2, 3], rng: Math.random, isNpc: () => true }); bg.start(0);
   const names = ['Player 1', 'CPU 2', 'CPU 3', 'CPU 4'];
   app.session = { role: 'host', mySlot: 0, viewer: true, roster: { players: names.map((n, i) => ({ slot: i, name: n, kind: i ? 'npc' : 'human', wasHuman: !i, connected: !i, mii: i ? GUEST_MIIS[i - 1] : (currentMii()?.data || GUEST_MIIS[5]) })) }, // (you are player 1, in your Mii)
     board: bg.snapshot(), update() {}, setTurnHandler() {}, stop() {}, choose() {}, backToLobby() {}, leave() {} };
-  app.go('viewer');
-};
-if (window.__START_VIEWER || location.hash === '#viewer') app.openViewer();
+}
+app.openViewer = () => { standInSession(); app.go('viewer'); };
+/** The sequence studio (its own screen): on a moment, or the last one open. `from`: where Back goes. */
+app.openStudio = (key = null, from = null) => { const was = app.sceneName; standInSession(); app.go('studio', { key, from: from || (was === 'viewer' || window.__START_VIEWER ? 'viewer' : 'menu') }); };
+const studioLink = /^#(?:studio|sequence-editor)(?:-(.+))?$/.exec(location.hash); // #studio, #studio-minigame.duel (the old #sequence-editor links too)
+if (studioLink) app.openStudio(studioLink[1] ? decodeURIComponent(studioLink[1]) : null, window.__START_VIEWER ? 'viewer' : 'menu');
+else if (window.__START_VIEWER || location.hash === '#viewer') app.openViewer();
 else if (room) app.go('menu', { panel: 'online', code: room.toUpperCase().slice(0, 5) });
 else app.go('menu');
 requestAnimationFrame(frame);

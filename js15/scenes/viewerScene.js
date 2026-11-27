@@ -1,7 +1,6 @@
 // Island viewer: the board exactly as the game draws it (same scene, same props, same tiles), with no game running.
 // Drag to turn, scroll to zoom, right-drag (or shift-drag) to slide. Buttons jump to each place and play the set pieces.
 import { direct } from './director.js';
-import { SeqEditor } from './seqEditor.js';
 import { app } from '../app.js';
 import { BoardScene } from './boardScene.js';
 import { ISLAND, VOLCANO, LABELS } from '../game/boardData.js';
@@ -93,8 +92,6 @@ export class ViewerScene extends BoardScene {
     if (hit) this.lookAt(hit[1]);
     // ... or open the animation gallery: #animation-gallery, #animation-gallery-pm001_10
     if (want && want.startsWith('animation-gallery')) this.wantGallery = want.slice('animation-gallery-'.length) || true; // (opened once the board is in)
-    // ... or open the sequence editor: #sequence-editor, #sequence-editor-smash.dragon
-    if (want && want.startsWith('sequence-editor')) this.wantEditor = want.slice('sequence-editor-'.length) || true;
     // ... or play one of the set pieces over and over: #play-tornado-back-5, #play-red-statue-throw ...
     this.loopDemo = want && want.startsWith('play-') ? want.slice(5) : null; this.loopWait = 4;
   }
@@ -173,9 +170,10 @@ export class ViewerScene extends BoardScene {
       'ufo.up': named('UFO swap'), 'ufo.down': named('UFO swap'), 'eruption': named('Volcano erupts'),
       'move.walk': () => { at(1); this.demo.push(move(walk(1, 4, 'walk'))); },
       'turn.start': () => { at(1); this.demo.push(game({ t: 'turnStart', slot: 0, dur: DUR.turnIntro })); },
-      'round.start': () => { at(1); this.demo.push(game({ t: 'roundStart', round: 2, order: [0, 1, 2, 3], dur: DUR.round })); },
-      'minigame': () => { at(1); this.demo.push(game({ t: 'minigame', kind: 'duel', slot: 0, opp: 1, dur: DUR.minigame })); },
-      'win': () => { const s = stopOf('final'); at(s); this.demo.push(move(walk(s, 1, 'walk')), game({ t: 'win', slot: 0, dur: 3000 })); },
+      'round.start': () => { at(1); put(1, 1); put(2, 2); put(3, 3); this.demo.push(game({ t: 'roundStart', round: 2, order: [0, 1, 2, 3], dur: DUR.round })); },
+      'minigame.duel': () => { const s = stopOf('mg11'); at(s); put(1, s - 3); this.demo.push(game({ t: 'minigame', kind: 'duel', slot: 0, opp: 1, dur: DUR.minigame })); },
+      'minigame.rest': () => { const s = stopOf('mgRest'); at(s); put(1, s - 2); put(2, s - 5); put(3, s + 3); this.demo.push(game({ t: 'minigame', kind: 'rest', slot: 0, dur: DUR.minigame })); },
+      'win': () => { const s = stopOf('final'); at(s); put(1, s - 4); put(2, s - 9); put(3, s - 14); this.demo.push(move(walk(s, 1, 'walk')), game({ t: 'win', slot: 0, dur: 3000 })); },
     };
     // landing on each kind of space: its note, as the game shows it
     for (const type of new Set([...ISLAND.map((n) => n.type), 'shout', 'exit'])) {
@@ -186,6 +184,10 @@ export class ViewerScene extends BoardScene {
         else p = at(Math.max(0, stopOf(type)));
         const ev = { t: 'space', slot: 0, text: `${LABELS[type] || type}`, dur: W.has(type) ? DUR.wonder : DUR.banner };
         if (W.has(type)) ev.wonder = [0];
+        if (type === 'mg11') { put(1, Math.max(1, stopOf(type) - 3)); ev.cast = [1]; ev.text = '1 vs 1! {0} challenges {1}'; } // (the Miis in it, as a game has them)
+        if (type === 'mgRest') { const s = stopOf(type); put(1, s - 2); put(2, s - 5); put(3, s + 3); }
+        if (type === 'ufo') { put(1, stopOf(type) + 6); ev.wonder = [0, 1]; ev.cast = [1]; }
+        if (type === 'tornado') put(1, stopOf(type) + 3);
         this.demo.push(game(ev));
       };
     }
@@ -193,11 +195,10 @@ export class ViewerScene extends BoardScene {
     return out;
   }
 
-  /** The sequence editor (seqEditor.js), on a moment (or the first). */
+  /** The sequence studio (studioScene.js): its own screen, on a moment (or the last one open). */
   openSequenceEditor(key = null) {
     if (this.gallery) this.closeGallery(true);
-    if (!this.seqEditor) { this.demos(); this.seqEditor = new SeqEditor(this); }
-    this.seqEditor.open(key || this.seqEditor.key || 'smash.dragon');
+    if (app.openStudio) app.openStudio(key);
   }
 
   // ---------------------------------------------------------------- the set pieces
@@ -244,10 +245,11 @@ export class ViewerScene extends BoardScene {
       ['1 vs Rest won: green spring', () => { const s = stopOf('mgRest'); at(s); this.demo.push(move(spring(0, s, 10, 'green'))); }],
       ['UFO swap', () => { const s = stopOf('ufo'), o = s + 6; at(s); put(1, o);
         const ufo = (ev) => () => { const e = { t: 'ufo', dur: DUR.ufo, ...ev }, a = this.beginUfo(e); if (a) a.ev = e; return a; };
-        this.demo.push(look(0, 1), ufo({ phase: 'up', slot: 0 }), ufo({ phase: 'up', slot: 1 }), ufo({ phase: 'down', slot: 1, to: { track: 'island', idx: s } }), ufo({ phase: 'down', slot: 0, to: { track: 'island', idx: o } })); }],
+        this.demo.push(look(0, 1), ufo({ phase: 'up', slot: 0, with: 1 }), ufo({ phase: 'up', slot: 1, with: 0 }), ufo({ phase: 'down', slot: 1, with: 0, to: { track: 'island', idx: s } }), ufo({ phase: 'down', slot: 0, with: 1, to: { track: 'island', idx: o } })); }],
       ['Volcano erupts', () => { // the cutscene: the stretch past the volcano-or-not pit and two others (picked at random, as the host does)
         const others = [1, 2, 3, 4, 5].sort(() => Math.random() - 0.5); this.setEruption(0);
-        this.demo.push(() => { const e = { t: 'eruption', active: 1, dur: DUR.eruption, stretches: [0, others[0], others[1]] }, a = this.eruptionCutscene(e); if (a) a.ev = e; return a; }, () => ({ t: 0, dur: 1500, end: () => this.setEruption(0) })); }],
+        const v = stopOf('volcano'); at(v); put(1, v - 4); put(2, v + 5); put(3, v - 9); // (who landed on the volcano space, and the others about)
+        this.demo.push(() => { const e = { t: 'eruption', slot: 0, active: 1, dur: DUR.eruption, stretches: [0, others[0], others[1]] }, a = this.eruptionCutscene(e); if (a) a.ev = e; return a; }, () => ({ t: 0, dur: 1500, end: () => this.setEruption(0) })); }],
       ['Meteor knockback (chain)', () => { // landing on lava during an eruption: hit by a meteor, back 4 onto more lava, hit again, back 4 onto a blank
         const s = 34; at(s); this.setEruption(1);
         const hit = (from) => { const w = walkBack({ track: 'island', idx: from }, 4); return move({ t: 'move', slot: 0, mode: 'fly', meteor: true, path: w.path, count: { total: 4, dir: 'back' }, dur: DUR.meteorHit }); };
@@ -266,7 +268,6 @@ export class ViewerScene extends BoardScene {
   tickAnim(dt) {
     if (this.wantGallery && this.board && this.pawns && this.pawns[0]) { const c = this.wantGallery; this.wantGallery = null; this.openGallery(c === true ? null : c); }
     if (this.gallery) { this.stepGallery(dt); return; }
-    if (this.wantEditor && this.board && this.pawns && this.pawns[0]) { const k = this.wantEditor; this.wantEditor = null; this.openSequenceEditor(k === true ? null : k); }
     if (this.loopDemo && !this.anim && !this.demo.length && this.board && this.pawns && this.pawns[0] && (this.loopWait -= dt) <= 0) {
       const slug = (t) => t.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''), all = this.demos();
       const d = this.loopDemo === 'all' ? all[(this.loopIdx = ((this.loopIdx ?? -1) + 1) % all.length)] : all.find(([n]) => slug(n) === this.loopDemo); // ('all': each in turn)
@@ -278,7 +279,7 @@ export class ViewerScene extends BoardScene {
       this.anim = this.demo.shift()() || { t: 0, dur: 1 }; this.idle = false;
       if (this.anim.ev && !this.anim.moment && this.anim.dur > 0) this.anim = direct(this, this.anim, this.anim.ev); // the moment's sequence (director.js)
     }
-    if (this.seqEditor) this.seqEditor.tick(dt);
+    if (this.onTick) this.onTick(dt); // (the studio watches the playhead)
     if (!this.anim) return;
     const a = this.anim; a.t += dt * 1000 * (this.slow || 1); // (slow motion: the viewer's own toggle)
     const u = Math.min(1, a.t / Math.max(1, a.dur));
@@ -288,12 +289,12 @@ export class ViewerScene extends BoardScene {
 
   // ---------------------------------------------------------------- camera
   updateCamera(dt = 1 / 60) {
-    if (this.seqPaused || this.seqFreeCam) { // the sequence editor: the camera is yours to place
+    if (this.seqFreeCam) { // the sequence studio: the camera is yours to place
       const o = this.orbit, cp = Math.cos(o.pitch);
       this.camera.position.set(o.tx + Math.sin(o.yaw) * cp * o.dist, o.ty + Math.sin(o.pitch) * o.dist, o.tz + Math.cos(o.yaw) * cp * o.dist);
       this.camera.lookAt(o.tx, o.ty, o.tz); return;
     }
-    if (this.camHold && this.anim) { // a set piece with its own cameras (the statue throws): use them
+    if (this.camHold && (this.anim || this.seqPaused)) { // a set piece with its own cameras (the statue throws): use them
       const h = this.camHold; this.camera.position.set(h.x, h.y, h.z); this.camera.lookAt(h.tx, h.ty, h.tz);
       const o = this.orbit; o.tx = h.tx; o.ty = h.ty; o.tz = h.tz; this.snapCamera = false; this.rolling = false;
       this.setAmbience(h.x > VOLCANO_OFFSET.x / 2 ? 'volcano' : 'island');
@@ -338,7 +339,7 @@ export class ViewerScene extends BoardScene {
     for (const [label, v] of this.places()) btn(label, () => { if (this.gallery) this.closeGallery(true); this.follow = false; this.lookAt(v); });
     head('Mii animations');
     btn('Animation gallery', () => this.openGallery(), '#8a4a9a');
-    btn('Sequence editor', () => this.openSequenceEditor(), '#8a4a9a');
+    btn('Sequence studio', () => this.openSequenceEditor(), '#8a4a9a');
     head('Play');
     for (const [label, fn] of this.demos()) btn(label, () => { if (!this.anim && !this.gallery) fn(); }, '#3c7a4a');
     const second = btn('Second player on the spike stretch: off', () => { this.secondPlayer = !this.secondPlayer; second.textContent = `Second player on the spike stretch: ${this.secondPlayer ? 'on' : 'off'}`; }, '#4a4a7a');

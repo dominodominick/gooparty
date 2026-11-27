@@ -351,6 +351,45 @@ The hand-built island is gone. The game now runs on the converted Wii Party map 
   sinks away. The game's "broken" message did not say who broke it, so the scene had no player to animate and
   only waited, then hid the wall.
 
+## Build 99: the sequence studio
+
+The sequence editor is now a screen of its own: **Sequence studio**, on the title menu and in the island viewer
+(links: `#studio`, `#studio-minigame.duel`; old `#sequence-editor` links still open it).
+
+**Layout**
+- Left: every moment, with a search box.
+- Middle: the game's 16:9 picture.
+- Right: details of whatever is picked.
+- Bottom: the timeline.
+- The panels can be resized by dragging the bars between them, or hidden. A− / A+ scales everything, and ↺ puts the
+  layout back. The layout is remembered.
+
+**Timeline tracks**
+- 🎮 Game: the game's own set piece. Play, hold or slow it.
+- 🎥 Camera: keyframes. Drag the picture to move the camera (wheel zooms, right-drag slides, W A S D Q E fly), then
+  press ◆ Add camera keyframe (K). The camera glides smoothly between keyframes, at an even speed, or cuts. A keyframe
+  is kept relative to the space, or follows a Mii. Other keyframes hand back to the game's own camera or the board camera.
+- ✨ Effects.
+- For every Mii in the moment: 🕺 Animation (any Wii Party clip) and 🙂 Face (the seven Mii faces).
+
+**Editing**
+- Double-click a track to add something, drag blocks to move them, drag either edge to trim. Blocks snap to the red
+  line and to each other.
+- Undo and redo, copy and paste, duplicate.
+- The end marker sets the length.
+- Changes save in this browser as you go. ⇄ Export gives the text to put them in the game.
+
+**Special spaces are their own moments, with every Mii in them**
+- 1 vs 1 space before the minigame (the challenger and the opponent).
+- 1 vs Rest space before the minigame (all four).
+- The volcano space's eruption: the Miis show while the eruption is held at its start.
+- The UFO (both Miis).
+- The tornado, the statues, the springs, and the skull / volcano drop.
+
+**Game changes**
+- The board's Mii heads are made with the seven faces, so faces play in games too.
+- Sequences have a new format: per-Mii tracks and camera keys. Older ones are converted when read.
+
 ## Build 98: the faces show
 
 In build 97 the faces could stay on Normal. The page loaded new, but the browser kept its old copy of
