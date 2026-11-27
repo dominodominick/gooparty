@@ -189,5 +189,10 @@ for (const hw of [{ height: 0, build: 0 }, { height: 127, build: 127 }, { height
   const named = new Set(SHARED); for (const L of LOADERS) L.clips.forEach((c) => named.add(c));
   assert.equal(F.find((f) => f.value === 'unnamed').clips.length, [...every].filter((n) => !named.has(n)).length);
   assert.ok(clipLoadedBy('pm206_03').includes('Board Game Island'));
+  // v97: the seven faces Wii Party's scripts name, as FFL's expressions 0-6
+  const { FACES } = await import('../js15/scenes/viewerScene.js');
+  assert.deepEqual(FACES.map((f) => [f.n, f.name]), [[0, 'Normal'], [1, 'Smile'], [2, 'Anger'], [3, 'Sorrow'], [4, 'Surprise'], [5, 'Blink'], [6, 'Open mouth']]);
+  const ffl = fs.readFileSync(path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'mii', 'ffl', 'ffl.js'), 'utf8');
+  for (const [k, n] of [['NORMAL', 0], ['SMILE', 1], ['ANGER', 2], ['SORROW', 3], ['SURPRISE', 4], ['BLINK', 5], ['OPEN_MOUTH', 6]]) assert.ok(new RegExp(`\\b${k}: ${n},`).test(ffl), `FFL's ${k} is ${n}`);
 }
 console.log('mii tests passed');

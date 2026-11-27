@@ -352,7 +352,7 @@ __mods["js15/config.js"] = (() => {
 
 const GAME_TITLE = 'Party Island'; // placeholder name: pick your own
 
-const BUILD = '96'; // shown in the menu and in games; every player must have the same build
+const BUILD = '97'; // shown in the menu and in games; every player must have the same build
 
 const MAX_PLAYERS = 6;
 
@@ -8617,6 +8617,21 @@ function loadMoreClips() {
     : fetch(`${MII_BASE}clips/more-clips.json`).then((r) => (r.ok ? r.json() : null)).then((j) => (j && j.clips) || null).catch(() => null);
   return moreClips;
 }
+/**
+ * Wii Party's Mii faces: the seven its scripts name (Emo.Normal ... Emo.OpenMouth, in mr011.rel and mr083.rel), in the
+ * order of the Wii's own Mii faces, which is FFL's 0-6. `uses`: what the game's one surviving script
+ * (scripts/mr011/player.cnut) sets each one with: setEmo(Emo.X) beside the motion it plays.
+ */
+const FACES = [
+  { n: 0, name: 'Normal', uses: 'Idling: pm000_01 and the other idle clips.' },
+  { n: 1, name: 'Smile', uses: 'The fist pump ("guts"): pm000_07.' },
+  { n: 2, name: 'Anger', uses: 'The fighting pose: pm011_06, pm011_12. Also half the time with pm001_07 (frustrated).' },
+  { n: 3, name: 'Sorrow', uses: 'Hanging their head: pm011_13, pm011_14, pm000_08, pm000_15. Also half the time with pm001_07.' },
+  { n: 4, name: 'Surprise', uses: 'Startled ("bikkuri"): pm001_03, pm011_08.' },
+  { n: 5, name: 'Blink', uses: 'Eyes shut. Named, but the script never sets it.' },
+  { n: 6, name: 'Open mouth', uses: 'Named, but the script never sets it.' },
+];
+
 /** The gallery's order: Board Game Island's own clips (pm001) first, then the shared ones (pm000), then the rest. */
 function galleryOrder(names) {
   const g = (n) => (n.startsWith('pm001') ? 0 : n.startsWith('pm000') ? 1 : 2);
@@ -8920,7 +8935,7 @@ class ViewerScene extends BoardScene {
   openGallery(clip = null) {
     if (this.gallery || !this.board || typeof document === 'undefined') return;
     if (this.anim) { this.anim = null; this.demo = []; } // (a set piece stops)
-    const T = this.T, root = new T.Group(), G = { root, f: 0, speed: 1, playing: true, repeat: true, lock: true, hold: 0, clips: { ...ALL_CLIPS }, more: 'loading' };
+    const T = this.T, root = new T.Group(), G = { root, f: 0, speed: 1, playing: true, repeat: true, lock: true, hold: 0, clips: { ...ALL_CLIPS }, more: 'loading', mode: 'animations', face: 0 };
     this.gallery = G;
     // the stage: a round of grass with a sandy edge, like a spot on the island
     const disc = new T.Mesh(new T.CylinderGeometry(4.2, 4.6, 0.6, 48), [new T.MeshLambertMaterial({ color: 0xc9b07a }), new T.MeshLambertMaterial({ color: 0x6cbf3f }), new T.MeshLambertMaterial({ color: 0xa88f5c })]);
@@ -8942,14 +8957,17 @@ class ViewerScene extends BoardScene {
     Object.assign(this.orbit, { tx: 0, ty: 1.3, tz: 0, dist: 5.5, pitch: 0.2, yaw: 0 });
     // the real head and the face's shading, once the Mii renderer is there
     loadMiiRenderer().then((F) => {
+      if (this.gallery === G) { G.ffl = F || null; if (G.ui) G.ui.update(true); }
       if (!F || this.gallery !== G || !this.renderer) return;
       try { shadeLikeFace(T, fig.body, F); } catch (e) { /* plain lighting */ }
-      try { fitFFLHead(fig.head, F.head(mii.ffl, this.renderer)); } catch (e) { /* the stand-in head */ }
+      try { G.ffl = F; G.face3d = fitFFLHead(fig.head, F.head(mii.ffl, this.renderer, FACES.map((x) => x.n))); F.setFace(G.face3d, G.face || 0); } catch (e) { G.face3d = null; /* the stand-in head */ }
+      if (G.ui) G.ui.update(true);
       try { if (G.caster) G.caster.rebuild(); } catch (e) { /* */ }
       G.fflMats = null;
-    }).catch(() => {});
+    }).catch(() => { if (this.gallery === G) { G.ffl = null; if (G.ui) G.ui.update(true); } });
     this.buildGalleryUi();
     this.playClip(clip && G.clips[clip] ? clip : galleryOrder(Object.keys(G.clips))[0]);
+    if (clip === 'expressions') this.galleryMode('expressions'); // (#animation-gallery-expressions)
     // the rest of the clips: in the list once they are here (and played, if the link asked for one of them)
     loadMoreClips().then((more) => {
       if (this.gallery !== G) return;
@@ -8970,6 +8988,23 @@ class ViewerScene extends BoardScene {
     if (G.keys) removeEventListener('keydown', G.keys, true);
     const main = app.ui && app.ui.querySelector('.viewer-panel'); if (main) main.style.display = '';
     if (!quiet) this.lookAt(this.places()[0][1]);
+  }
+
+  /** Show one of the faces (FACES' n) on the gallery's Mii. */
+  setFace(n) {
+    const G = this.gallery; if (!G) return;
+    G.face = n;
+    if (G.ffl && G.face3d) G.ffl.setFace(G.face3d, n);
+    if (G.ui) G.ui.update(true);
+  }
+
+  /** Animations (every clip) or expressions (the faces, on the clip it was looping, or idle). */
+  galleryMode(mode) {
+    const G = this.gallery; if (!G || G.mode === mode) return;
+    G.mode = mode;
+    if (mode === 'expressions') { const C = G.clips[G.clip]; if (!C || !C.loop) this.playClip('pm000_01'); else { G.playing = true; G.hold = 0; } }
+    else this.setFace(0); // (back to the animations as they were: the normal face)
+    if (G.ui) G.ui.mode();
   }
 
   playClip(name) {
@@ -9011,6 +9046,11 @@ class ViewerScene extends BoardScene {
     const el = (tag, css, text) => { const e = document.createElement(tag); if (css) e.style.cssText = css; if (text != null) e.textContent = text; return e; };
     const button = (label, fn, bg = '#2a5a86') => { const b = el('button', `background:${bg};color:#fff;border:0;border-radius:8px;padding:6px 8px;font:13px sans-serif;cursor:pointer`, label); b.onclick = fn; return b; };
     panel.appendChild(el('div', 'font-weight:bold;font-size:15px', 'Animation gallery'));
+    const modePick = el('select', 'width:100%;box-sizing:border-box;border:0;border-radius:8px;padding:6px 8px;font:bold 13px sans-serif');
+    for (const [v, t] of [['animations', 'Animations'], ['expressions', 'Expressions (faces)']]) { const o = el('option', null, t); o.value = v; modePick.appendChild(o); }
+    modePick.addEventListener('keydown', (e) => e.stopPropagation());
+    modePick.onchange = () => this.galleryMode(modePick.value);
+    panel.appendChild(modePick);
     const now = el('div', 'background:#0006;border-radius:8px;padding:6px 8px;line-height:1.4'); panel.appendChild(now);
     const row = el('div', 'display:flex;gap:5px;flex-wrap:wrap'); panel.appendChild(row);
     const play = button('Pause', () => { G.playing = !G.playing; G.hold = 0; G.ui.update(true); });
@@ -9025,7 +9065,8 @@ class ViewerScene extends BoardScene {
     const step = el('div', 'display:flex;gap:5px');
     step.append(button('< frame', () => { G.playing = false; G.f = Math.max(0, Math.round(G.f) - 1); G.ui.update(true); }, '#4a4a7a'), button('frame >', () => { G.playing = false; G.f = Math.min(G.clips[G.clip].frames - 1, Math.round(G.f) + 1); G.ui.update(true); }, '#4a4a7a'));
     panel.appendChild(step);
-    panel.appendChild(el('div', 'opacity:.75;font-size:11px', 'Pick a board, mode or minigame to see the clips Wii Party loads for it. Purple = Party Island plays it now (as the name after it). Up/down arrows: next clip; space: pause.'));
+    const help = el('div', 'opacity:.75;font-size:11px', 'Pick a board, mode or minigame to see the clips Wii Party loads for it. Purple = Party Island plays it now (as the name after it). Up/down arrows: next clip; space: pause.');
+    panel.appendChild(help);
     // which game's clips to show: every board, mode and minigame (from the disc: tools/extract_clip_loaders.py)
     const pick = el('select', 'width:100%;box-sizing:border-box;border:0;border-radius:8px;padding:6px 8px;font:13px sans-serif');
     pick.addEventListener('keydown', (e) => e.stopPropagation()); // (the arrow keys pick in the dropdown here)
@@ -9050,13 +9091,24 @@ class ViewerScene extends BoardScene {
     const status = el('div', 'font-size:11px;opacity:.85'); panel.appendChild(status);
     const list = el('div', 'flex:1;overflow:auto;display:flex;flex-direction:column;gap:3px;min-height:80px'); panel.appendChild(list);
     let items = {};
+    // the faces (Expressions): the Mii keeps looping its clip
+    const faceHelp = el('div', 'opacity:.75;font-size:11px', 'Wii Party\'s seven Mii faces. The Mii keeps looping the clip it was on (or idle). Up/down arrows: next face; space: pause.');
+    const faceList = el('div', 'flex:1;overflow:auto;display:flex;flex-direction:column;gap:4px;min-height:80px');
+    const faceItems = FACES.map((x) => {
+      const b = button('', () => this.setFace(x.n), '#2a4a66'); b.style.textAlign = 'left'; b.style.padding = '6px 8px'; b.style.width = '100%';
+      b.innerHTML = `<b>${x.name}</b><span style="float:right;opacity:.7">${x.n}</span><br><span style="opacity:.8;font-size:11px">${x.uses}</span>`;
+      faceList.appendChild(b); return b;
+    });
+    panel.append(faceHelp, faceList);
+    const animOnly = [help, pick, search, status, list], faceOnly = [faceHelp, faceList];
     panel.appendChild(button('Back to the island', () => this.closeGallery(), '#7a2a3a'));
     app.ui.appendChild(panel);
     G.panel = panel;
     G.keys = (e) => {
       if (!this.gallery) return;
       const i = names.indexOf(G.clip);
-      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); this.playClip(names[(i + (e.key === 'ArrowDown' ? 1 : -1) + names.length) % names.length]); }
+      if ((e.key === 'ArrowDown' || e.key === 'ArrowUp') && G.mode === 'expressions') { e.preventDefault(); const k = FACES.findIndex((x) => x.n === G.face); this.setFace(FACES[(k + (e.key === 'ArrowDown' ? 1 : -1) + FACES.length) % FACES.length].n); }
+      else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); this.playClip(names[(i + (e.key === 'ArrowDown' ? 1 : -1) + names.length) % names.length]); }
       else if (e.key === ' ') { e.preventDefault(); G.playing = !G.playing; G.ui.update(true); }
     };
     addEventListener('keydown', G.keys, true);
@@ -9092,8 +9144,16 @@ class ViewerScene extends BoardScene {
           : (only ? `${names.length} of ${total} clips` + (f.value !== 'shared' && !f.unnamed && G.more !== 'in' ? ' so far' : '') : `${total} clips` + (q ? `, ${names.length} found` : ''));
         shown = null; G.ui.update(true);
       },
+      /** Show the animations' controls or the faces'. */
+      mode: () => {
+        modePick.value = G.mode;
+        for (const e of animOnly) e.style.display = G.mode === 'animations' ? '' : 'none';
+        for (const e of faceOnly) e.style.display = G.mode === 'expressions' ? '' : 'none';
+        G.ui.update(true);
+      },
       update(full) {
         const C = G.clips[G.clip]; if (!C) return;
+        if (full) FACES.forEach((x, i) => { faceItems[i].style.outline = x.n === G.face ? '2px solid #ffd84a' : ''; faceItems[i].style.background = x.n === G.face ? '#6a3a7a' : '#2a4a66'; });
         if (full || shown !== G.clip) {
           if (shown && items[shown]) items[shown].style.outline = '';
           if (items[G.clip]) { items[G.clip].style.outline = '2px solid #ffd84a'; if (shown !== G.clip && items[G.clip].scrollIntoView) items[G.clip].scrollIntoView({ block: 'nearest' }); }
@@ -9102,14 +9162,21 @@ class ViewerScene extends BoardScene {
         }
         scrub.value = Math.round(G.f);
         const u = used[G.clip];
+        if (G.mode === 'expressions') {
+          const x = FACES.find((y) => y.n === G.face);
+          now.innerHTML = `<b style="font-size:15px">${x ? x.name : G.face}</b><br>Body: ${G.clip} (${C.loop ? 'loops' : 'plays once'}) &middot; frame ${Math.round(G.f)} / ${C.frames - 1}`
+            + (G.face3d ? '' : `<br><span style="color:#ffd27a">${G.ffl === undefined ? 'The Mii\'s real head is loading...' : 'Faces need the real Mii head, which comes from the mii/ folder next to the page (on the website or the zip); this page has the stand-in head.'}</span>`);
+          return;
+        }
         now.innerHTML = `<b style="font-size:15px">${G.clip}</b><br>${u ? `Party Island plays it as: <b>${u.join(', ')}</b>` : 'Not used by Party Island now'}<br>${loadedBy(G.clip)}<br>Frame ${Math.round(G.f)} / ${C.frames - 1} &middot; ${C.loop ? 'loops' : 'plays once'} &middot; ${(C.frames / 60).toFixed(2)} s`;
       },
     };
     G.ui.list();
+    G.ui.mode();
   }
 }
 
-return { galleryFilters, clipLoadedBy, loadMoreClips, galleryOrder, clipUses, ViewerScene };
+return { galleryFilters, clipLoadedBy, loadMoreClips, FACES, galleryOrder, clipUses, ViewerScene };
 })();
 __mods["js15/world/wiiBoard.js"] = (() => {
 // Board Game Island loader for three.js

@@ -351,6 +351,28 @@ The hand-built island is gone. The game now runs on the converted Wii Party map 
   sinks away. The game's "broken" message did not say who broke it, so the scene had no player to animate and
   only waited, then hid the wall.
 
+## Build 97: Mii faces in the animation gallery
+
+The animation gallery has a dropdown at the top: **Animations** (every clip, as before) or **Expressions (faces)**.
+Expressions lists Wii Party's seven Mii faces: Normal, Smile, Anger, Sorrow, Surprise, Blink, Open mouth. Each says
+what the game's scripts pair it with. The Mii keeps looping the clip it was on, or idles (pm000_01) if that clip plays
+only once. Up/down arrows step through the faces. You can also open the viewer at `#animation-gallery-expressions`.
+
+Where they come from: `mr011.rel` and `mr083.rel` name the faces (`Emo.Normal` ... `Emo.OpenMouth`). Those are the
+Wii's seven Mii faces, which are FFL's expressions 0-6. The one surviving script, `scripts/mr011/player.cnut`, sets a face
+with `setEmo` beside each motion:
+- Smile with pm000_07.
+- Surprise with pm001_03 and pm011_08.
+- Sorrow with the head-hanging clips.
+- Anger with the fighting pose.
+- Anger or Sorrow with pm001_07.
+
+Board Game Island's own code (`mr001.rel`) is compiled, so its choices aren't readable.
+
+The gallery's head is made with all seven faces (`head(bytes, renderer, expressions)` and `setFace(head, n)` in
+`mii/ffl/game-ffl.js`). Faces need the real head from the `mii/` folder (the website, or the zip run from a server).
+Pages without that folder have the stand-in head and say so. The board and the sequence editor don't use faces yet.
+
 ## Build 96: the sequence editor
 
 In the island viewer: **Sequence editor** (or open the viewer at `#sequence-editor`, `#sequence-editor-smash.dragon`). Every moment the board plays is listed: landing on each kind of space (its note), every kind of move (walk, springs, the knock-back, tornado, statues, meteors, the vine, swimming, the drop), every challenge's outcomes, the UFO, the eruption, turns and rounds starting, minigames, the win.

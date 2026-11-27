@@ -23,10 +23,14 @@ export function start(base) {
   return ready;
 }
 
-/** A Mii head (THREE.Group of FFL's meshes, about 92 units wide, origin at the neck, facing +z) from Mii bytes FFL takes. */
-export function head(bytes, renderer) {
+/**
+ * A Mii head (THREE.Group of FFL's meshes, about 92 units wide, origin at the neck, facing +z) from Mii bytes FFL takes.
+ * `expressions`: the faces it can show (FFL's numbers; Wii Party's seven are 0-6: normal, smile, anger, sorrow, surprise,
+ * blink, open mouth), each drawn once here; change between them with setFace(head, n). Without: the normal face only.
+ */
+export function head(bytes, renderer, expressions = null) {
   if (!mod) throw new Error('FFL not started');
-  const cm = createCharModel(bytes, null, FFLShaderMaterial, mod);
+  const cm = createCharModel(bytes, expressions, FFLShaderMaterial, mod);
   initCharModelTextures(cm, renderer);
   const g = cm.meshes;
   g.userData.charModel = cm;
@@ -45,6 +49,12 @@ export function faceIcon(bytes, size = 256) {
     camera.position.set(0, 33, 600); camera.lookAt(0, 33, 0);
     return makeIconFromCharModel(cm, iconRenderer, { width: size, height: size, camera }).toDataURL('image/png');
   } finally { cm.dispose(); }
+}
+
+/** Show one of the faces a head was made with (see head()). False if it wasn't made with that one. */
+export function setFace(g, n) {
+  const cm = g && g.userData.charModel; if (!cm) return false;
+  try { cm.setExpression(n); return true; } catch (e) { return false; }
 }
 
 /** Free a head's FFL memory and textures. */
