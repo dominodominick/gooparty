@@ -1,4 +1,4 @@
-import { direct } from './director.js';
+import { direct, setPawnFace } from './director.js';
 import { app } from '../app.js';
 import { PLAYER_COLORS, VIRTUAL, BUILD } from '../config.js';
 import { ISLAND, VOLCANO, LABELS, TILE_COLORS, isChallenge, EXIT_POS } from '../game/boardData.js';
@@ -163,6 +163,7 @@ function makePawn(T, slot, mii = null) {
   return g;
 }
 
+const BOARD_IDLES = ['pm011_08', 'pm000_16', 'pm000_17']; // the board's idles (the real game's: see boardIdle)
 const PTR_EVENTS = ['pointermove', 'pointerdown', 'pointerup', 'pointercancel']; // what moves (and presses) your custom pointer
 
 export class BoardScene {
@@ -1574,6 +1575,10 @@ export class BoardScene {
       anim.step = (u) => { if (step) step(u); this.statueThrow(st, u); };
       anim.end = () => { if (end) end(); this.statueThrow(st, 1); };
     }
+    if (pw && ev.mode === 'fast' && !ev.swim && ev.count && ev.count.dir === 'back') { // chased back by the spike ball: the scared run (pm405_04), then head hung (pm001_16) and Sorrow, as the real game
+      pw.fleeing = true;
+      const end = anim.end; anim.end = () => { if (end) end(); pw.fleeing = false; pw.after = { clip: 'sad', face: 3, left: 4.5 }; };
+    }
     if (pw && pw.track === 'volcano' && ev.path.some((n) => n.track === 'island') && this.exitGlow) { // the way out lights up as the player leaves
       for (const m of this.exitGlow) m.visible = true;
       const end = anim.end; anim.end = () => { if (end) end(); for (const m of this.exitGlow) m.visible = false; };
@@ -1781,8 +1786,9 @@ export class BoardScene {
     else if (F && F.arms && F.arms[0] <= -2.5) clip = 'scared';
     else if (F) clip = 'idle';
     else if (pawn.wonder) clip = 'wonder'; // ("what is about to happen?": before the UFO, a blue spring, the fireball, the skull, the ! space, a tornado)
-    else if (pawn.amp > 0.2) clip = speed > 16 ? 'run' : 'walk';
-    else clip = pawn.rollClip || pawn.cheer || 'idle'; // (rollClip: waiting on a challenge's die: eager, or puzzled at the spike ball)
+    else if (pawn.amp > 0.2) clip = pawn.fleeing ? 'pm405_04' : speed > 6 ? 'run' : 'walk'; // (the real board runs everywhere, walking only as they come to a stop)
+    else if (pawn.after && pawn.after.left > 0) { clip = pawn.after.clip; pawn.after.left -= dt; if (pawn.after.face != null) setPawnFace(pawn, pawn.after.left > 0 ? pawn.after.face : 0); } // (a moment that lingers: sad after the spike ball)
+    else clip = pawn.rollClip || pawn.cheer || this.boardIdle(pawn, dt); // (rollClip: waiting on the die: puzzled, or eager at the dragon wall and the summit)
     const W = pawn.wp || (pawn.wp = { clip: null, t: 0, prev: null, prevF: 0, blend: 1, dist: 0 });
     if (clip !== W.clip) { W.prev = W.clip; W.prevF = W.f || 0; W.clip = clip; W.t = 0; W.blend = W.prev ? 0 : 1; }
     W.t += dt; W.blend = Math.min(1, W.blend + dt / 0.2);
@@ -1793,6 +1799,17 @@ export class BoardScene {
     // the body stays where the game puts the pawn: the clip's own travel (its root bone moving off) is left out
     const root = wp.bones.ske_root;
     if (root) { root.position.x = 0; root.position.z = 0; if ((flying && clip !== 'knock') || clip === 'hang' || clip === 'fly' || clip === 'tumble') root.position.y = 60; } // (knock: falling onto their bottom as they land, not held up)
+  }
+
+  /**
+   * Standing about on the board, as the real game: the Miis switch between three idles (pm011_08, and looking about:
+   * pm000_16, pm000_17) every few seconds, each on their own (from a trace of the real Board Game Island).
+   */
+  boardIdle(pawn, dt) {
+    const I = pawn.idleCycle || (pawn.idleCycle = { clip: 'pm011_08', left: 2 + Math.random() * 6 });
+    I.left -= dt;
+    if (I.left <= 0) { const o = BOARD_IDLES.filter((c) => c !== I.clip); I.clip = o[Math.floor(Math.random() * o.length)]; I.left = 3 + Math.random() * 6; }
+    return I.clip;
   }
 
   /**

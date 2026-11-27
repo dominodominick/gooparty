@@ -605,12 +605,31 @@ for (let i = 1; i < V.length; i++) {
   const make = () => { const bg = new BoardGame({ slots: [0, 1], rng: mulberry32(3), isNpc: () => true }); bg.start(0); bg.order = [...bg.players]; bg.turn = 0; return bg; };
   const d = ISLAND.findIndex((n) => n.type === 'dragon');
   const run = () => { const bg = make(); bg.positions[0] = I(d); bg.step = { kind: 'single', purpose: 'dragon', remaining: 0 }; bg.rigNext = 6; const e = []; const done = bg._resolveSingle(0, e); const r = bg._commit(1000, e, done); return { bg, ev: r.events.find((x) => x.t === 'broken') }; };
+  const shipped = SEQUENCES['smash.dragon']; delete SEQUENCES['smash.dragon']; // (the game's own, from the trace: set aside for this)
   const before = run();
   SEQUENCES['smash.dragon'] = { blocks: [{ track: 'builtin', at: 0, len: 600, from: 0, speed: 0.5 }] }; // ten seconds
   const after = run();
-  delete SEQUENCES['smash.dragon'];
+  if (shipped) SEQUENCES['smash.dragon'] = shipped; else delete SEQUENCES['smash.dragon'];
   assert.equal(before.ev.hold || 0, 0);
   assert.equal(after.ev.hold, 10000 - after.ev.dur, 'held for the sequence');
   assert.equal(after.bg.readyAt - before.bg.readyAt, after.ev.hold, 'and the next turn waits for it');
+}
+// ---------- v100: the sequences taken from the real game (a trace of the recomp): each is sound
+{
+  const { SEQUENCES } = await import('../js15/game/sequences.js');
+  const { CLIP_TABLE } = await import('../js15/world/clipTable.js');
+  const { allMoments } = await import('../js15/game/moments.js');
+  const keys = new Set(allMoments().map((m) => m.key));
+  for (const [k, q] of Object.entries(SEQUENCES)) {
+    assert.ok(keys.has(k), `${k} is a moment`);
+    assert.equal(q.v, 2, k);
+    for (const m of q.miis) { for (const b of m.anim) assert.ok(CLIP_TABLE[b.clip], `${k}: ${b.clip} is in the page`); for (const b of m.face) assert.ok(b.face >= 0 && b.face <= 6, k); }
+    for (const c of q.camera) assert.ok(c.kind !== 'shot' || ['x', 'y', 'z', 'tx', 'ty', 'tz'].every((a) => Number.isFinite(c.shot[a])), `${k}: camera`);
+  }
+  for (const k of ['smash.dragon', 'smash.final', 'spike.shock', 'move.spring.blue', 'duel.challenge', 'duel.result', 'win']) assert.ok(SEQUENCES[k], k);
+  // the 1 vs 1: its challenge and its result are their own moments (not the space's caption)
+  const { momentKey } = await import('../js15/game/moments.js');
+  assert.equal(momentKey({ t: 'space', moment: 'duel.challenge', slot: 0 }, 'mg11'), 'duel.challenge');
+  assert.equal(momentKey({ t: 'move', mode: 'spring', spring: 'green', count: { dir: 'back' } }), 'move.spring.green.back');
 }
 console.log('board tests passed');

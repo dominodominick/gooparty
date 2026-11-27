@@ -351,6 +351,35 @@ The hand-built island is gone. The game now runs on the converted Wii Party map 
   sinks away. The game's "broken" message did not say who broke it, so the scene had no player to animate and
   only waited, then hid the wall.
 
+## Build 100: the real Board Game Island's own animations, faces and cameras
+
+From a trace of the real game: a hook in the owner's Wii Party recomp logged a whole game of Board Game Island (51
+minutes). It logged every clip loaded and played on each Mii, every face set, and every camera position.
+`tools/trace_to_sequences.mjs` (with the moments picked out in `tools/trace_moments.json`) turned it into the shipped
+sequences in `js15/game/sequences.js`. The project notes (`wii-party-recomp-trace`) say how the trace was made.
+
+**Shipped sequences** (real clips, faces and timings; the real camera where the moment happens on a fixed space):
+- The dragon wall smashed (kick, punch, punch, kick, the stance, then Smile and pm001_06). The fireball, and being
+  knocked back (pm001_11 with Surprise, pm001_12, pm001_05).
+- The summit gate kicked open (6 kicks and punches). Missing it (pm001_07 with Sorrow).
+- The spike ball: everyone on the stretch, pm001_03 with Surprise.
+- The blue, red and both green springs. The blue and the red statue throws.
+- The UFO, up and down. The crates and the swim. The win (winner Smile, pm000_11, pm441_03 / 04; the others
+  pm000_08 then pm000_15 with Sorrow).
+- New moments: the 1 vs 1 challenge (Anger, pm011_06 then pm011_12, facing you) and its result (the winner Smile and
+  pm001_06, the loser Sorrow and pm001_07), and the green spring back (the loser of a 1 vs 1).
+
+**The board itself, as the real game**
+- Standing Miis switch between three idles (pm011_08, pm000_16, pm000_17) every few seconds.
+- Whoever rolls does pm011_07 while the die spins (pm011_09 at the dragon wall and the summit).
+- Moving is a run (pm000_04), slowing to the walk (pm000_03) at the end.
+- Chased back by the spike ball: the scared run (pm405_04), then pm001_16 with Sorrow.
+
+The 13 clips this needs beyond the page's own are in `js15/world/boardClips.js` (from `tools/extract_board_clips.mjs`).
+
+Not in this trace, so not done yet: the eruption, the tornado, the dinosaur, the skull and ! spaces, the spike
+statue breaking, the vine as a sequence, and the fist pump on a good roll (when it happens is not known yet).
+
 ## Build 99: the sequence studio
 
 The sequence editor is now a screen of its own: **Sequence studio**, on the title menu and in the island viewer

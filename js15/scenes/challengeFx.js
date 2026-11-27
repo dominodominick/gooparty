@@ -411,11 +411,13 @@ export class ChallengeFX {
   /** A challenge roll or choice is starting: the pawn takes its place and the camera stays put. */
   begin(slot) {
     const pawn = this.s.pawns[slot];
+    if (pawn && (pawn.track !== 'island' || pawn.across)) pawn.rollClip = 'puzzled'; // (the turn pose, in the volcano or just past a challenge)
     if (!pawn || pawn.track !== 'island' || pawn.across) return; // (someone already past a challenge, on the spot after it, just rolls)
     const kind = ISLAND[pawn.idx].type;
+    // while the die spins: eager at the dragon wall and the summit gate (pm011_09); everywhere else the real game's
+    // turn pose, pm011_07 (the spike ball too)
+    pawn.rollClip = (kind === 'dragon' || kind === 'final') && !this.broken[kind] ? 'eager' : 'puzzled';
     if (!['vine', 'dragon', 'crates', 'spike', 'final'].includes(kind) || this.broken[kind]) return;
-    // while the die spins: eager at the dragon wall and the summit gate (pm011_09), puzzled at the spike ball (pm011_07)
-    pawn.rollClip = kind === 'dragon' || kind === 'final' ? 'eager' : kind === 'spike' ? 'puzzled' : null;
     if (this.active && this.active.slot === slot && this.active.kind === kind) return;
     this.active = { slot, kind };
     const hold = this.holdFor(kind);

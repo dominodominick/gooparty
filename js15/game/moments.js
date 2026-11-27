@@ -18,11 +18,12 @@ const SPOTS = {
 /** The moment a scene event is, as a key ('' for none: a die appearing, a choice). spot: the kind of space they are on. */
 export function momentKey(ev, spot = null) {
   if (!ev) return '';
+  if (ev.moment) return ev.moment; // (an event can name its moment: the 1 vs 1 challenge, its result)
   switch (ev.t) {
     case 'space': return ev.fx ? `note.${ev.fx}` : `note@${spot || 'blank'}`;
     case 'move': {
       const m = ev.mode;
-      if (m === 'spring') return `move.spring.${ev.spring || 'blue'}`;
+      if (m === 'spring') return `move.spring.${ev.spring || 'blue'}${ev.spring === 'green' && ev.count && ev.count.dir === 'back' ? '.back' : ''}`; // (green: after a minigame, forward for the winner, back for the loser)
       if (m === 'fly') return ev.meteor ? 'move.fly.meteor' : ev.tornado ? 'move.fly.tornado' : ev.statue ? `move.fly.statue.${ev.statue}` : 'move.fly';
       if (ev.swim) return 'move.swim';
       if (ev.swing) return 'move.swing';
@@ -51,6 +52,8 @@ export function castOf(key) {
     'minigame.duel': ['Challenger', 'Opponent'],
     'minigame.rest': ['Solo player', 'The rest: 1', 'The rest: 2', 'The rest: 3'],
     'note@mg11': ['Challenger', 'Opponent'],
+    'duel.challenge': ['Challenger', 'Opponent'],
+    'duel.result': ['Winner', 'Loser'],
     'note@mgRest': ['Solo player', 'The rest: 1', 'The rest: 2', 'The rest: 3'],
     'ufo.up': ['Beamed up', 'Swapping with'], 'ufo.down': ['Put down', 'Swapping with'], 'note@ufo': ['Lands on the UFO', 'Swapping with'],
     'eruption': ['Landed on the volcano', 'Another Mii', 'Another Mii', 'Another Mii'],
@@ -67,7 +70,9 @@ export function castOf(key) {
 export function allMoments() {
   const out = [];
   const add = (group, key, title) => out.push({ key, title, group });
+  add('Special spaces', 'duel.challenge', '1 vs 1 space: the challenge (fighting pose)');
   add('Special spaces', 'minigame.duel', '1 vs 1 space: before the minigame');
+  add('Special spaces', 'duel.result', '1 vs 1: who won (after the minigame)');
   add('Special spaces', 'minigame.rest', '1 vs Rest space: before the minigame');
   add('Special spaces', 'eruption', 'Volcano space: the eruption');
   add('Special spaces', 'ufo.up', 'UFO space: beamed up');
@@ -88,7 +93,8 @@ export function allMoments() {
   add('Moves', 'move.fast', 'Running (pushed back by the spike ball)');
   add('Moves', 'move.swing', 'The vine swing');
   add('Moves', 'move.swim', 'Swimming (crates: wrong pick)');
-  add('Moves', 'move.spring.green', 'Green spring (after a minigame)');
+  add('Moves', 'move.spring.green', 'Green spring forward (won a minigame)');
+  add('Moves', 'move.spring.green.back', 'Green spring back (lost a 1 vs 1)');
   add('Moves', 'move.knock', "Knocked back (the dragon's fireball)");
   add('Moves', 'move.fly.meteor', 'Hit by a meteor (eruption)');
   add('Moves', 'move.fly', 'Flying (the dinosaur, other)');

@@ -172,6 +172,9 @@ export class ViewerScene extends BoardScene {
       'turn.start': () => { at(1); this.demo.push(game({ t: 'turnStart', slot: 0, dur: DUR.turnIntro })); },
       'round.start': () => { at(1); put(1, 1); put(2, 2); put(3, 3); this.demo.push(game({ t: 'roundStart', round: 2, order: [0, 1, 2, 3], dur: DUR.round })); },
       'minigame.duel': () => { const s = stopOf('mg11'); at(s); put(1, s - 3); this.demo.push(game({ t: 'minigame', kind: 'duel', slot: 0, opp: 1, dur: DUR.minigame })); },
+      'duel.challenge': () => { const s = stopOf('mg11'); at(s); put(1, s - 3); this.demo.push(game({ t: 'space', slot: 0, text: '1 vs 1! {0} challenges {1}', cast: [1], moment: 'duel.challenge', dur: DUR.banner })); },
+      'duel.result': () => { const s = stopOf('mg11'); at(s); put(1, s - 3); this.demo.push(game({ t: 'space', slot: 0, text: '{0} wins! +7, and {1} goes back 7', cast: [1], moment: 'duel.result', dur: DUR.banner })); },
+      'move.spring.green.back': () => { const s = stopOf('mg11') + 4; at(s); this.demo.push(move({ t: 'move', slot: 0, mode: 'spring', spring: 'green', path: walkBack({ track: 'island', idx: s }, 7).path, count: { total: 7, dir: 'back' }, dur: DUR.spring })); },
       'minigame.rest': () => { const s = stopOf('mgRest'); at(s); put(1, s - 2); put(2, s - 5); put(3, s + 3); this.demo.push(game({ t: 'minigame', kind: 'rest', slot: 0, dur: DUR.minigame })); },
       'win': () => { const s = stopOf('final'); at(s); put(1, s - 4); put(2, s - 9); put(3, s - 14); this.demo.push(move(walk(s, 1, 'walk')), game({ t: 'win', slot: 0, dur: 3000 })); },
     };

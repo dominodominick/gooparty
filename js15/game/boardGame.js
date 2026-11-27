@@ -665,14 +665,15 @@ export class BoardGame {
 
   /** Placeholder for the 1v1 minigame (none are built yet): 45% win, 45% lose, 10% tie. */
   _duel(slot, opp, events) {
-    events.push(note(slot, `1 vs 1! {${slot}} challenges {${opp}}`, { cast: [opp] }));
+    events.push(note(slot, `1 vs 1! {${slot}} challenges {${opp}}`, { cast: [opp], moment: 'duel.challenge' }));
     events.push({ t: 'minigame', kind: 'duel', slot, opp, dur: DUR.minigame });
     const r = this.rng();
     if (r < 0.45) {
-      events.push(note(slot, `{${slot}} wins! +${DUEL_MOVE}, and {${opp}} goes back ${DUEL_MOVE}`));
+      events.push(note(slot, `{${slot}} wins! +${DUEL_MOVE}, and {${opp}} goes back ${DUEL_MOVE}`, { cast: [opp], moment: 'duel.result' }));
       this._spring(slot, walkForward(this.positions[slot], DUEL_MOVE), 'green', events, FWD(DUEL_MOVE));
       this._spring(opp, walkBack(this.positions[opp], DUEL_MOVE), 'green', events, BACK(DUEL_MOVE), true);
-    } else events.push(note(slot, r < 0.9 ? `{${opp}} wins. Nothing happens.` : 'A tie! Nothing happens.'));
+    } else if (r < 0.9) events.push(note(opp, `{${opp}} wins. Nothing happens.`, { cast: [slot], moment: 'duel.result' })); // (the winner first: Mii 1)
+    else events.push(note(slot, 'A tie! Nothing happens.'));
   }
 
   /** What happens when a die roll ends on a space. Effects never chain (wiki: "not cumulative").

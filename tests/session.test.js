@@ -113,6 +113,7 @@ const { DUR, TIMING } = await import('../js15/game/boardGame.js');
 Object.assign(DUR, { knock: 5, diceStop: 5, walkStep: 2, fastStep: 2, fly: 5, drop: 5, banner: 5, round: 10, turnIntro: 5, moveTail: 2, cross: 2, swing: 2, vinePause: 2, wall: 5, fire: 5, pit: 5, swim: 5, eruption: 5, minigame: 5, flyover: 5, spring: 5, ufo: 5, statueThrow: 5 });
 for (const k of Object.keys(DUR)) DUR[k] = Math.min(DUR[k], 5); // (every timing, including ones added later: wonder, tornado...)
 Object.assign(TIMING, { npcRoll: 5, npcChoose: 5, npcDuel: 5, gap: 5 });
+{ const { SEQUENCES } = await import('../js15/game/sequences.js'); for (const k of Object.keys(SEQUENCES)) delete SEQUENCES[k]; } // (the game's sequences would hold each moment for seconds)
 
 const seen = [];
 cy.setTurnHandler((m) => seen.push(m));

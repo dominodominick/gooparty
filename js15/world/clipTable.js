@@ -3,9 +3,10 @@
 // mii/clips/more-clips.json, loaded the first time one is needed. The board's pawns pose from this table.
 import { WP_MII } from './wpMiiData.js';
 import { ALL_CLIPS } from './wpMiiAllClips.js';
+import { BOARD_CLIPS } from './boardClips.js';
 import { MII_BASE } from './miiHead.js';
 
-export const CLIP_TABLE = { ...ALL_CLIPS, ...WP_MII.clips };
+export const CLIP_TABLE = { ...ALL_CLIPS, ...BOARD_CLIPS, ...WP_MII.clips };
 for (const [name, code] of Object.entries(WP_MII.source || {})) if (!CLIP_TABLE[code]) CLIP_TABLE[code] = WP_MII.clips[name]; // (the game's named clips, by code too)
 
 let more = null;
