@@ -463,7 +463,7 @@ for (let i = 1; i < V.length; i++) {
   for (const [type, color, dir] of [['statueBlue', 'blue', 'fwd'], ['statueRed', 'red', 'back']]) {
     const bg = make(2, 1), sIdx = at(type); bg.positions[0] = I(sIdx);
     const { e } = evs(bg, 0, sIdx), mv = e.find((x) => x.t === 'move');
-    assert.equal(mv.mode, 'fly'); assert.equal(mv.statue, color); assert.equal(mv.count.dir, dir); assert.equal(mv.dur, DUR.statueThrow);
+    assert.equal(mv.mode, 'fly'); assert.equal(mv.statue, color); assert.equal(mv.count.dir, dir); assert.equal(mv.dur, color === 'blue' ? 16116 : 14830); // (the real game's: realTimings.js)
     assert.deepEqual(bg.positions[0], (dir === 'fwd' ? walkForward : walkBack)(I(sIdx), ISLAND[sIdx].arg).end);
   }
 
@@ -568,8 +568,8 @@ for (let i = 1; i < V.length; i++) {
   const single = (bg, slot, purpose, d, remaining = 0) => { bg.step = { kind: 'single', purpose, remaining }; bg.rigNext = d; const e = []; const done = bg._resolveSingle(slot, e); return { e, done }; };
   const F = (n) => Math.round(n * 1000 / 60);
   // the timings are the clips' and the walls' own frames
-  assert.equal(D.wall, F(4 * 31 + 75 + 48 + 71), 'the dragon wall: 4 punches, the stance, a moment, the cheer');
-  assert.equal(D.gate, F(6 * 31 + (5 * 31 + 4 + 101 - 6 * 31) + 12 + 71), 'the summit gate: 6 kicks, the last one\'s break, a beat, the cheer');
+  assert.equal(D.wall, 7391, 'the dragon wall: the real game\'s 7.39 s (build 103, realTimings.js)');
+  assert.equal(D.gate, 5476, 'the summit gate: the real game\'s 5.48 s');
   assert.ok(GATE_SMASH.watch > 0 && SMASH.punches === 4 && SMASH.kicks === 6 && DRAGON_SMASH.stance === 75);
   // the dragon wall, passed: the note, the smash (who does it), then they walk on
   let bg = make(); { const d = at('dragon'); bg.positions[0] = I(d); const { e } = single(bg, 0, 'dragon', 5, 2); const t = e.map((x) => x.t);
@@ -626,7 +626,8 @@ for (let i = 1; i < V.length; i++) {
     for (const m of q.miis) { for (const b of m.anim) assert.ok(CLIP_TABLE[b.clip], `${k}: ${b.clip} is in the page`); for (const b of m.face) assert.ok(b.face >= 0 && b.face <= 6, k); }
     for (const c of q.camera) assert.ok(c.kind !== 'shot' || ['x', 'y', 'z', 'tx', 'ty', 'tz'].every((a) => Number.isFinite(c.shot[a])), `${k}: camera`);
   }
-  for (const k of ['smash.dragon', 'smash.final', 'spike.shock', 'move.spring.blue', 'duel.challenge', 'duel.result', 'win']) assert.ok(SEQUENCES[k], k);
+  for (const k of ['smash.dragon', 'smash.final', 'spike.shock', 'move.fly.statue.blue', 'duel.challenge', 'duel.result', 'win']) assert.ok(SEQUENCES[k], k);
+  for (const k of ['move.spring.blue', 'move.spring.red', 'ufo.up']) assert.ok(!SEQUENCES[k], k + ': the set piece itself plays the real clips, faces and timings (build 103)');
   // the 1 vs 1: its challenge and its result are their own moments (not the space's caption)
   const { momentKey } = await import('../js15/game/moments.js');
   assert.equal(momentKey({ t: 'space', moment: 'duel.challenge', slot: 0 }, 'mg11'), 'duel.challenge');

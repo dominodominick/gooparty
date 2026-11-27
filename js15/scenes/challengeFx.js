@@ -5,6 +5,7 @@
 import { PAWN_SCALE } from '../world/miis.js';
 import { ISLAND, gapBetween } from '../game/boardData.js';
 const islandTypeAt = (i) => ISLAND[i] && ISLAND[i].type;
+import { FIREBALL, SMASH_REAL, REACT_CAM } from '../game/realTimings.js';
 import { DUR, VINE, crossMs, SPIKE_START, SPIKE_MIN, SMASH, DRAGON_SMASH, GATE_SMASH } from '../game/boardGame.js';
 import { BREAKS } from '../world/breakData.js';
 import { rigBreak, restorePristine } from '../world/breakRig.js';
@@ -610,46 +611,47 @@ export class ChallengeFX {
    * Then the camera cuts to the way on; they turn to it, stand a moment (dragon) and cheer (pm001_06).
    */
   smashAnim(kind, ev, pawn) {
-    const dragon = kind === 'dragon', rigName = dragon ? 'dragon' : 'gate', rig = this.breakRig(rigName), S = SMASH, o = this.o;
+    // as the real game plays it (realTimings.js SMASH_REAL, from the trace): its blows (kicks and punches) at their real
+    // times, the wall or gate jolting at each, breaking at its real time while they hold the stance, the cut to the way
+    // on, and (the dragon) a fist pump with a smile
+    const dragon = kind === 'dragon', rigName = dragon ? 'dragon' : 'gate', rig = this.breakRig(rigName), S = SMASH, o = this.o, R = SMASH_REAL[kind];
     const obj = dragon ? o && o.guardFire : this.s.gate, target = dragon ? this.sp.wall.at : this.gateAt();
     const here = { x: pawn.x, y: pawn.y, z: pawn.z }, yaw = Math.atan2(target.x - here.x, target.z - here.z);
-    const n = dragon ? S.punches : S.kicks, clip = dragon ? 'punch' : 'kick';
     const hooks = dragon ? ['hit1', 'hit2', 'hit3', 'hit4'] : ['hit1', 'hit2', 'hit3', 'hit4', 'hit5', 'break'];
-    const blows = n * S.swing, impact = (k) => k * S.swing + S.impact, last = impact(n - 1);
-    const P = dragon ? DRAGON_SMASH : GATE_SMASH;
-    const cutAt = dragon ? blows + P.stance : blows + P.watch, cheerAt = cutAt + (dragon ? P.idle : P.beat), total = cheerAt + P.cheer;
+    const impacts = R.blows.map(([at]) => at + S.impact / 60);
     const color = (PLAYER_COLORS[pawn.slot] || PLAYER_COLORS[0]).hex;
     this.walkTo = null;
     if (dragon && o) { o.guard.visible = false; o.guardFire.visible = true; for (const m of o.guardHead) m.visible = false; } // the whole model, which has the pieces
-    const a = { t: 0, dur: ev.dur, shown: 0, cut: false };
+    const a = { t: 0, dur: Math.max(ev.dur || 0, R.end * 1000), shown: 0, cut: false };
     const cam = this.smashCam(kind);
     a.step = (u) => {
-      const f = u * total;
+      const t = u * a.dur / 1000;
       // the player
       pawn.faceYaw = a.cut && cam ? Math.atan2(cam.x - here.x, cam.z - here.z) : yaw; // (the scene turns each pawn to its heading)
-      if (f < blows) { const k = Math.floor(f / S.swing); pawn.fx = { ...here, yaw, clip, clipF: f - k * S.swing }; }
-      else if (f < cutAt) pawn.fx = dragon ? { ...here, yaw, clip: 'stance', clipF: f - blows } : { ...here, yaw, clip: 'pm011_08' };
-      else {
-        if (!a.cut) { // the cut: the wall is gone, the player turns to the camera on the way on
-          a.cut = true;
-          if (cam) { this.s.camHold = cam; this.s.snapCamera = true; }
-          this.s.closeUp = true; // (no number badges in the close-up, as in the game)
-          if (obj) obj.visible = false; rig.rest();
-          if (!dragon) this.s.openSummit && this.s.openSummit();
-        }
+      if (t < R.stance) { let k = 0; while (k + 1 < R.blows.length && t >= R.blows[k + 1][0]) k++; pawn.fx = { ...here, yaw, clip: R.blows[k][1], clipF: (t - R.blows[k][0]) * 60 }; }
+      else if (t < R.idle) pawn.fx = { ...here, yaw, clip: 'pm301_01', clipF: (t - R.stance) * 60 };
+      else if (t < R.cut || !dragon) pawn.fx = { ...here, yaw, clip: 'pm011_08' };
+      if (t >= R.cut && !a.cut) { // the cut: the wall is gone, the player turns to the camera on the way on
+        a.cut = true;
+        if (cam) { this.s.camHold = cam; this.s.snapCamera = true; }
+        this.s.closeUp = true; // (no number badges in the close-up, as in the game)
+        if (obj) obj.visible = false; rig.rest();
+        if (!dragon) this.s.openSummit && this.s.openSummit();
+      }
+      if (a.cut && dragon) {
         const face = cam ? Math.atan2(cam.x - here.x, cam.z - here.z) : yaw;
-        pawn.fx = f < cheerAt ? { ...here, yaw: face, clip: 'pm011_08' } : { ...here, yaw: face, clip: 'pumped', clipF: f - cheerAt };
+        pawn.fx = t < R.cheer || t >= R.rest ? { ...here, yaw: face, clip: 'pm011_08' } : { ...here, yaw: face, clip: 'pm001_06', clipF: (t - R.cheer) * 60, face: 1 };
       }
       // a glint on each blow
-      while (a.shown < n && f >= impact(a.shown)) {
+      while (a.shown < impacts.length && t >= impacts[a.shown]) {
         const h = this.hookAt(rigName, hooks[a.shown % hooks.length]);
         if (h) { const d = Math.hypot(here.x - h.x, here.z - h.z) || 1; this.glint({ x: h.x + (here.x - h.x) / d * 0.9, y: h.y, z: h.z + (here.z - h.z) / d * 0.9 }, color, dragon ? 1 : 1.15); }
         a.shown++;
       }
-      // the wall: a jolt on each blow, blown apart by the last
+      // the wall: a jolt on each blow, then it breaks
       if (!a.cut) {
-        if (f >= last) rig.pose('break', f - last);
-        else { const k = Math.floor((f - S.impact) / S.swing), since = f - impact(k); if (k >= 0 && since < S.jolt) rig.pose('hit', since); else rig.rest(); }
+        if (t >= R.breakAt) rig.pose('break', (t - R.breakAt) * 60);
+        else { let k = -1; impacts.forEach((x, i) => { if (t >= x) k = i; }); const since = k >= 0 ? (t - impacts[k]) * 60 : Infinity; if (since < S.jolt) rig.pose('hit', since); else rig.rest(); }
       }
       this.s.place(pawn);
     };
@@ -855,7 +857,9 @@ export class ChallengeFX {
       this.walkTo = null;
       const a = { t: 0, dur: ev.dur }, secs = ev.dur / 1000;
       const target = { x: start.x, y: start.y + 1.3, z: start.z };
-      const SPIT = DRAGON.spit / DRAGON_FPS, FLY = 0.45, POP = 0.2; // seconds: the ball leaves the mouth / flies / bursts
+      // seconds, as the real game (realTimings.js FIREBALL): the dragon waits while they look round, starts at 0.86 s and the
+      // ball hits them at 1.39 s; the note ends there and the knock-back starts on the hit
+      const WAIT = FIREBALL.spit, SPIT = DRAGON.spit / DRAGON_FPS, FLY = Math.max(0.12, FIREBALL.hit - FIREBALL.spit - SPIT), POP = 0.2;
       let from = null;
       if (rig) { // where the spat ball starts: its bone at the frame it appears, in the scene's space
         o.guardFire.updateWorldMatrix(true, false);
@@ -868,8 +872,9 @@ export class ChallengeFX {
       };
       const reset = () => { showRig(false); if (rig) rig.pose(0); this.fire.visible = false; };
       a.step = (u) => {
-        const t = u * secs, f = t * DRAGON_FPS;
+        const t = Math.max(0, u * secs - WAIT), f = t * DRAGON_FPS;
         showRig(true);
+        if (t >= SPIT + FLY && !a.hit) { a.hit = true; this.burst(target, 14); } // (the burst, which outlives the note)
         if (t < SPIT) { // rear back, jaws open, the ball rises in its mouth
           if (rig) rig.pose(f); else { this.fire.visible = true; this.fire.position.copy(from); this.fire.scale.setScalar(0.8); }
         } else if (t < SPIT + FLY) { // spat: the ball flies at the player
@@ -1166,7 +1171,7 @@ export class ChallengeFX {
       o.ufo.visible = false; setBeam(0);
       pawn.fx = null;
       if (up) { pawn.scale = 0; pawn.group.visible = false; } // gone until the UFO drops them off
-      else { pawn.scale = 1; pawn.group.visible = true; }
+      else { pawn.scale = 1; pawn.group.visible = true; pawn.after = { clip: 'pm001_12', left: 0.25, next: { clip: 'pm206_03', left: 0.88 } }; } // landed, as the real game: pm001_12, then up (pm206_03)
       this.s.place(pawn);
     };
     if (!up) { pawn.group.visible = true; pawn.scale = 0; }

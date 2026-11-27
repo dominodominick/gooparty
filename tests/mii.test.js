@@ -152,7 +152,7 @@ for (const hw of [{ height: 0, build: 0 }, { height: 127, build: 127 }, { height
   assert.equal(WP_MII.source.springWind, 'pm001_08');
   const src = fs.readFileSync(path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'js15', 'scenes', 'boardScene.js'), 'utf8');
   const m = /const WIND_FRAMES = (\d+)/.exec(src); assert.ok(m && Number(m[1]) === WP_MII.clips.springWind.frames, 'WIND_FRAMES is the clip\'s length');
-  assert.ok(/clip: 'springWind', clipF: \(\(u - T1\) \/ \(T2 - T1\)\)/.test(src) && /clip: 'pm001_15'/.test(src), 'v101: pm001_15 as it rises (the trace), then pm001_08 over the wind-up, before the launch');
+  assert.ok(/clip: 'pm001_15', clipF: t \* 60/.test(src) && /clip: 'pm001_08', clipF: \(t - S\.rise\) \* 60/.test(src), 'v103: pm001_15 as it pops up, then pm001_08 winding up, at the real game\'s times (realTimings.js)');
 }
 { // v93: knocked down (pm001_04), dazed (pm001_05) and back up (pm206_03); the gallery can load every other clip
   const { WP_MII } = await import('../js15/world/wpMiiData.js');

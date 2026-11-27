@@ -351,6 +351,34 @@ The hand-built island is gone. The game now runs on the converted Wii Party map 
   sinks away. The game's "broken" message did not say who broke it, so the scene had no player to animate and
   only waited, then hid the wall.
 
+## Build 103: the set pieces run on the real game's clock
+
+Build 101/102 laid the trace's clips over our own set pieces, stretched to fit, so the motion, the clips and the
+camera drifted apart. Now the set pieces themselves run at the real game's times (`js15/game/realTimings.js`, read
+off the trace: when each Mii clip, each map model's clip and each camera cut happens):
+- **The camera:**
+  - The board camera looks at the Mii with no lag. Its shot follows the path exactly as the Mii runs.
+  - Going from the turn shot to the running shot (and back) is a 1-second straight blend, as in the real game.
+  - The reaction close-up cuts in **0.23 s after** the reaction starts (it was 0.2 s before: wrong) and holds 2.42 s,
+    then cuts back. Measured on 30+ reactions.
+  - Recorded cameras now hold still where the real one held still. Before, they slid slowly between two far-apart
+    keys, because the trace only logs the camera when it moves.
+- **Statues:**
+  - Each statue plays its clips at the real 1.2x speed. The blue one waits with its hands out while the Mii hops on.
+  - The throw and landing happen at the real times.
+  - The flight follows the real path (where the real camera looked, every frame), so the recorded camera keeps the
+    Mii in frame.
+  - Blue 16.1 s, red 14.8 s.
+- **Springs:**
+  - The set piece plays every clip and face itself, at the real times: pop up, wind up, fly, then land and cheer, or
+    land, get up and hang their head.
+  - Flight time goes with the distance: 0.18 s a space forward, 0.2 s back.
+  - The close-up comes at the real moment, facing the Mii.
+- **Dragon wall and summit gate:** each kick and punch at its real time, the break, and the cut.
+- **The fireball:** it fires at 0.86 s and hits at 1.39 s. They are flung back for 0.6 s, land, and sit dazed.
+- **The UFO and the crates:** the real landing (pm001_12, pm206_03) and the real sad face after the swim.
+- **Sequences:** none of the shipped sequences is stretched any more. Each one starts where its set piece starts.
+
 ## Build 102: the trace's animations replace the old ones everywhere
 
 - **Sequences saved in a browser's studio before the trace** (your own edits and recordings) no longer play over the

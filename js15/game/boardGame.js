@@ -5,6 +5,7 @@
 //   waiting  -> (animations finish) -> rolling | choosing -> (player presses Stop / picks) -> resolve -> waiting ...
 // One turn can contain several rolls: the main roll, then e.g. a challenge roll, then a final-challenge roll.
 import { momentKey, sequenceFrames } from './moments.js';
+import { springSecs, STATUE, FIREBALL, SMASH_REAL } from './realTimings.js';
 import { SEQUENCES } from './sequences.js';
 import {
   ISLAND, VOLCANO, FINAL_IDX, FINISH_IDX, VOLCANO_SPACE_IDX, VOLCANO_CHALLENGE_IDX, SPIKE_IDX,
@@ -66,20 +67,20 @@ export const DUR = {
   vinePause: 1300, // landed from the vine roll: the cheer (pm001_10), before walking the rest
   vineCross: 6900, // crossing the gorge on the vine without stopping, as the real game does (see VINE)
   cratesCross: 3200, // hopping across the pool on the crates or barrels (a hop and a landing on each, then the far side)
-  wall: F(sum(DRAGON_SMASH)), // punching the dragon wall to pieces, then a cheer (see DRAGON_SMASH)
-  gate: F(sum(GATE_SMASH)),     // kicking the summit gate to pieces, then a cheer (see GATE_SMASH)
+  wall: Math.round(SMASH_REAL.dragon.end * 1000), // kicking and punching the dragon wall to pieces, then a cheer (the real game's: realTimings.js)
+  gate: Math.round(SMASH_REAL.final.end * 1000), // kicking and punching the summit gate to pieces (the real game's)
   finalFail: F(SMASH.beat + SMASH.letdown + SMASH.beat), // the gate stays shut: they turn to the camera, let down
   shock: F(SMASH.beat + SMASH.shock + SMASH.beat),       // everyone on the spike ball's stretch jumps as it is spat out
   spikeBreak: F(SMASH.beat * 2 + SMASH.rumble + SMASH.shatter + SMASH.beat * 3), // later: the statue rumbles and its ball shatters
-  fire: 1700,    // the dragon spits the fireball in its mouth at the player
-  knock: 2200,   // ...and they are blown back onto the space behind them in one arc, sit there dazed, and get up
+  fire: 1393,    // the dragon spits the fireball in its mouth at the player (the real game: it hits them 1.39 s after they look round)
+  knock: 4438,   // ...and they are blown back onto the space behind them in one arc, land, and sit there dazed (the real game's 0.6 + 0.52 + 3.32 s)
   pit: 1800,     // the statue opens its jaws and spits the spike ball out at a player who failed
   spikeCount: 2600, // then the camera pans to the number beside the statue and it fades to the next one down
   swim: 3000,    // a crate breaks and the player swims across
-  statueThrow: 13000, // a statue's hands wake up, it throws the player high over the island, they walk off its platform
+  statueThrow: 16116, // a statue's hands wake up, it throws the player high over the island, they walk off its platform (blue; red is 14830: realTimings.js)
   tornado: 7000, // the tornado forms round the player, carries them back along the path, dies away and drops them
   ufo: 2600,     // one beam-up or drop-off of the UFO swap (there are four)
-  spring: 2400,  // a big spring pops up and bounces the player forward or back in one jump
+  spring: 60000, // a big spring pops up and bounces the player forward or back in one jump (the real length, realTimings.js springSecs, up to this)
 };
 // Falling into / climbing out of the volcano: shrink, the camera STAYS for a few seconds, black fade,
 // reappear at the destination, then hold so you can see where you are. These add up to DUR.drop.
@@ -661,7 +662,7 @@ export class BoardGame {
     const from = events.length;
     this._moveTo(slot, w, 'fly', events, count);
     const ev = events.slice(from).find((e) => e.t === 'move' && e.slot === slot && e.mode === 'fly');
-    if (ev) { ev.statue = color; ev.dur = DUR.statueThrow; }
+    if (ev) { ev.statue = color; ev.dur = Math.min(DUR.statueThrow, Math.round(STATUE[color].end * 1000)); } // (the real game's length: realTimings.js)
   }
 
   /** A move made by a big spring that pops out of the ground (blue: + space, red: - space, green: minigame). */
@@ -669,7 +670,11 @@ export class BoardGame {
     const from = events.length;
     this._moveTo(slot, w, 'spring', events, count, follow);
     const ev = events.slice(from).find((e) => e.t === 'move' && e.slot === slot && e.mode === 'spring');
-    if (ev) ev.spring = color;
+    if (ev) { // its length is the real game's, for this many spaces (realTimings.js)
+      ev.spring = color;
+      const kind = color === 'red' ? 'red' : count && count.dir === 'back' ? 'back' : 'fwd';
+      ev.dur = Math.min(DUR.spring, Math.round(springSecs(kind, ev.path.length) * 1000));
+    }
   }
 
   /** Placeholder for the 1v1 minigame (none are built yet): 45% win, 45% lose, 10% tie. */

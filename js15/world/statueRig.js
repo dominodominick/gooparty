@@ -12,6 +12,7 @@
 // Here the pieces are posed on the CPU (a few hundred vertices): bone matrix x inverse bind; a hidden piece gets an
 // all-zero matrix and shrinks to nothing.
 
+import { STATUE } from '../game/realTimings.js';
 export const STATUE_FPS = 60;
 const LIGHT_UP = 52;   // the frame the gem (and the red one's eyes) switch on in both statues' first clip
 const WAKE_END = 60;   // the "waking up" jiggle of the side hands lasts this long
@@ -133,32 +134,33 @@ export function rigStatue(root, D, model) {
 }
 
 /**
- * The timeline of a statue throw, in milliseconds of a move lasting `dur` (13 s in the game's own pace; a shorter or
- * longer move is the same, scaled). The statue plays the game's clips at 60 frames a second; the player lets go at
- * `release`, flies to the statue's platform until `land`, stands there until `walk`, then walks off onto the space.
- *  blue: wake 0-300 (the player hops from the space onto its hands over frames 262-288, when the nodding stops),
- *        launch 0-100 (the player rides the hands down and up and lets go at frame 66);
- *  red:  throw 0-390 (it grabs the player at 258, starts lifting at 288, throws at 352).
+ * The timeline of a statue throw (ms), as the real game plays it (realTimings.js STATUE, from a trace of it): the statue
+ * plays its clips at 1.2x. `ms(frames)`: when the statue's first clip reaches a frame.
+ *  blue: wake 0-300 at 1.2x; the launch clip waits on its first frame (hands out flat) while the player hops on
+ *        (`hop`), then plays at 1x from `lift`; the player lets go at its frame 68 (`release`).
+ *  red:  throw 0-390 at 1.2x (it grabs the player at frame 258, starts lifting at 288, throws them at `release`).
+ * Then the flight to the platform until `land`, (red: dazed until `getUp`), and the walk down onto the space from `walk`
+ * to `walkEnd`. `dur`: the whole set piece. (The `dur` argument is kept for old callers: the real timings are fixed.)
  */
-export const STATUE_DUR = 13000;
-export function statueTimeline(color, dur = STATUE_DUR) {
-  const k = dur / STATUE_DUR, ms = (frames) => frames / STATUE_FPS * 1000 * k;
-  const red = color === 'red';
-  const clips = red ? [{ name: 'throw', at: 0, frames: 391 }] : [{ name: 'wake', at: 0, frames: 301 }, { name: 'launch', at: ms(300), frames: 101 }];
-  const release = red ? ms(352) : ms(300 + 66), after = dur - release;
+export const STATUE_DUR = Math.round(STATUE.blue.end * 1000);
+export function statueTimeline(color) {
+  const red = color === 'red', R = red ? STATUE.red : STATUE.blue, sp = R.speed, s = (x) => x * 1000;
+  const ms = (frames) => frames / (STATUE_FPS * sp) * 1000;
+  const clips = red ? [{ name: 'throw', at: 0, frames: 391 }] : [{ name: 'wake', at: 0, frames: 301 }, { name: 'launch', at: s(R.launchAt), frames: 101 }];
   const T = {
-    red, clips, release, ms,
-    land: release + after * 0.51, walk: release + after * (red ? 0.77 : 0.72), dur, // (red: they sit there dazed and get up first)
-    hop: red ? null : [ms(262), ms(288)],   // blue: from the space onto the flat hands
-    grab: red ? ms(258) : null,             // red: the hands close round the player
-    lift: red ? ms(288) : ms(300),          // the player starts moving with the hands
+    red, clips, ms, dur: s(R.end),
+    release: s(R.release), land: s(R.land), walk: s(R.walk), walkEnd: s(R.walkEnd),
+    getUp: red ? s(R.getUp) : null,
+    hop: red ? null : [s(R.hop[0]), s(R.hop[1])], // blue: from the space onto the flat hands
+    grab: red ? ms(258) : null,                   // red: the hands close round the player
+    lift: red ? ms(288) : s(R.launchGo),          // the player starts moving with the hands
     lightUp: ms(LIGHT_UP),
   };
   /** The statue's clip and frame at time t (ms); after the last clip it holds that clip's last frame. */
   T.at = (t) => {
-    let c = clips[0];
-    for (const x of clips) if (t >= x.at) c = x;
-    return { clip: c.name, f: Math.min(c.frames - 1, Math.max(0, (t - c.at) / (1000 * k) * STATUE_FPS)) };
+    if (red) return { clip: 'throw', f: Math.min(390, Math.max(0, t / 1000 * STATUE_FPS * sp)) };
+    if (t < T.clips[1].at) return { clip: 'wake', f: Math.min(300, Math.max(0, t / 1000 * STATUE_FPS * sp)) };
+    return { clip: 'launch', f: t < T.lift ? 0 : Math.min(100, (t - T.lift) / 1000 * STATUE_FPS) }; // (waits on its first frame for the player)
   };
   return T;
 }

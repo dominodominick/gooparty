@@ -122,21 +122,20 @@ const pitch = (model, clip, name, f) => { const m = boneMatrix(D, D[model], D[mo
   assert.ok(Math.abs(rig.frames('throw') - 391) === 0);
 }
 
-// ---- the timeline: the game's 60 frames a second, scaled with the move
+// ---- the timeline: the real game's (build 103: realTimings.js STATUE, from the trace), the statue's clips at 1.2x
 {
   const b = statueTimeline('blue'), r = statueTimeline('red');
-  assert.equal(STATUE_DUR, 13000);
-  assert.ok(Math.abs(b.release - 6100) < 1 && Math.abs(r.release - 352 / 60 * 1000) < 1, 'let go at launch 66 (blue) / throw 352 (red)');
-  assert.ok(b.hop[0] < b.hop[1] && b.hop[1] <= b.lift && b.lift < b.release && b.release < b.land && b.land < b.walk && b.walk < b.dur);
-  assert.ok(r.grab < r.lift && r.lift < r.release && r.release < r.land);
-  assert.deepEqual(b.at(1000), { clip: 'wake', f: 60 }); assert.equal(b.at(5100).clip, 'launch'); assert.ok(Math.abs(b.at(5100).f - 6) < 1e-9);
+  assert.equal(STATUE_DUR, 16116); assert.equal(b.dur, 16116); assert.equal(r.dur, 14830);
+  assert.equal(b.release, 7392); assert.equal(r.release, 4837); assert.equal(b.land, 10894); assert.equal(r.land, 8358);
+  assert.ok(Math.abs(b.at(b.release).f - 68) < 0.1, 'blue: let go at the launch clip\'s frame 68, as the real game');
+  assert.ok(b.hop[0] < b.hop[1] && b.hop[1] <= b.lift && b.lift < b.release && b.release < b.land && b.land < b.walk && b.walk < b.walkEnd && b.walkEnd < b.dur);
+  assert.ok(r.grab < r.lift && r.lift < r.release && r.release < r.land && r.land < r.getUp && r.getUp < r.walk);
+  assert.deepEqual(b.at(1000), { clip: 'wake', f: 72 }, 'the statue at 1.2x'); assert.equal(b.at(5000).clip, 'launch'); assert.equal(b.at(5000).f, 0, 'waits on its first frame for the player');
   assert.equal(b.at(99999).f, 100, 'holds the last frame after the clip');
-  const half = statueTimeline('red', 6500); assert.ok(Math.abs(half.release - r.release / 2) < 1e-6, 'a shorter move is the same, faster');
-  assert.ok(b.land - b.release > 3000, 'a good long flight');
 }
 console.log('statue tests passed');
 { // v93: on the red statue's platform they sit there dazed for a while, then get up, before walking off
   const r = statueTimeline('red'), b = statueTimeline('blue');
   assert.ok(r.walk - r.land >= 600 + 900, 'red: time to sit dazed and get up');
-  assert.ok(b.walk - b.land < r.walk - r.land && r.walk < r.dur - 1000, 'blue as it was; red still walks off');
+  assert.ok(r.walk < r.dur - 1000, 'red still walks off');
 }

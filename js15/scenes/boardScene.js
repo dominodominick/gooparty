@@ -1,4 +1,5 @@
 import { direct, setPawnFace } from './director.js';
+import { SPRING, springSecs, REACT_CAM, FIREBALL, STATUE_FLIGHT } from '../game/realTimings.js';
 import { presetAt, shotAround, placeOnPath } from '../game/boardCamera.js';
 import { app } from '../app.js';
 import { PLAYER_COLORS, VIRTUAL, BUILD } from '../config.js';
@@ -998,41 +999,65 @@ export class BoardScene {
         else if (count) this.setCounter(count, count.total - cum[reached]); // ticks down on each step
       };
     } else if (ev.mode === 'spring') {
-      // A big spring pops out of the ground under the player, squashes, and bounces them the whole way in one jump
-      // (blue: + space, red: - space, green: a minigame win or loss). Then it sinks back into the ground.
+      // A big spring pops out of the ground under the player and bounces them the whole way in one jump (blue: + spaces,
+      // red: - spaces, green: a minigame won or lost), then sinks back into the ground. Every phase, clip and face is the
+      // real game's, at its real time (realTimings.js SPRING, from the trace), and the board camera cuts to the close-up
+      // of their reaction 0.23 s into it, for 2.42 s, as the real one does.
       const sp = this.springFor(ev.spring || 'blue'), H = SPRING_H, back = count && count.dir === 'back';
-      const T1 = 0.16, T2 = 0.26, T3 = 0.72;  // rise out of the ground, squash, launch / landing, then sink away
+      const kind = ev.spring === 'red' ? 'red' : back ? 'back' : 'fwd', S = SPRING[kind], n = Math.max(1, ev.path.length);
+      const tFly0 = S.rise + S.wind, tFly = n * S.perSpace, tLand = tFly0 + tFly;
+      const tReact = kind === 'fwd' ? tLand + S.cheer : tLand + S.land + S.getUp; // the fist pump, or the head hung
+      const total = springSecs(kind, n);
       const lift = 4 + Math.hypot(B.x - A.x, B.z - A.z) * 0.16, fwd = this.pathDir(pawn);
       const faceYaw = Math.atan2(fwd.x, fwd.z); // facing along the path, so a backward bounce goes over their back
       sp.group.position.set(A.x, A.y, A.z); sp.group.visible = true; sp.group.rotation.y = faceYaw;
-      a.fast = true;
+      a.fast = true; a.dur = total * 1000; // (the real game's length for this many spaces: the host's is the same)
       if (count) this.setCounter(count, count.total);
       a.step = (u) => {
-        let ext, yOff = 0; // ext: how far the spring is out of the ground (0..1), and squashed/stretched
-        if (u < T1) ext = ease01(u / T1);
-        else if (u < T2) ext = 1 - 0.35 * Math.sin(Math.PI * (u - T1) / (T2 - T1)); // squash and spring back
-        else if (u < T3) ext = 1 + 0.25 * Math.sin(Math.PI * clamp01((u - T2) / 0.08)) ;
-        else ext = 1 - ease01((u - T3) / (1 - T3));
+        const t = u * a.dur / 1000;
+        // the spring: out of the ground, squashed as they wind up on it, stretched as it fires, then away into the ground
+        let ext;
+        if (t < Math.min(0.25, S.rise)) ext = ease01(t / Math.min(0.25, S.rise));
+        else if (t < tFly0) ext = 1 - 0.3 * Math.sin(Math.PI * clamp01((t - S.rise) / Math.max(0.01, S.wind || S.rise)));
+        else if (t < tFly0 + 0.12) ext = 1 + 0.25 * Math.sin(Math.PI * (t - tFly0) / 0.12);
+        else ext = 1 - ease01(clamp01((t - tFly0 - 0.12) / 0.6));
         sp.set(Math.max(0.001, ext));
-        const top = A.y + H * Math.max(0, ext); // the player stands on the spring's top until it fires
-        if (u < T2) { yOff = top - A.y; pawn.x = A.x; pawn.z = A.z; pawn.y = A.y + yOff; pawn.fx = { x: A.x, y: A.y + yOff, z: A.z, yaw: faceYaw, arms: [-0.4, -0.4], groundY: A.y, ...(back || u < T1 ? { clip: 'pm001_15' } : { clip: 'springWind', clipF: ((u - T1) / (T2 - T1)) * (WIND_FRAMES - 1) }) }; } // (bracing as it winds up: Wii Party's pm001_08, ending as it fires)
-        else {
-          const f = clamp01((u - T2) / (T3 - 0.06 - T2)), y0 = A.y + H;
+        if (t < tFly0) { // standing on the spring: popped up (pm001_15), then winding up (pm001_08)
+          const yOff = H * Math.max(0, ext); pawn.x = A.x; pawn.z = A.z; pawn.y = A.y + yOff;
+          const c = t < S.rise ? { clip: 'pm001_15', clipF: t * 60, face: kind === 'red' ? 4 : null } : { clip: 'pm001_08', clipF: (t - S.rise) * 60 };
+          pawn.fx = { x: A.x, y: A.y + yOff, z: A.z, yaw: faceYaw, groundY: A.y, ...c };
+        } else if (t < tLand) { // the flight: pm001_09 forward, pm001_11 back
+          const f = clamp01((t - tFly0) / tFly), y0 = A.y + H;
           const x = A.x + (B.x - A.x) * f, z = A.z + (B.z - A.z) * f, y = y0 + (B.y - y0) * f + Math.sin(f * Math.PI) * lift;
           const q = nearestPath(x, z), gy = q && q.d < 2.4 ? q.y + 0.08 : terrainHeight(x, z) + 0.14;
           pawn.x = x; pawn.y = y; pawn.z = z;
-          pawn.fx = f < 1 ? { x, y, z, yaw: faceYaw, clip: back ? 'pm001_11' : 'pm001_09', clipF: back ? null : Math.min(29, f * 29), arms: [-2.8, -2.8], legs: [back ? -0.5 : 0.5, back ? 0.4 : -0.4], tilt: (back ? 0.35 : -0.35) * Math.sin(f * Math.PI), groundY: ev.path[0] && ev.path[0].track === 'volcano' ? Math.min(A.y, B.y) - 0.28 : gy } : null;
+          pawn.fx = { x, y, z, yaw: faceYaw, clip: kind === 'fwd' ? 'pm001_09' : 'pm001_11', clipF: (t - tFly0) * 60, groundY: ev.path[0] && ev.path[0].track === 'volcano' ? Math.min(A.y, B.y) - 0.28 : gy };
           if (count) this.setCounter(count, Math.round(count.total * (1 - f)));
+        } else { // landed: forward, a cheer (pm001_10) and a fist pump with a smile (pm001_06); back, landing (pm001_12), up (pm206_03), head hung (pm001_07, sorrow)
+          const k = t - tLand; pawn.x = B.x; pawn.y = B.y; pawn.z = B.z;
+          let c;
+          if (kind === 'fwd') c = k < S.cheer ? { clip: 'pm001_10', clipF: k * 60 } : k < S.cheer + S.pump ? { clip: 'pm001_06', clipF: (k - S.cheer) * 60, face: 1 } : { clip: 'pm011_08' };
+          else c = k < S.land ? { clip: 'pm001_12', clipF: k * 60 } : k < S.land + S.getUp ? { clip: 'pm206_03', clipF: (k - S.land) * 60 } : k < S.land + S.getUp + S.letdown ? { clip: 'pm001_07', clipF: (k - S.land - S.getUp) * 60, face: 3 } : { clip: 'pm011_08' };
+          // (the reaction is to the camera: it has cut to the close-up of their face)
+          if (!a.reactAt) { const w = placeOnPath(this.pos.island, B.x, B.z, null); a.reactAt = shotAround(B.x, B.y, B.z, presetAt('react', w.i, w.u)); } // (where the close-up will be)
+          const cam = a.reactAt, toCam = t >= tReact ? Math.atan2(cam.x - B.x, cam.z - B.z) : faceYaw;
+          pawn.fx = { x: B.x, y: B.y, z: B.z, yaw: toCam, ...c }; pawn.faceYaw = toCam; if (t >= tReact) pawn.yaw = toCam; // (no turning round in the close-up)
+          if (count) this.setCounter(count, 0);
         }
+        // the camera: the board camera follows the flight; the close-up of the reaction, as the real one
+        const r = t - tReact - REACT_CAM.at, mine = this.camPreset && this.camPreset.by === a;
+        if (r >= 0 && r < REACT_CAM.hold) { if (!mine && !this.camPreset) this.camPreset = { name: 'react', slot: ev.slot, by: a }; }
+        else if (mine) this.camPreset = null;
         this.place(pawn);
       };
-      a.cleanup = () => { sp.group.visible = false; sp.set(0.001); };
+      a.cleanup = () => { sp.group.visible = false; sp.set(0.001); if (this.camPreset && this.camPreset.by === a) this.camPreset = null; };
     } else if (ev.mode === 'knock') {
       // Blown back by the dragon's fireball, as in Wii Party: knocked off their feet in one low arc backwards onto the
       // space behind (pm001_11 in the air, landing pm001_12: the trace of the real game), sat there dazed (pm001_05), then
       // back up (pm206_03). Facing the dragon.
-      const faceYaw = Math.atan2(A.x - B.x, A.z - B.z), lift = 1.6, D = ev.dur || 2200;
-      const T1 = Math.min(0.45, 600 / D), T3 = Math.max(T1, 1 - GETUP_MS / D); // in the air until T1; getting up from T3
+      const faceYaw = Math.atan2(A.x - B.x, A.z - B.z), lift = 1.6, D = Math.max(ev.dur || 0, (FIREBALL.air + FIREBALL.land + FIREBALL.sit) * 1000);
+      a.dur = Math.max(a.dur, D);
+      const T1 = FIREBALL.air * 1000 / D, T3 = 2; // in the air until T1 (0.6 s, the real game's), landing, then sat dazed to the end (no getting up: the real game goes straight on)
       // once they land: a cut, from the wall's side, back down the path at them (no number badge in the close-up)
       const kc = this.fx && this.fx.knockCam ? this.fx.knockCam(B) : null;
       if (kc) a.cleanup = () => { this.closeUp = false; if (this.camHold === kc) { this.camHold = null; this.snapCamera = true; } };
@@ -1042,7 +1067,7 @@ export class BoardScene {
         const f = clamp01(u / T1), e = 1 - (1 - f) * (1 - f); // fast off the ground, slowing into the landing
         const x = A.x + (B.x - A.x) * e, z = A.z + (B.z - A.z) * e, y = A.y + (B.y - A.y) * e + Math.sin(f * Math.PI) * lift;
         pawn.x = x; pawn.y = y; pawn.z = z; pawn.yaw = pawn.faceYaw = faceYaw;
-        pawn.fx = u >= 1 ? null : this.downAndUp({ x, y, z, yaw: faceYaw }, u * D, T1 * D, T3 * D, f < 1 ? Math.min(A.y, B.y) : null, 520);
+        pawn.fx = u >= 1 ? null : this.downAndUp({ x, y, z, yaw: faceYaw }, u * D, T1 * D, T3 * D, f < 1 ? Math.min(A.y, B.y) : null, FIREBALL.land * 1000);
         if (count) this.setCounter(count, f < 1 ? count.total : 0);
         this.place(pawn);
       };
@@ -1447,6 +1472,7 @@ export class BoardScene {
     if (groundY != null) return { ...p, clip: 'pm001_11', groundY }; // (still flying back)
     if (t < down + land) return { ...p, clip: 'pm001_12', clipF: Math.max(0, t - down) * 0.06 }; // (landing: `land` ms of pm001_12)
     if (t < up) return { ...p, clip: 'sitStunned', clipF: (t - down) / 1000 * 60 };
+    if (t - up > GETUP_MS) return { ...p, clip: 'pm011_08' }; // (up: standing, as the real game)
     return { ...p, clip: 'getUp', clipF: Math.min(GETUP_FRAMES - 1, (t - up) / GETUP_MS * (GETUP_FRAMES - 1)) };
   }
 
@@ -1463,7 +1489,7 @@ export class BoardScene {
    *    (The statue goes back to sleep behind that cut.)
    */
   statueThrowAnim(ev, pawn, st, A, B, count) {
-    const T = this.T, red = ev.statue === 'red', rig = st.rig, dur = ev.dur || STATUE_DUR, TL = statueTimeline(ev.statue, dur);
+    const T = this.T, red = ev.statue === 'red', rig = st.rig, TL = statueTimeline(ev.statue), dur = Math.max(ev.dur || 0, TL.dur); // (the real game's timeline: realTimings.js)
     const plat = STATUE_PLATFORMS[ev.statue], P = { x: plat.x, y: plat.y + 0.06, z: plat.z };
     const mesh = rig.mesh; mesh.updateWorldMatrix(true, false);
     const v3 = new T.Vector3(), toWorld = (x, y, z) => { v3.set(x, y, z).applyMatrix4(mesh.matrixWorld); return { x: v3.x, y: v3.y, z: v3.z }; };
@@ -1494,7 +1520,7 @@ export class BoardScene {
     let shot = null;
     const cut = (name, cam) => { if (shot !== name) { shot = name; this.snapCamera = true; } this.camHold = cam; };
     const ms = TL.ms, flyFrom = carried(red ? 'throw' : 'launch', TL.at(TL.release).f).p; // where the hands let go
-    const out = { fast: false };
+    const out = { fast: false, dur }; // (the real game's length)
     if (count) this.setCounter(count, count.total);
     const stand = (p, extra = {}) => { pawn.x = p.x; pawn.y = p.y; pawn.z = p.z; pawn.fx = { x: p.x, y: p.y, z: p.z, yaw: faceStatue, ...extra }; };
     out.step = (u) => {
@@ -1521,20 +1547,26 @@ export class BoardScene {
           stand(c.p, { quat: c.q, arms: f < 58 ? [-0.5, -0.5] : [-2.8, -2.8], legs: f < 58 ? [0.35, -0.35] : [0.6, -0.5], groundY: f < 58 ? c.p.y : A.y, clip: f < 58 ? 'pm011_08' : 'pm405_09' });
         }
       } else if (t < TL.land) { // high over the island
-        const f = (t - TL.release) / (TL.land - TL.release), s0 = flyFrom;
-        const x = s0.x + (P.x - s0.x) * f, z = s0.z + (P.z - s0.z) * f, y = s0.y + (P.y - s0.y) * f + Math.sin(f * Math.PI) * lift;
+        // the real flight (realTimings.js STATUE_FLIGHT: where the real camera looked, all the way), eased onto where
+        // the hands let go here at the start and onto the platform at the end
+        const f = (t - TL.release) / (TL.land - TL.release), s0 = flyFrom, path = STATUE_FLIGHT[ev.statue];
+        const g = f * (path.length - 1), i = Math.min(path.length - 2, Math.floor(g)), w = g - i, pa = path[i], pb = path[i + 1];
+        const q0 = path[0], q1 = path[path.length - 1], e = ease01(f);
+        const x = pa[0] + (pb[0] - pa[0]) * w + (s0.x - q0[0]) * (1 - e) + (P.x - q1[0]) * e;
+        const y = pa[1] + (pb[1] - pa[1]) * w + (s0.y - q0[1]) * (1 - e) + (P.y - q1[1]) * e;
+        const z = pa[2] + (pb[2] - pa[2]) * w + (s0.z - q0[2]) * (1 - e) + (P.z - q1[2]) * e;
         const q = nearestPath(x, z), gy = q && q.d < 2.4 ? q.y + 0.08 : terrainHeight(x, z) + 0.14;
         pawn.x = x; pawn.y = y; pawn.z = z;
-        pawn.fx = { x, y, z, yaw: faceStatue + f * Math.PI * 6, arms: [-2.8, -2.8], legs: [0.6, -0.5], tilt: -0.6 * Math.sin(f * Math.PI), groundY: gy, clip: red ? 'pm001_01' : 'pm405_09' }; // (as the real game: red, pm001_01; blue, pm405_09)
+        pawn.fx = { x, y, z, yaw: Math.atan2(P.x - s0.x, P.z - s0.z), arms: [-2.8, -2.8], legs: [0.6, -0.5], groundY: gy, clip: red ? 'pm001_01' : 'pm405_09' }; // (as the real game: red, pm001_01; blue, pm405_09)
         if (count) this.setCounter(count, Math.round(count.total * (1 - f)));
       } else if (t < TL.walk) { // a thump on the platform, then a moment standing there (red: down on their bottom, dazed, and back up)
         const k = clamp01((t - TL.land) / (dur * 0.03));
         pawn.x = P.x; pawn.y = P.y; pawn.z = P.z;
-        pawn.fx = red ? this.downAndUp({ x: P.x, y: P.y, z: P.z, yaw: walkYaw }, t - TL.land, 0, Math.max(0, TL.walk - TL.land - GETUP_MS))
+        pawn.fx = red ? this.downAndUp({ x: P.x, y: P.y, z: P.z, yaw: walkYaw }, t - TL.land, 0, TL.getUp - TL.land)
           : { x: P.x, y: P.y - Math.sin(k * Math.PI) * 0.3, z: P.z, yaw: walkYaw, arms: [-0.7 * (1 - k), -0.7 * (1 - k)], legs: [0.5 * (1 - k), -0.5 * (1 - k)], ...(t - TL.land < Math.min(1100, (TL.walk - TL.land) * 0.45) ? { clip: 'pm001_09', clipF: Math.min(29, (t - TL.land) * 0.06) } : { clip: 'pm001_10', clipF: (t - TL.land - Math.min(1100, (TL.walk - TL.land) * 0.45)) * 0.06 }) }; // (blue: touching down, pm001_09, then the cheer, pm001_10: the trace)
         if (count) this.setCounter(count, 0);
       } else { // walk to the edge, step down, walk onto the space
-        const k = (t - TL.walk) / (dur - TL.walk), s1 = { x: edge.x + (B.x - edge.x) * 0.35, y: B.y, z: edge.z + (B.z - edge.z) * 0.35 };
+        const k = clamp01((t - TL.walk) / (TL.walkEnd - TL.walk)), s1 = { x: edge.x + (B.x - edge.x) * 0.35, y: B.y, z: edge.z + (B.z - edge.z) * 0.35 };
         const p = k < 0.4 ? lerp3v(P, edge, k / 0.4) : k < 0.6 ? hop(edge, s1, (k - 0.4) / 0.2, 0.6) : lerp3v(s1, B, (k - 0.6) / 0.4);
         pawn.x = p.x; pawn.y = p.y; pawn.z = p.z; pawn.fx = null; pawn.groundY = null; pawn.faceYaw = walkYaw;
       }
@@ -1588,6 +1620,7 @@ export class BoardScene {
       pw.fleeing = true;
       const end = anim.end; anim.end = () => { if (end) end(); pw.fleeing = false; pw.after = { clip: 'sad', face: 3, left: 4.5 }; };
     }
+    if (pw && ev.swim) { const end = anim.end; anim.end = () => { if (end) end(); pw.after = { clip: 'pm001_16', face: 3, left: 2.2 }; }; } // out of the water: head hung, sorrow (pm001_16, as the real game)
     const last = ev.path[ev.path.length - 1];
     if (pw && (ev.mode === 'walk' || ev.mode === 'fast') && !ev.stopShort && last && last.track === 'island' && !last.across) { // stopped by a challenge: how the real game has them take it in
       const type = ISLAND[last.idx] && ISLAND[last.idx].type;
@@ -1688,21 +1721,28 @@ export class BoardScene {
    * die spins; the close-up on their face when a sequence asks for it (camPreset: { name, slot }).
    */
   realCamera(dt, pawn) {
+    // As the trace of the real game shows it: the camera looks at a point 160 game units over the Mii and moves with them
+    // exactly (no lag). Its shot (distance, pitch, angle) is the space's own, changing smoothly along the path as the Mii
+    // runs from one space to the next (followAt). Going from the turn shot to the running shot, or back, it blends in a
+    // straight line over one second; the reaction close-up is a cut, and so is the cut back.
     const pre = this.camPreset, who = (pre && pre.slot != null && this.pawns[pre.slot]) || pawn;
     const q = who.fx && who.fx.x != null ? who.fx : who, P = this.pos.island;
     const at = placeOnPath(P, q.x, q.z, who.track === 'island' ? who.idx : null);
     const name = pre ? pre.name : this.rolling || this.staged ? 'turn' : 'follow';
-    const s = presetAt(name, at.i, at.u);
-    const cut = !this.rc || this.snapCamera || this.camTrack !== 'island' || (name === 'react' && this.rcName !== 'react'); // (the close-up is a cut, as in the game)
-    if (cut) this.rc = { d: s.d, p: s.p, yaw: s.yaw, x: q.x, y: q.y, z: q.z };
-    else {
-      const k = 1 - Math.exp(-dt * 2.6), kt = 1 - Math.exp(-dt * 12); // (the shot eases over about a second; the aim stays on the Mii)
-      const r = this.rc;
-      r.d += (s.d - r.d) * k; r.p += (s.p - r.p) * k; r.yaw += ((((s.yaw - r.yaw) % 360) + 540) % 360 - 180) * k;
-      r.x += (q.x - r.x) * kt; r.y += (q.y - r.y) * kt; r.z += (q.z - r.z) * kt;
+    const live = presetAt(name, at.i, at.u);
+    const cut = !this.rc || this.snapCamera || this.camTrack !== 'island' || name === 'react' || this.rcName === 'react' && name !== 'react' || this.rcWho !== who;
+    if (cut) { this.rc = { d: live.d, p: live.p, yaw: live.yaw }; this.rcBlend = null; }
+    else if (name !== this.rcName) this.rcBlend = { from: { d: this.rc.d, p: this.rc.p, yaw: this.rc.yaw }, t: 0 }; // (turn <-> follow: a one-second blend)
+    if (!cut) {
+      const B = this.rcBlend;
+      if (B) {
+        B.t += dt; const w = Math.min(1, B.t / 1.0);
+        this.rc = { d: B.from.d + (live.d - B.from.d) * w, p: B.from.p + (live.p - B.from.p) * w, yaw: B.from.yaw + ((((live.yaw - B.from.yaw) % 360) + 540) % 360 - 180) * w };
+        if (w >= 1) this.rcBlend = null;
+      } else this.rc = { d: live.d, p: live.p, yaw: live.yaw };
     }
-    this.rcName = name; this.camTrack = 'island'; this.snapCamera = false;
-    this.cam = shotAround(this.rc.x, this.rc.y, this.rc.z, this.rc);
+    this.rcName = name; this.rcWho = who; this.camTrack = 'island'; this.snapCamera = false;
+    this.cam = shotAround(q.x, q.y, q.z, this.rc);
     const sh = this.shake > 0 ? 0.35 : 0;
     this.camera.position.set(this.cam.x + Math.sin(this.t * 53) * sh, this.cam.y + Math.sin(this.t * 61) * sh, this.cam.z + Math.cos(this.t * 47) * sh);
     this.camera.lookAt(this.cam.tx, this.cam.ty, this.cam.tz);
@@ -1823,6 +1863,7 @@ export class BoardScene {
    */
   animateWp(pawn, wp, dt, flying, F, speed, moved) {
     let clip, frame = null;
+    if (F && F.face != null) { setPawnFace(pawn, F.face); pawn.fxFace = true; } else if (pawn.fxFace && !(F && F.__dir)) { setPawnFace(pawn, 0); pawn.fxFace = false; } // (a set piece's face, back to normal after it)
     if (F && F.clip) { clip = F.clip; if (F.clipF != null) frame = F.clipF; }
     else if (F && F.arms && F.arms[0] <= -2.95) clip = 'hang';
     else if (flying) clip = 'fly';
@@ -1830,7 +1871,11 @@ export class BoardScene {
     else if (F) clip = 'pm011_08'; // (standing in a set piece: the real game's board idle, pm011_08)
     else if (pawn.wonder) clip = 'wonder'; // ("what is about to happen?": before the UFO, a blue spring, the fireball, the skull, the ! space, a tornado)
     else if (pawn.amp > 0.2) clip = pawn.fleeing ? 'pm405_04' : speed > 6 ? 'run' : 'walk'; // (the real board runs everywhere, walking only as they come to a stop)
-    else if (pawn.after && pawn.after.left > 0) { clip = pawn.after.clip; pawn.after.left -= dt; if (pawn.after.face != null) setPawnFace(pawn, pawn.after.left > 0 ? pawn.after.face : 0); } // (a moment that lingers: sad after the spike ball)
+    else if (pawn.after && pawn.after.left > 0) { // (a moment that lingers: sad after the spike ball; `next`: what comes after it)
+      clip = pawn.after.clip; pawn.after.left -= dt;
+      if (pawn.after.face != null) setPawnFace(pawn, pawn.after.left > 0 ? pawn.after.face : 0);
+      if (pawn.after.left <= 0 && pawn.after.next) pawn.after = pawn.after.next;
+    }
     else clip = pawn.rollClip || pawn.cheer || this.boardIdle(pawn, dt);
     if (clip === pawn.cheer && (clip === 'pm000_11' || clip === 'pm000_15')) setPawnFace(pawn, clip === 'pm000_11' ? 1 : 3); // (after the win: the winner smiling, the others sad) // (rollClip: waiting on the die: puzzled, or eager at the dragon wall and the summit)
     const W = pawn.wp || (pawn.wp = { clip: null, t: 0, prev: null, prevF: 0, blend: 1, dist: 0 });

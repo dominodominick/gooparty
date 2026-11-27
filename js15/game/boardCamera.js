@@ -5,13 +5,15 @@
 //             camera, atan2(x, z)), looking at a point 160 above the Mii (wherever they are, in the air too)
 //   turn      while the die spins: 500 away at 35 degrees, the same way as the space's follow shot
 //   react     a Mii landing and reacting (pm001_06 with a smile, pm001_07 with sorrow): cut to 400 away, at the
-//             space's pitch, 150 degrees round from the follow shot (a three-quarter view of their face), for ~1.4 s
+//             space's pitch, 150 degrees round from the follow shot (a three-quarter view of their face). It cuts in
+//             0.23 s after the reaction starts and holds 2.42 s, then cuts back (REACT.at, REACT.hold; 30+ times in the trace)
+//   blends    the follow shot moves with the Mii along the path (no lag); turn <-> follow blends in a straight line over 1 s
 // Game units are 0.016 of ours (the same map: the start space is (-1500, 30, 6280) there, (-24, 0.48, 100.48) here).
 
 export const GAME_UNIT = 0.016;
 export const TARGET_UP = 160;
 export const TURN = { d: 500, p: 35 };
-export const REACT = { d: 400, turn: -150 };
+export const REACT = { d: 400, turn: -150, at: 0.23, hold: 2.42 };
 
 /** The follow shot of each island space: [distance, pitch, yaw]. (Spaces the trace never settled on are in between their neighbours.) */
 export const SPACE_SHOTS = [

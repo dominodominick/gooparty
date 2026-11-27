@@ -693,7 +693,7 @@ assert.ok(DUR.fly >= 2400 && DUR.drop >= 1800);
     assert.equal(peaks, 1, 'a single arc, no hopping about'); assert.ok(back, 'always moving away from the dragon');
     assert.ok(Math.hypot(pw.x - B.x, pw.z - B.z) < 1e-6, 'lands on the space behind');
     assert.equal(pw.fx, null, 'on their feet at the end');
-    assert.deepEqual(clips, ['pm001_11', 'pm001_12', 'sitStunned', 'getUp'], 'v101: flung back, landing, dazed, back up (pm001_11, pm001_12, pm001_05, pm206_03: the trace)');
+    assert.deepEqual(clips, ['pm001_11', 'pm001_12', 'sitStunned'], 'v103: flung back, landing, sat dazed to the end (pm001_11, pm001_12, pm001_05: the trace)');
     mv.end && mv.end();
   }
   // everyone below the spike ball runs at the same time: a move marked "with" plays alongside the one before it
@@ -1047,7 +1047,7 @@ for (const type of ['plus5', 'minus4', 'ufo', 'tornado', 'skull', 'volcano', 'mg
     const fake = { T: { Vector3: V3, Quaternion: Q, Matrix4: M4 }, place() {}, setCounter() {}, statueEyes: BoardScene.prototype.statueEyes, downAndUp: BoardScene.prototype.downAndUp,
       set camHold(v) { if (v && this.snapCamera) { shots.push(v); this.snapCamera = false; } this._h = v; }, get camHold() { return this._h; } };
     const anim = BoardScene.prototype.statueThrowAnim.call(fake, { statue: color, dur: 13000 }, pawn, st, A, B, null);
-    const TL = statueTimeline(color, 13000), at_ = (ms) => { anim.step(ms / 13000); return { ...pawn, fx: pawn.fx && { ...pawn.fx } }; };
+    const TL = statueTimeline(color), at_ = (ms) => { anim.step(Math.min(1, ms / anim.dur)); return { ...pawn, fx: pawn.fx && { ...pawn.fx } }; };
     const d2 = (p, q) => Math.hypot(p.x - q.x, p.z - q.z);
     const p0 = at_(0); assert.ok(d2(p0, A) < 0.01 && Math.abs(p0.y - A.y) < 0.01, `${color}: starts on the space`);
     assert.ok(eyes.material.color.v < 0.3, `${color}: asleep at first`);
@@ -1059,9 +1059,9 @@ for (const type of ['plus5', 'minus4', 'ufo', 'tornado', 'skull', 'volcano', 'mg
       const dip = at_(TL.lift + 57 / 60 * 1000); assert.ok(dip.y < on.y - 0.5 && dip.fx.quat, 'blue: rides the hands down, turned with them');
     } else {
       const grab = at_(TL.grab + 200); assert.ok(d2(grab, A) < 0.05, 'red: grabbed where it stands');
-      const over = at_(312 / 60 * 1000), axis = d2(over, at);
+      const over = at_(TL.ms(312)), axis = d2(over, at);
       assert.ok(over.y > at.y + 7 && axis < 2.5, `red: lifted right over the statue's head (${(over.y - at.y).toFixed(1)} up, ${axis.toFixed(1)} off its middle)`);
-      const behind = at_(336 / 60 * 1000), toA = { x: A.x - at.x, z: A.z - at.z };
+      const behind = at_(TL.ms(336)), toA = { x: A.x - at.x, z: A.z - at.z };
       assert.ok((behind.x - at.x) * toA.x + (behind.z - at.z) * toA.z < -50, 'red: and down behind it');
       assert.ok(up(behind.fx.quat).y < -0.5, 'red: upside down over its back, turned with the hands');
     }
@@ -1070,12 +1070,12 @@ for (const type of ['plus5', 'minus4', 'ufo', 'tornado', 'skull', 'volcano', 'mg
     assert.ok(rig.clip !== null, `${color}: the statue still holds its pose while the player is in the air`);
     at_(TL.land + 100); assert.equal(rig.clip, null, `${color}: asleep again once the camera is over the platform`); assert.ok(eyes.material.color.v < 0.3);
     { // v93: red: down on their bottom on the platform (pm001_05), then back up (pm206_03) before walking off; blue lands on its feet
-      const sit = at_(TL.land + 300), rise = at_(TL.walk - 200), walk = at_(TL.walk + 200);
+      const sit = at_(TL.land + 300), rise = at_(color === 'red' ? TL.getUp + 200 : TL.walk - 200), walk = at_(TL.walk + 200);
       if (color === 'red') { assert.equal(sit.fx.clip, 'sitStunned', 'red: sat dazed on the platform'); assert.equal(rise.fx.clip, 'getUp', 'red: then gets up'); }
       else { assert.equal(sit.fx.clip, 'pm001_09', 'blue: lands (pm001_09), as the real game'); assert.equal(rise.fx.clip, 'pm001_10', 'blue: then cheers (pm001_10)'); }
       assert.equal(walk.fx, null, `${color}: walking off`);
     }
-    const end = at_(13000); assert.ok(d2(end, B) < 0.01 && pawn.fx === null, `${color}: walks off onto the space`);
+    const end = at_(TL.dur); assert.ok(d2(end, B) < 0.01 && pawn.fx === null, `${color}: walks off onto the space`);
     const names = shots.map((h) => (h === shots[0] ? 'wide' : h.y > A.y + 40 ? 'sky' : 'other'));
     assert.ok(names[0] === 'wide' && names.includes('sky') && shots.length === 4, `${color}: wide, by the statue, sky, platform (${shots.length} cuts)`);
     anim.cleanup(); assert.equal(rig.clip, null); assert.equal(fake.camHold, null);
