@@ -379,4 +379,3 @@ export class SeqEditor {
 }
 
 function alertIn(box, msg) { const d = mk('div', 'color:#ff9a9a', msg); box.appendChild(d); setTimeout(() => d.remove(), 3000); }
-export { LOADERS };
