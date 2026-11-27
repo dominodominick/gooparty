@@ -155,7 +155,7 @@ export class ViewerScene extends BoardScene {
       'move.spring.blue': named('Blue spring (+5)'), 'move.spring.red': named('Red spring (-4)'), 'move.spring.green': named('1 vs Rest won: green spring'),
       'move.swing': named('Vine swing (4, then walk 2)'), 'move.fly.tornado': named('Tornado (back 5)'), 'move.fly.statue.blue': named('Blue statue throw'),
       'move.fly.statue.red': named('Red statue throw'), 'move.drop': named('Volcano push'), 'move.fly.meteor': named('Meteor knockback (chain)'),
-      'ufo': named('UFO swap'), 'eruption': named('Volcano erupts'),
+      'ufo.up': named('UFO swap'), 'ufo.down': named('UFO swap'), 'eruption': named('Volcano erupts'),
       'move.walk': () => { at(1); this.demo.push(move(walk(1, 4, 'walk'))); },
       'turn.start': () => { at(1); this.demo.push(game({ t: 'turnStart', slot: 0, dur: DUR.turnIntro })); },
       'round.start': () => { at(1); this.demo.push(game({ t: 'roundStart', round: 2, order: [0, 1, 2, 3], dur: DUR.round })); },
@@ -228,11 +228,11 @@ export class ViewerScene extends BoardScene {
       ['1v1 won: green springs', () => { const s = stopOf('mg11'); at(s); const o = put(1, s + 2); this.demo.push(move(spring(0, s, 7, 'green')), () => { this.camSlot = 1; return move(spring(1, s + 2, -7, 'green'))(); }); void o; }],
       ['1 vs Rest won: green spring', () => { const s = stopOf('mgRest'); at(s); this.demo.push(move(spring(0, s, 10, 'green'))); }],
       ['UFO swap', () => { const s = stopOf('ufo'), o = s + 6; at(s); put(1, o);
-        const ufo = (ev) => () => this.beginUfo({ t: 'ufo', dur: DUR.ufo, ...ev });
+        const ufo = (ev) => () => { const e = { t: 'ufo', dur: DUR.ufo, ...ev }, a = this.beginUfo(e); if (a) a.ev = e; return a; };
         this.demo.push(look(0, 1), ufo({ phase: 'up', slot: 0 }), ufo({ phase: 'up', slot: 1 }), ufo({ phase: 'down', slot: 1, to: { track: 'island', idx: s } }), ufo({ phase: 'down', slot: 0, to: { track: 'island', idx: o } })); }],
       ['Volcano erupts', () => { // the cutscene: the stretch past the volcano-or-not pit and two others (picked at random, as the host does)
         const others = [1, 2, 3, 4, 5].sort(() => Math.random() - 0.5); this.setEruption(0);
-        this.demo.push(() => this.eruptionCutscene({ t: 'eruption', active: 1, dur: DUR.eruption, stretches: [0, others[0], others[1]] }), () => ({ t: 0, dur: 1500, end: () => this.setEruption(0) })); }],
+        this.demo.push(() => { const e = { t: 'eruption', active: 1, dur: DUR.eruption, stretches: [0, others[0], others[1]] }, a = this.eruptionCutscene(e); if (a) a.ev = e; return a; }, () => ({ t: 0, dur: 1500, end: () => this.setEruption(0) })); }],
       ['Meteor knockback (chain)', () => { // landing on lava during an eruption: hit by a meteor, back 4 onto more lava, hit again, back 4 onto a blank
         const s = 34; at(s); this.setEruption(1);
         const hit = (from) => { const w = walkBack({ track: 'island', idx: from }, 4); return move({ t: 'move', slot: 0, mode: 'fly', meteor: true, path: w.path, count: { total: 4, dir: 'back' }, dur: DUR.meteorHit }); };

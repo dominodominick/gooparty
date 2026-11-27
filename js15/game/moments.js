@@ -33,7 +33,8 @@ export function momentKey(ev, spot = null) {
     case 'turnStart': return 'turn.start';
     case 'roundStart': return 'round.start';
     case 'diceStop': return 'dice.land';
-    case 'ufo': case 'eruption': case 'win': case 'minigame': case 'flyover': return ev.t;
+    case 'ufo': return `ufo.${ev.phase === 'down' ? 'down' : 'up'}`; // (beamed up, beamed down: one event each)
+    case 'eruption': case 'win': case 'minigame': case 'flyover': return ev.t;
     default: return '';
   }
 }
@@ -72,7 +73,8 @@ export function allMoments() {
   add('Challenges', 'smash.spike', 'Spike statue: breaks (end of the turn)');
   add('Challenges', 'smash.final', 'Final challenge: gate kicked open');
   add('Challenges', 'note.finalFail', 'Final challenge: missed');
-  add('Events', 'ufo', 'The UFO swap');
+  add('Events', 'ufo.up', 'The UFO: beamed up');
+  add('Events', 'ufo.down', 'The UFO: put down in the other place');
   add('Events', 'eruption', 'The volcano erupts');
   return out;
 }

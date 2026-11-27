@@ -13,9 +13,10 @@ assert.equal(momentKey({ t: 'move', mode: 'walk', swing: 4 }), 'move.swing');
 assert.equal(momentKey({ t: 'broken', challenge: 'spike', later: true }), 'smash.spike');
 assert.equal(momentKey({ t: 'broken', challenge: 'final' }), 'smash.final');
 assert.equal(momentKey({ t: 'diceStart' }), '');
+assert.equal(momentKey({ t: 'ufo', phase: 'down' }), 'ufo.down');
 const M = allMoments();
 assert.ok(M.length > 50 && new Set(M.map((m) => m.key)).size === M.length, 'every moment once');
-for (const k of ['note@plus4', 'note@skull', 'note@shout', 'smash.dragon', 'move.knock', 'ufo', 'turn.start']) assert.ok(M.some((m) => m.key === k), k);
+for (const k of ['note@plus4', 'note@skull', 'note@shout', 'smash.dragon', 'move.knock', 'ufo.up', 'ufo.down', 'turn.start']) assert.ok(M.some((m) => m.key === k), k);
 
 // ---- the game's own set piece under the sequence: held, slowed
 const bl = [{ track: 'builtin', at: 0, len: 60, from: 0, speed: 1 }, { track: 'builtin', at: 60, len: 30, from: 60, speed: 0 }, { track: 'builtin', at: 90, len: 60, from: 60, speed: 0.5 }];
