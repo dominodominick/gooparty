@@ -4,6 +4,8 @@
 // A turn is a little state machine:
 //   waiting  -> (animations finish) -> rolling | choosing -> (player presses Stop / picks) -> resolve -> waiting ...
 // One turn can contain several rolls: the main roll, then e.g. a challenge roll, then a final-challenge roll.
+import { momentKey, sequenceFrames } from './moments.js';
+import { SEQUENCES } from './sequences.js';
 import {
   ISLAND, VOLCANO, FINAL_IDX, FINISH_IDX, VOLCANO_SPACE_IDX, VOLCANO_CHALLENGE_IDX, SPIKE_IDX,
   EXIT_POS, isChallenge, nodeAt, trackNodes, gapBetween, CROSSING_KINDS,
@@ -151,6 +153,7 @@ const move = (slot, mode, path, count, follow = false, start = null) => {
   if (follow) ev.follow = true; // the camera pans to this player (it is someone else's pawn moving)
   return ev;
 };
+const spotType = (at) => (at ? ((at.track === 'volcano' ? VOLCANO : ISLAND)[at.idx] || {}).type : null); // (a note's moment is the kind of space: where they are when the turn is over, a close guess)
 const FWD = (total) => ({ total, dir: 'fwd' });
 const BACK = (total) => ({ total, dir: 'back' });
 // extra.wonder: the players who look around ("what is about to happen?", Wii Party's pm001_02) while the banner shows,
@@ -399,7 +402,11 @@ export class BoardGame {
       }
     }
     this.phase = 'waiting';
-    this.readyAt = now + events.reduce((a, e) => a + (e.dur || 0), 0) + TIMING.gap;
+    for (const e of events) { // a moment the sequence editor made longer than the game's own: wait for it (moments.js)
+      const k = momentKey(e, e.t === 'space' && !e.fx ? spotType(this.positions[e.slot]) : null), q = k && SEQUENCES[k];
+      if (q) { const ms = Math.round(sequenceFrames(q, Math.round((e.dur || 0) * 60 / 1000)) * 1000 / 60); e.hold = Math.max(0, ms - (e.dur || 0)); }
+    }
+    this.readyAt = now + events.reduce((a, e) => a + (e.dur || 0) + (e.hold || 0), 0) + TIMING.gap;
     return { events, board: this.snapshot() };
   }
 

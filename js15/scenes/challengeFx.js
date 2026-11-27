@@ -460,7 +460,8 @@ export class ChallengeFX {
   }
 
   /** The roller hits the thing in the way three times and it goes to pieces. */
-  brokenAnim(ev, pawn) {
+  brokenAnim(ev, pawn) { const a = this._brokenAnim(ev, pawn); if (a && !a.ev) a.ev = { t: 'broken', slot: pawn ? pawn.slot : 0, ...ev }; return a; } // (ev: for the sequence editor, director.js)
+  _brokenAnim(ev, pawn) {
     const kind = ev.challenge, sp = this.sp, o = this.o;
     if (kind === 'spike') return ev.later ? this.spikeBreakAnim(ev, pawn) : this.statueSmash(ev, pawn);
     if ((kind === 'dragon' || kind === 'final') && this.breakRig(kind === 'dragon' ? 'dragon' : 'gate')) return this.smashAnim(kind, ev, pawn);
@@ -667,7 +668,8 @@ export class ChallengeFX {
    * The spike ball is out: everyone on the stretch below the statue jumps (pm001_03) at the same time, in one shot of the
    * whole stretch. Then back to the ball's own shots, and they all run.
    */
-  shockAnim(ev) {
+  shockAnim(ev) { const a = this._shockAnim(ev); if (a && !a.ev) a.ev = { t: 'spikeShock', ...ev }; return a; }
+  _shockAnim(ev) {
     const S = SMASH, total = S.beat + S.shock + S.beat, cam = this.stretchCam();
     const pawns = (ev.slots || [ev.slot]).map((k) => this.s.pawns[k]).filter(Boolean);
     const at = pawns.map((p) => ({ x: p.x, y: p.y, z: p.z, yaw: p.yaw }));
@@ -826,7 +828,8 @@ export class ChallengeFX {
 
 
   // ------------------------------------------------------------------ what a "space" note shows
-  playNote(ev, pawn) {
+  playNote(ev, pawn) { const a = this._playNote(ev, pawn); if (a && !a.ev) a.ev = { t: 'space', slot: pawn ? pawn.slot : 0, ...ev }; return a; }
+  _playNote(ev, pawn) {
     if (!pawn) return null;
     const sp = this.sp, o = this.o;
     if (ev.fx === 'crates') { this.pending = { picked: ev.picked, safe: ev.safe, hit: ev.hit }; return null; }

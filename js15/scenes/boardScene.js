@@ -1,3 +1,4 @@
+import { direct } from './director.js';
 import { app } from '../app.js';
 import { PLAYER_COLORS, VIRTUAL, BUILD } from '../config.js';
 import { ISLAND, VOLCANO, LABELS, TILE_COLORS, isChallenge, EXIT_POS } from '../game/boardData.js';
@@ -616,6 +617,7 @@ export class BoardScene {
         const main = this.wrapMove(ev, this.beginMove(ev)), side = [];
         while (this.queue.length && this.queue[0].t === 'move' && this.queue[0].with) side.push(this.queue.shift()); // run at the same time
         this.anim = side.length ? this.together(ev, main, side) : main;
+        if (side.length) this.anim.otherSlots = side.map((e) => e.slot); // (the sequence editor's 'others')
         break;
       }
       case 'ufo': this.stopWondering(ev.slot); this.anim = this.beginUfo(ev); break;
@@ -630,6 +632,7 @@ export class BoardScene {
       }
       default: break;
     }
+    if (this.anim && this.anim.dur > 0 && !this.anim.moment) this.anim = direct(this, this.anim, ev); // the moment's sequence, if it has one (director.js)
   }
 
   /** Stop looking around (something is happening to them now). */
@@ -1106,6 +1109,7 @@ export class BoardScene {
   update(dt) {
     if (this.broken) return;
     if (this.pausedHard) { this.renderer.render(this.scene3d, this.camera); return; } // offline pause: everything stands still
+    if (this.seqPaused) { this.updateCamera(dt); this.faceDiceToEye(); this.lightMiis(); this.renderer.render(this.scene3d, this.camera); return; } // the sequence editor's pause: only the camera moves
     this.t += dt;
     this.tickAnim(dt);
     if (this.fx) this.fx.update(dt);

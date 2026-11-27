@@ -6,6 +6,7 @@
 import { buildMii, HAIR, SKINS, MII_NECK } from './miis.js';
 import { makeWpBody, WP_NECK } from './wpMii.js';
 import { WP_MII } from './wpMiiData.js';
+import { CLIP_TABLE } from './clipTable.js';
 import { PLAYER_COLORS } from '../config.js';
 import { builderMesh } from './worldBuild.js';
 import { FAVORITE_COLORS, SKIN_COLORS } from './miic.js';
@@ -29,7 +30,9 @@ export function bodyScale() { return { y: 1, xz: 1 }; }
  * `mii` is a parsed Mii (miic.parseMii) or null (then the slot's own stand-in look). The body is scaled so its neck is
  * where the old pawn's was.
  */
-export function makeFigure(T, slot, mii, D = WP_MII) { // (D: the body and clips; the viewer's gallery passes every clip)
+// the board's pawns: the game's body, posed from every clip a sequence can use (clipTable.js)
+const BOARD_MII = { ...WP_MII, clips: CLIP_TABLE };
+export function makeFigure(T, slot, mii, D = BOARD_MII) { // (D: the body and clips; the viewer's gallery passes every clip)
   const shirt = PLAYER_COLORS[slot % PLAYER_COLORS.length].hex; // the player's colour (player 1 blue, 2 red, ...), whatever the Mii's favourite colour, as in Wii Party
   const skin = mii ? SKIN_COLORS[mii.skin] || SKINS[0] : SKINS[slot % SKINS.length];
   const body = makeWpBody(T, D, { shirt, pants: MII_PANTS, skin });

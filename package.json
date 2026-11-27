@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "serve": "python3 -m http.server 8080",
-    "test": "node tests/hostGame.test.js && node tests/board.test.js && node tests/world.test.js && node tests/water.test.js && node tests/watasy.test.js && node tests/birds.test.js && node tests/dragon.test.js && node tests/signs.test.js && node tests/statues.test.js && node tests/tornado.test.js && node tests/mii.test.js && node tests/session.test.js && node tests/challengeFx.test.js && node tests/boardScene.smoke.test.js && node tests/hud.browser.test.mjs",
+    "test": "node tests/hostGame.test.js && node tests/board.test.js && node tests/world.test.js && node tests/water.test.js && node tests/watasy.test.js && node tests/birds.test.js && node tests/dragon.test.js && node tests/signs.test.js && node tests/statues.test.js && node tests/tornado.test.js && node tests/mii.test.js && node tests/session.test.js && node tests/challengeFx.test.js && node tests/director.test.js && node tests/boardScene.smoke.test.js && node tests/hud.browser.test.mjs",
     "test:browser": "node tests/hud.browser.test.mjs"
   }
 }

@@ -1,8 +1,10 @@
 // Island viewer: the board exactly as the game draws it (same scene, same props, same tiles), with no game running.
 // Drag to turn, scroll to zoom, right-drag (or shift-drag) to slide. Buttons jump to each place and play the set pieces.
+import { direct } from './director.js';
+import { SeqEditor } from './seqEditor.js';
 import { app } from '../app.js';
 import { BoardScene } from './boardScene.js';
-import { ISLAND } from '../game/boardData.js';
+import { ISLAND, VOLCANO, LABELS } from '../game/boardData.js';
 import { DUR, walkForward, walkBack } from '../game/boardGame.js';
 import { stopOfSpace, VOLCANO_OFFSET, terrainHeight } from '../game/boardLayout.js';
 import { makeFigure, fitFFLHead } from '../world/miiPawn.js';
@@ -76,6 +78,8 @@ export class ViewerScene extends BoardScene {
     if (hit) this.lookAt(hit[1]);
     // ... or open the animation gallery: #animation-gallery, #animation-gallery-pm001_10
     if (want && want.startsWith('animation-gallery')) this.wantGallery = want.slice('animation-gallery-'.length) || true; // (opened once the board is in)
+    // ... or open the sequence editor: #sequence-editor, #sequence-editor-smash.dragon
+    if (want && want.startsWith('sequence-editor')) this.wantEditor = want.slice('sequence-editor-'.length) || true;
     // ... or play one of the set pieces over and over: #play-tornado-back-5, #play-red-statue-throw ...
     this.loopDemo = want && want.startsWith('play-') ? want.slice(5) : null; this.loopWait = 4;
   }
@@ -135,19 +139,65 @@ export class ViewerScene extends BoardScene {
     o.yaw = best.yaw; o.pitch = best.pitch;
   }
 
+  /**
+   * A preview of every moment, for the sequence editor: the set pieces above where there is one, else the game's own
+   * event played on the board (a space's note, a turn starting, a round, a minigame, the win, a walk).
+   */
+  makeMomentDemos(list, { at, walk, move, put }) {
+    const named = (n) => (list.find(([x]) => x === n) || [])[1];
+    const game = (ev) => () => { this.queue.unshift(ev); this.startNext(); const a = this.anim; this.anim = null; return a || { t: 0, dur: 1 }; }; // (the game's own event, as a game plays it)
+    const W = new Set(['plus4', 'plus5', 'plus6', 'ufo', 'tornado', 'skull', 'shout']); // (they look around: something is about to happen)
+    const out = {
+      'note.fireball': named('Dragon fireball'), 'move.knock': named('Dragon fireball'), 'smash.dragon': named('Smash dragon wall'),
+      'note.crates': named('Crates: wrong pick'), 'move.swim': named('Crates: wrong pick'),
+      'note.pit': named('Spike ball chase'), 'spike.shock': named('Spike ball chase'), 'move.fast': named('Spike ball chase'), 'note.spikeCount': named('Spike ball chase'),
+      'smash.spike': named('Spike statue passed'), 'smash.final': named('Summit: gate kicked open (win)'), 'note.finalFail': named('Summit: missed'),
+      'move.spring.blue': named('Blue spring (+5)'), 'move.spring.red': named('Red spring (-4)'), 'move.spring.green': named('1 vs Rest won: green spring'),
+      'move.swing': named('Vine swing (4, then walk 2)'), 'move.fly.tornado': named('Tornado (back 5)'), 'move.fly.statue.blue': named('Blue statue throw'),
+      'move.fly.statue.red': named('Red statue throw'), 'move.drop': named('Volcano push'), 'move.fly.meteor': named('Meteor knockback (chain)'),
+      'ufo': named('UFO swap'), 'eruption': named('Volcano erupts'),
+      'move.walk': () => { at(1); this.demo.push(move(walk(1, 4, 'walk'))); },
+      'turn.start': () => { at(1); this.demo.push(game({ t: 'turnStart', slot: 0, dur: DUR.turnIntro })); },
+      'round.start': () => { at(1); this.demo.push(game({ t: 'roundStart', round: 2, order: [0, 1, 2, 3], dur: DUR.round })); },
+      'minigame': () => { at(1); this.demo.push(game({ t: 'minigame', kind: 'duel', slot: 0, opp: 1, dur: DUR.minigame })); },
+      'win': () => { const s = stopOf('final'); at(s); this.demo.push(move(walk(s, 1, 'walk')), game({ t: 'win', slot: 0, dur: 3000 })); },
+    };
+    // landing on each kind of space: its note, as the game shows it
+    for (const type of new Set([...ISLAND.map((n) => n.type), 'shout', 'exit'])) {
+      out[`note@${type}`] = () => {
+        let p;
+        const vi = VOLCANO.findIndex((n) => n.type === type);
+        if (vi >= 0 && stopOf(type) < 0) { p = at(1); const q = this.pos.volcano[vi]; Object.assign(p, { track: 'volcano', idx: vi, x: q.x, y: q.y + 0.05, z: q.z }); this.place(p); this.lookAt({ p: q, dist: 26, pitch: 0.5 }); }
+        else p = at(Math.max(0, stopOf(type)));
+        const ev = { t: 'space', slot: 0, text: `${LABELS[type] || type}`, dur: W.has(type) ? DUR.wonder : DUR.banner };
+        if (W.has(type)) ev.wonder = [0];
+        this.demo.push(game(ev));
+      };
+    }
+    void put;
+    return out;
+  }
+
+  /** The sequence editor (seqEditor.js), on a moment (or the first). */
+  openSequenceEditor(key = null) {
+    if (this.gallery) this.closeGallery(true);
+    if (!this.seqEditor) { this.demos(); this.seqEditor = new SeqEditor(this); }
+    this.seqEditor.open(key || this.seqEditor.key || 'smash.dragon');
+  }
+
   // ---------------------------------------------------------------- the set pieces
   demos() {
     const at = (idx) => { const p = this.pawns[0], q = this.pos.island[idx]; this.fx.unhide(p); this.fx.unbreak(); for (const o of Object.values(this.pawns)) o.rollClip = null; this.camSlot = 0; for (const o of Object.values(this.pawns)) if (o !== p) o.group.visible = false; Object.assign(p, { track: 'island', idx, x: q.x, y: q.y + 0.05, z: q.z, scale: 1, fx: null }); p.group.visible = true; this.place(p); if (!(this.slow < 1)) { this.lookAt({ p: q, dist: 32, pitch: 0.45 }); this.follow = true; } return p; }; // (in slow motion the camera stays where you put it)
     const walk = (from, n, mode = 'fast', extra = {}) => { const path = []; const step = n > 0 ? 1 : -1; for (let i = 1; i <= Math.abs(n); i++) path.push({ track: 'island', idx: from + i * step }); return { t: 'move', slot: 0, mode, path, dur: Math.abs(n) * (mode === 'fast' ? 190 : 340) + 350 + DUR.cross, ...extra }; };
-    const move = (ev) => () => this.wrapMove(ev, this.beginMove(ev));
+    const move = (ev) => () => { const a = this.wrapMove(ev, this.beginMove(ev)); if (a) a.ev = ev; return a; };
     const throwBy = (s, color) => { const n = ISLAND[s].arg, w = (color === 'blue' ? walkForward : walkBack)({ track: 'island', idx: s }, n);
       return { t: 'move', slot: 0, mode: 'fly', statue: color, path: w.path, count: { total: n, dir: color === 'blue' ? 'fwd' : 'back' }, dur: DUR.statueThrow }; };
     const spring = (slot, from, n, color) => { const path = []; const st = n > 0 ? 1 : -1; for (let i = 1; i <= Math.abs(n); i++) path.push({ track: 'island', idx: from + i * st }); return { t: 'move', slot, mode: 'spring', spring: color, path, count: { total: Math.abs(n), dir: n > 0 ? 'fwd' : 'back' }, dur: DUR.spring }; };
-    const look = (...slots) => () => { for (const s of slots) if (this.pawns[s]) this.pawns[s].wonder = true; return { t: 0, dur: DUR.wonder }; }; // ("what is about to happen?" while the banner shows, as in a game)
+    const look = (...slots) => () => { for (const s of slots) if (this.pawns[s]) this.pawns[s].wonder = true; return { t: 0, dur: DUR.wonder, ev: { t: 'space', slot: slots[0], wonder: slots, dur: DUR.wonder } }; }; // ("what is about to happen?" while the banner shows, as in a game)
     const rolling = (slot, ms = 1800) => () => { this.fx.begin(slot); return { t: 0, dur: ms, end: () => { if (this.pawns[slot]) this.pawns[slot].rollClip = null; } }; }; // (eager, or puzzled at the spike ball)
     const done = () => () => { this.fx.release(); this.camHold = null; return { t: 0, dur: 0 }; };
     const put = (slot, idx) => { const p = this.pawns[slot], q = this.pos.island[idx]; Object.assign(p, { track: 'island', idx, x: q.x, y: q.y + 0.05, z: q.z, scale: 1, fx: null }); p.group.visible = true; this.place(p); return p; };
-    return [
+    const list = [
       ['Vine swing (4, then walk 2)', () => { const v = stopOf('vine'); at(v); this.fx.begin(0); this.demo.push(() => ({ t: 0, dur: 1200 }), move({ ...walk(v, 6, 'walk', { swing: 4 }), dur: 6 * 340 + 350 + DUR.cross + DUR.swing + DUR.vinePause })); }], // rolled 4 on the vine, 2 spaces left to walk
       ['Dragon fireball', () => { const s = stopOf('dragon'), p = at(s); this.demo.push(rolling(0), look(0), () => this.fx.playNote({ fx: 'fireball', dur: DUR.fire }, p), move({ t: 'move', slot: 0, mode: 'knock', path: [{ track: 'island', idx: s - 1 }], count: { total: 1, dir: 'back' }, dur: DUR.knock }), done()); }],
       ['Smash dragon wall', () => { const s = stopOf('dragon'), p = at(s); this.demo.push(rolling(0), () => this.fx.brokenAnim({ challenge: 'dragon', slot: 0, dur: DUR.wall }, p), move(walk(s, 3, 'walk')), done()); }], // rolled 4 or more: punches, cheer, walks on
@@ -190,6 +240,8 @@ export class ViewerScene extends BoardScene {
         this.demo.push(hit(s), () => ({ t: 0, dur: 500 }), hit(mid), () => ({ t: 0, dur: 1200, end: () => this.setEruption(0) })); }],
       ['Open summit', () => { this.openSummit(); }],
     ];
+    this.momentDemos = this.makeMomentDemos(list, { at, walk, move, put });
+    return list;
   }
 
   // never follow the host: nothing is running
@@ -199,6 +251,7 @@ export class ViewerScene extends BoardScene {
   tickAnim(dt) {
     if (this.wantGallery && this.board && this.pawns && this.pawns[0]) { const c = this.wantGallery; this.wantGallery = null; this.openGallery(c === true ? null : c); }
     if (this.gallery) { this.stepGallery(dt); return; }
+    if (this.wantEditor && this.board && this.pawns && this.pawns[0]) { const k = this.wantEditor; this.wantEditor = null; this.openSequenceEditor(k === true ? null : k); }
     if (this.loopDemo && !this.anim && !this.demo.length && this.board && this.pawns && this.pawns[0] && (this.loopWait -= dt) <= 0) {
       const slug = (t) => t.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''), all = this.demos();
       const d = this.loopDemo === 'all' ? all[(this.loopIdx = ((this.loopIdx ?? -1) + 1) % all.length)] : all.find(([n]) => slug(n) === this.loopDemo); // ('all': each in turn)
@@ -206,7 +259,11 @@ export class ViewerScene extends BoardScene {
       else this.loopDemo = null;
       this.loopWait = 2;
     }
-    if (!this.anim && this.demo.length) { this.anim = this.demo.shift()() || { t: 0, dur: 1 }; this.idle = false; }
+    if (!this.anim && this.demo.length) {
+      this.anim = this.demo.shift()() || { t: 0, dur: 1 }; this.idle = false;
+      if (this.anim.ev && !this.anim.moment && this.anim.dur > 0) this.anim = direct(this, this.anim, this.anim.ev); // the moment's sequence (director.js)
+    }
+    if (this.seqEditor) this.seqEditor.tick(dt);
     if (!this.anim) return;
     const a = this.anim; a.t += dt * 1000 * (this.slow || 1); // (slow motion: the viewer's own toggle)
     const u = Math.min(1, a.t / Math.max(1, a.dur));
@@ -216,6 +273,11 @@ export class ViewerScene extends BoardScene {
 
   // ---------------------------------------------------------------- camera
   updateCamera(dt = 1 / 60) {
+    if (this.seqPaused || this.seqFreeCam) { // the sequence editor: the camera is yours to place
+      const o = this.orbit, cp = Math.cos(o.pitch);
+      this.camera.position.set(o.tx + Math.sin(o.yaw) * cp * o.dist, o.ty + Math.sin(o.pitch) * o.dist, o.tz + Math.cos(o.yaw) * cp * o.dist);
+      this.camera.lookAt(o.tx, o.ty, o.tz); return;
+    }
     if (this.camHold && this.anim) { // a set piece with its own cameras (the statue throws): use them
       const h = this.camHold; this.camera.position.set(h.x, h.y, h.z); this.camera.lookAt(h.tx, h.ty, h.tz);
       const o = this.orbit; o.tx = h.tx; o.ty = h.ty; o.tz = h.tz; this.snapCamera = false; this.rolling = false;
@@ -261,6 +323,7 @@ export class ViewerScene extends BoardScene {
     for (const [label, v] of this.places()) btn(label, () => { if (this.gallery) this.closeGallery(true); this.follow = false; this.lookAt(v); });
     head('Mii animations');
     btn('Animation gallery', () => this.openGallery(), '#8a4a9a');
+    btn('Sequence editor', () => this.openSequenceEditor(), '#8a4a9a');
     head('Play');
     for (const [label, fn] of this.demos()) btn(label, () => { if (!this.anim && !this.gallery) fn(); }, '#3c7a4a');
     const second = btn('Second player on the spike stretch: off', () => { this.secondPlayer = !this.secondPlayer; second.textContent = `Second player on the spike stretch: ${this.secondPlayer ? 'on' : 'off'}`; }, '#4a4a7a');

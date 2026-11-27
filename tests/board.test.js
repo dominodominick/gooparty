@@ -599,4 +599,18 @@ for (let i = 1; i < V.length; i++) {
   bg = make(); { bg.positions[0] = I(FINAL_IDX); const { e } = single(bg, 0, 'final', 3); const n = e.find((x) => x.t === 'space');
     assert.equal(n.fx, 'finalFail'); assert.equal(n.dur, D.finalFail); assert.ok(!e.some((x) => x.t === 'broken')); }
 }
+// ---------- v96: a moment the sequence editor made longer: the host waits for it
+{
+  const { SEQUENCES } = await import('../js15/game/sequences.js');
+  const make = () => { const bg = new BoardGame({ slots: [0, 1], rng: mulberry32(3), isNpc: () => true }); bg.start(0); bg.order = [...bg.players]; bg.turn = 0; return bg; };
+  const d = ISLAND.findIndex((n) => n.type === 'dragon');
+  const run = () => { const bg = make(); bg.positions[0] = I(d); bg.step = { kind: 'single', purpose: 'dragon', remaining: 0 }; bg.rigNext = 6; const e = []; const done = bg._resolveSingle(0, e); const r = bg._commit(1000, e, done); return { bg, ev: r.events.find((x) => x.t === 'broken') }; };
+  const before = run();
+  SEQUENCES['smash.dragon'] = { blocks: [{ track: 'builtin', at: 0, len: 600, from: 0, speed: 0.5 }] }; // ten seconds
+  const after = run();
+  delete SEQUENCES['smash.dragon'];
+  assert.equal(before.ev.hold || 0, 0);
+  assert.equal(after.ev.hold, 10000 - after.ev.dur, 'held for the sequence');
+  assert.equal(after.bg.readyAt - before.bg.readyAt, after.ev.hold, 'and the next turn waits for it');
+}
 console.log('board tests passed');
