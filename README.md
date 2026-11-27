@@ -351,6 +351,13 @@ The hand-built island is gone. The game now runs on the converted Wii Party map 
   sinks away. The game's "broken" message did not say who broke it, so the scene had no player to animate and
   only waited, then hid the wall.
 
+## Build 98: the faces show
+
+In build 97 the faces could stay on Normal. The page loaded new, but the browser kept its old copy of
+`mii/ffl/game-ffl.js`, which makes heads with the normal face only. The Mii renderer's files are now loaded with the
+build in their address (`game-ffl.js?v=98`), so a new build always gets them fresh. The gallery sets faces straight on
+FFL's model. If a head still lacks a face, the panel says why instead of doing nothing.
+
 ## Build 97: Mii faces in the animation gallery
 
 The animation gallery has a dropdown at the top: **Animations** (every clip, as before) or **Expressions (faces)**.

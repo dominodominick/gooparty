@@ -386,7 +386,8 @@ export class ViewerScene extends BoardScene {
       if (this.gallery === G) { G.ffl = F || null; if (G.ui) G.ui.update(true); }
       if (!F || this.gallery !== G || !this.renderer) return;
       try { shadeLikeFace(T, fig.body, F); } catch (e) { /* plain lighting */ }
-      try { G.ffl = F; G.face3d = fitFFLHead(fig.head, F.head(mii.ffl, this.renderer, FACES.map((x) => x.n))); F.setFace(G.face3d, G.face || 0); } catch (e) { G.face3d = null; /* the stand-in head */ }
+      try { G.ffl = F; G.face3d = fitFFLHead(fig.head, F.head(mii.ffl, this.renderer, FACES.map((x) => x.n))); } catch (e) { G.face3d = null; /* the stand-in head */ }
+      if (G.face3d) { const cm = G.face3d.userData.charModel, have = (cm && cm.expressions) || []; G.faceErr = have.length >= FACES.length ? null : `This head was made with ${have.length} face${have.length === 1 ? '' : 's'} (${have.join(', ') || 'none'}): the page is using an old copy of mii/ffl/game-ffl.js. Reload the page (Ctrl+Shift+R / Cmd+Shift+R).`; this.setFace(G.face || 0); }
       if (G.ui) G.ui.update(true);
       try { if (G.caster) G.caster.rebuild(); } catch (e) { /* */ }
       G.fflMats = null;
@@ -420,7 +421,10 @@ export class ViewerScene extends BoardScene {
   setFace(n) {
     const G = this.gallery; if (!G) return;
     G.face = n;
-    if (G.ffl && G.face3d) G.ffl.setFace(G.face3d, n);
+    if (G.face3d) { // (straight on FFL's model: works whichever copy of game-ffl.js the page has)
+      const cm = G.face3d.userData.charModel;
+      try { cm.setExpression(n); G.faceFail = null; } catch (e) { G.faceFail = `Face ${n} could not be shown: ${e && e.message ? e.message : e}`; }
+    }
     if (G.ui) G.ui.update(true);
   }
 
@@ -591,6 +595,7 @@ export class ViewerScene extends BoardScene {
         if (G.mode === 'expressions') {
           const x = FACES.find((y) => y.n === G.face);
           now.innerHTML = `<b style="font-size:15px">${x ? x.name : G.face}</b><br>Body: ${G.clip} (${C.loop ? 'loops' : 'plays once'}) &middot; frame ${Math.round(G.f)} / ${C.frames - 1}`
+            + (G.face3d && (G.faceErr || G.faceFail) ? `<br><span style="color:#ffd27a">${G.faceErr || G.faceFail}</span>` : '')
             + (G.face3d ? '' : `<br><span style="color:#ffd27a">${G.ffl === undefined ? 'The Mii\'s real head is loading...' : 'Faces need the real Mii head, which comes from the mii/ folder next to the page (on the website or the zip); this page has the stand-in head.'}</span>`);
           return;
         }
