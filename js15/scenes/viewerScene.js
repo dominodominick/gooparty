@@ -174,6 +174,11 @@ export class ViewerScene extends BoardScene {
       'minigame.duel': () => { const s = stopOf('mg11'); at(s); put(1, s - 3); this.demo.push(game({ t: 'minigame', kind: 'duel', slot: 0, opp: 1, dur: DUR.minigame })); },
       'duel.challenge': () => { const s = stopOf('mg11'); at(s); put(1, s - 3); this.demo.push(game({ t: 'space', slot: 0, text: '1 vs 1! {0} challenges {1}', cast: [1], moment: 'duel.challenge', dur: DUR.banner })); },
       'duel.result': () => { const s = stopOf('mg11'); at(s); put(1, s - 3); this.demo.push(game({ t: 'space', slot: 0, text: '{0} wins! +7, and {1} goes back 7', cast: [1], moment: 'duel.result', dur: DUR.banner })); },
+      'rest.win': () => { const s = stopOf('mgRest'); at(s); this.demo.push(game({ t: 'space', slot: 0, text: '{0} wins! +7', moment: 'rest.win', dur: DUR.banner })); },
+      'rest.lose': () => { const s = stopOf('mgRest'); at(s); this.demo.push(game({ t: 'space', slot: 0, text: 'The rest win. Nothing happens.', moment: 'rest.lose', dur: DUR.banner })); },
+      'pass.volcanoOrNot': () => { const s = stopOf('volcanoOrNot'); at(s); this.demo.push(game({ t: 'space', slot: 0, text: 'You dodge the volcano!', moment: 'pass.volcanoOrNot', dur: DUR.banner }), move(walk(s, 2, 'walk'))); },
+      'pass.spike': () => { const s = stopOf('spike'); at(s); this.demo.push(game({ t: 'space', slot: 0, text: 'You get past the spike ball!', moment: 'pass.spike', dur: DUR.banner }), move(walk(s, 2, 'walk'))); },
+      'game.start': () => { at(0); put(1, 0); put(2, 0); put(3, 0); this.demo.push(game({ t: 'roundStart', round: 1, order: [0, 1, 2, 3], moment: 'game.start', dur: DUR.round })); },
       'move.spring.green.back': () => { const s = stopOf('mg11') + 4; at(s); this.demo.push(move({ t: 'move', slot: 0, mode: 'spring', spring: 'green', path: walkBack({ track: 'island', idx: s }, 7).path, count: { total: 7, dir: 'back' }, dur: DUR.spring })); },
       'minigame.rest': () => { const s = stopOf('mgRest'); at(s); put(1, s - 2); put(2, s - 5); put(3, s + 3); this.demo.push(game({ t: 'minigame', kind: 'rest', slot: 0, dur: DUR.minigame })); },
       'win': () => { const s = stopOf('final'); at(s); put(1, s - 4); put(2, s - 9); put(3, s - 14); this.demo.push(move(walk(s, 1, 'walk')), game({ t: 'win', slot: 0, dur: 3000 })); },
@@ -217,7 +222,10 @@ export class ViewerScene extends BoardScene {
     const done = () => () => { this.fx.release(); this.camHold = null; return { t: 0, dur: 0 }; };
     const put = (slot, idx) => { const p = this.pawns[slot], q = this.pos.island[idx]; Object.assign(p, { track: 'island', idx, x: q.x, y: q.y + 0.05, z: q.z, scale: 1, fx: null }); p.group.visible = true; this.place(p); return p; };
     const list = [
-      ['Vine swing (4, then walk 2)', () => { const v = stopOf('vine'); at(v); this.fx.begin(0); this.demo.push(() => ({ t: 0, dur: 1200 }), move({ ...walk(v, 6, 'walk', { swing: 4 }), dur: 6 * 340 + 350 + DUR.cross + DUR.swing + DUR.vinePause })); }], // rolled 4 on the vine, 2 spaces left to walk
+      ['Vine swing (4, then walk 2)', () => { const v = stopOf('vine'); at(v); this.fx.begin(0); this.demo.push(() => ({ t: 0, dur: 3600 }), move({ ...walk(v, 6, 'walk', { swing: 4 }), dur: 6 * DUR.walkStep + 350 + DUR.swing + DUR.vinePause })); }], // (swinging while the die rolls, then the real game's let-go, landing, cheer and run)
+      ['Vine crossing (the real timeline)', () => { const v = stopOf('vine'); at(v - 1); this.demo.push(move({ ...walk(v - 1, 3, 'walk'), dur: 3 * DUR.walkStep + 350 + DUR.vineCross })); }], // (leap, hang, two swings each way, let go, land, cheer, run on)
+      ['Crates: hop across', () => { const s = stopOf('crates'), p = at(s); this.fx.begin(0);
+        this.demo.push(() => { this.fx.playNote({ fx: 'crates', picked: 0, safe: true }, p); return { t: 0, dur: 700 }; }, move({ ...walk(s, 2, 'walk'), dur: 2 * DUR.walkStep + 350 + DUR.cratesCross })); }], // rolled 4 on the vine, 2 spaces left to walk
       ['Dragon fireball', () => { const s = stopOf('dragon'), p = at(s); this.demo.push(rolling(0), look(0), () => this.fx.playNote({ fx: 'fireball', dur: DUR.fire }, p), move({ t: 'move', slot: 0, mode: 'knock', path: [{ track: 'island', idx: s - 1 }], count: { total: 1, dir: 'back' }, dur: DUR.knock }), done()); }],
       ['Smash dragon wall', () => { const s = stopOf('dragon'), p = at(s); this.demo.push(rolling(0), () => this.fx.brokenAnim({ challenge: 'dragon', slot: 0, dur: DUR.wall }, p), move(walk(s, 3, 'walk')), done()); }], // rolled 4 or more: punches, cheer, walks on
       ['Blue statue throw', () => { const s = stopOf('statueBlue'); at(s); this.demo.push(move(throwBy(s, 'blue'))); }],
@@ -304,6 +312,10 @@ export class ViewerScene extends BoardScene {
       return;
     }
     const o = this.orbit, p = this.pawns[this.camSlot ?? 0] || this.pawns[0];
+    if (this.gameCam && p && p.track === 'island' && p.group.visible && (this.anim || this.demo.length) && !this.gallery) { // as a game shows it: the real board camera
+      this.setAmbience('island'); this.realCamera(dt, p);
+      const c = this.cam; o.tx = c.tx; o.ty = c.ty; o.tz = c.tz; return;
+    }
     if (this.follow && p && p.group.visible && (this.anim || this.demo.length)) { // keep the player of a set piece in view
       const fx = p.fx && p.fx.x != null ? p.fx : p, k = 1 - Math.exp(-dt * 3);
       if (Math.abs(fx.x - o.tx) > 200 || this.snapCamera) { o.tx = fx.x; o.ty = fx.y + 1.5; o.tz = fx.z; this.snapCamera = false; } // a jump into the volcano, or a cut: cut
@@ -346,6 +358,8 @@ export class ViewerScene extends BoardScene {
     head('Play');
     for (const [label, fn] of this.demos()) btn(label, () => { if (!this.anim && !this.gallery) fn(); }, '#3c7a4a');
     const second = btn('Second player on the spike stretch: off', () => { this.secondPlayer = !this.secondPlayer; second.textContent = `Second player on the spike stretch: ${this.secondPlayer ? 'on' : 'off'}`; }, '#4a4a7a');
+    this.gameCam = typeof window !== 'undefined' && !!window.__VIEW_GAMECAM;
+    const gc = btn(`Game camera: ${this.gameCam ? 'on' : 'off'}`, () => { this.gameCam = !this.gameCam; this.rc = null; gc.textContent = `Game camera: ${this.gameCam ? 'on' : 'off'}`; }, '#4a4a7a'); // (the set pieces as a game shows them: the real board camera)
     const slow = btn('Slow motion: off', () => { this.slow = this.slow === 0.15 ? 0.04 : this.slow === 0.04 ? 1 : 0.15; slow.textContent = `Slow motion: ${this.slow === 0.04 ? 'very slow' : this.slow < 1 ? 'on' : 'off'}`; }, '#4a4a7a'); // off -> on -> very slow -> off
     head('');
     btn('Reset everything', () => app.go('viewer'), '#7a5a2a');

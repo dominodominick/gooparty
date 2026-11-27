@@ -22,13 +22,26 @@ const OWN = {
   'move.spring.blue': [DUR.spring, true], 'move.spring.red': [DUR.spring, true], 'move.spring.green': [DUR.spring, true], 'move.spring.green.back': [DUR.spring, true],
   'move.fly.statue.blue': [DUR.statueThrow, true], 'move.fly.statue.red': [DUR.statueThrow, true], 'ufo.up': [DUR.ufo, true], 'ufo.down': [DUR.ufo, true],
   'note.crates': [700, false], 'move.swim': [DUR.swim, true], 'win': [3000, false],
+  'pass.volcanoOrNot': [DUR.banner, false], 'pass.spike': [DUR.banner, false], 'game.start': [DUR.round, false],
 };
 // no recorded camera where the real one follows the Mii from a space that differs each time (the trace has the camera,
 // not the Mii): springs go from many spaces, the UFO teleports. These keep the game's own follow camera.
 const FACE_CAMERA = new Set(['duel.challenge']);
 const NO_CAMERA = new Set(['ufo.up', 'ufo.down', 'move.spring.blue', 'move.spring.red', 'move.spring.green', 'move.spring.green.back']);
 const TYPES = { 'move.spring.blue': ['plus4', 'plus5', 'plus6'], 'move.spring.red': ['minus4'], 'duel.challenge': ['mg11'] };
-const IN_PLACE = { win: { pm000_03: 'pm011_08', pm000_04: 'pm011_08' } }; // (the real winner walks about the summit; ours stands)
+const IN_PLACE = { win: { pm000_03: 'pm011_08', pm000_04: 'pm011_08' }, 'pass.spike': { pm000_03: 'pm011_08' } }; // (the real winner walks about the summit; ours stands)
+// The real board camera's close-up (boardCamera.js REACT): it cuts in just before a Mii's reaction to where they landed
+// (a fist pump and a smile, pm001_06; head hung and sad, pm001_07) and holds about 1.4 s, then the space's own shot.
+// Only for sequences without a recorded camera (the recorded ones have the real camera already, close-up and all).
+function reactKeys(seq) {
+  if (seq.camera.some((k) => k.kind === 'shot')) return;
+  for (const b of (seq.miis[0] || { anim: [] }).anim) {
+    if (b.clip !== 'pm001_06' && b.clip !== 'pm001_07') continue;
+    seq.camera.push({ at: Math.max(0, b.at - f(0.2)), kind: 'board', preset: 'react', follow: 0 });
+    if (b.at + f(1.4) < seq.len) seq.camera.push({ at: b.at + f(1.4), kind: 'board', preset: 'follow', follow: 0 });
+  }
+  seq.camera.sort((a, b) => a.at - b.at);
+}
 
 function anchorAt(i) {
   const here = P[i], next = P[i + 1], prev = P[i - 1];
@@ -83,6 +96,7 @@ for (const m of JSON.parse(fs.readFileSync(process.argv[2], 'utf8'))) {
     seq.camera = seq.camera.filter((k, i, a) => !(a[i + 1] && a[i + 1].at === k.at));
   }
   if (FACE_CAMERA.has(m.key)) for (const b of seq.miis[0].anim) b.facing = 'camera'; // (the pose is struck at you)
+  reactKeys(seq);
   SEQ[m.key] = seq;
 }
 // made by hand from what the trace shows (the board, back from a 1 vs 1): the winner pumps a fist and smiles, the loser
@@ -90,6 +104,12 @@ for (const m of JSON.parse(fs.readFileSync(process.argv[2], 'utf8'))) {
 SEQ['duel.result'] = { key: 'duel.result', v: 2, len: 120, builtin: [], camera: [], fx: [], from: 'trace',
   miis: [{ anim: [{ at: 0, len: 84, clip: 'pm001_06', from: 0, speed: 1, facing: 'camera', loop: false }], face: [{ at: 0, len: 110, face: 1 }] },
     { anim: [{ at: 0, len: 92, clip: 'pm001_07', from: 0, speed: 1, facing: 'auto', loop: false }], face: [{ at: 0, len: 110, face: 3 }] }] };
+// the 1 vs Rest: only the solo player reacts (the trace: a fist pump if they won, then the green spring; head hung if not)
+SEQ['rest.win'] = { key: 'rest.win', v: 2, len: 96, builtin: [], camera: [], fx: [], from: 'trace',
+  miis: [{ anim: [{ at: 0, len: 84, clip: 'pm001_06', from: 0, speed: 1, facing: 'camera', loop: false }], face: [{ at: 0, len: 96, face: 1 }] }] };
+SEQ['rest.lose'] = { key: 'rest.lose', v: 2, len: 96, builtin: [], camera: [], fx: [], from: 'trace',
+  miis: [{ anim: [{ at: 0, len: 92, clip: 'pm001_07', from: 0, speed: 1, facing: 'auto', loop: false }], face: [{ at: 0, len: 96, face: 3 }] }] };
+for (const k of ['duel.result', 'rest.win', 'rest.lose']) reactKeys(SEQ[k]);
 const head = `// The moments' sequences: what the director (js15/scenes/director.js) plays over the game's own set pieces.
 // Made in the sequence studio, or taken from a trace of the real Board Game Island (tools/trace_to_sequences.mjs:
 // the real clips, faces, timings and camera). A sequence saved in a browser's studio plays there over these.

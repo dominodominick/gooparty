@@ -34,44 +34,36 @@ for (const g of GAPS) {
     check(legs[0], pts[0], pts[1], 1.2, `${g.kind} ${a}->${b}`);
   }
 }
-// the vine roll: from the star, leap for the vine, swing, let go and fly the rolled spaces, then walk the rest
+// the vine roll, as the real game: swing on, let go, land on the far side, cheer, then run the spaces (the rolled ones and any left)
 {
-  const v = sp.swing, vineIdx = ISLAND.findIndex((n) => n.type === 'vine');
+  const v = sp.swing, vineIdx = ISLAND.findIndex((n) => n.type === 'vine'), far = { x: v.far.x, y: v.far.y + 0.05, z: v.far.z };
+  const smooth = (fx, leg, what) => {
+    let prev = null, worst = 0, rp = null, rj = 0;
+    for (let i = 0; i <= 1000; i++) { const q = leg.pose(i / 1000); if (prev) worst = Math.max(worst, Math.hypot(q.x - prev.x, q.y - prev.y, q.z - prev.z)); if (rp != null && fx.swinging) rj = Math.max(rj, Math.abs(fx.ropeTheta - rp)); rp = fx.swinging ? fx.ropeTheta : null; prev = q; }
+    assert.ok(worst < 0.6 && rj < 0.05, `${what}: smooth all the way (${worst.toFixed(2)}, ${rj.toFixed(3)})`);
+  };
   for (const [d, r] of [[1, 0], [4, 1], [6, 3]]) {
     const fx = mk(vineIdx), path = [], pts = [{ ...P[vineIdx] }];
     for (let k = 1; k <= d + r; k++) { path.push({ track: 'island', idx: vineIdx + k }); pts.push({ ...P[vineIdx + k] }); }
     const legs = fx.buildLegs({ path, swing: d, dur: 99999 }, pts, 340, { track: 'island', ...P[vineIdx] });
-    assert.equal(legs.length, 1 + (r ? 1 + r : 0), `one jump of ${d}, a pause, then ${r} steps`);
-    assert.equal(legs[0].counter(0), d, 'the vine has its own counter, starting at the vine roll');
-    assert.equal(legs[0].counter(1), 0);
-    if (r) {
-      assert.equal(legs[1].kind, 'pause'); assert.equal(legs[1].steps, 0);
-      const a0 = legs[1].pose(0), a1 = legs[1].pose(1); assert.deepEqual(a0, a1, 'standing still on the landing spot');
-      assert.equal(legs[1].counter(0.2), 0); assert.equal(legs[1].counter(0.9), r, 'then the spaces still left take its place');
-    }
-    assert.equal(legs[0].steps, d);
+    assert.equal(legs.length, 2 + d + r, `the swing, the cheer, then ${d + r} steps`);
+    assert.equal(legs[0].kind, 'swing'); assert.equal(legs[0].steps, 0);
+    assert.equal(legs[1].kind, 'pause'); assert.equal(legs[1].steps, 0);
+    assert.equal(legs[1].pose(0.5).fx.clip, 'pm001_10', 'a cheer on landing');
+    assert.deepEqual([legs[1].pose(0).x, legs[1].pose(0).z], [legs[1].pose(1).x, legs[1].pose(1).z], 'standing still on the far side');
     const end = legs[0].pose(1);
-    assert.ok(Math.hypot(end.x - pts[d].x, end.y - pts[d].y, end.z - pts[d].z) < 0.01, `lands on the space ${d} past the star`);
-    let prev = null, worst = 0, ropePrev = null, ropeJump = 0;
-    for (let i = 0; i <= 800; i++) {
-      const q = legs[0].pose(i / 800);
-      if (prev) worst = Math.max(worst, Math.hypot(q.x - prev.x, q.y - prev.y, q.z - prev.z));
-      if (ropePrev != null && fx.swinging) ropeJump = Math.max(ropeJump, Math.abs(fx.ropeTheta - ropePrev));
-      ropePrev = fx.swinging ? fx.ropeTheta : null; prev = q;
-    }
-    assert.ok(worst < 0.6, `the whole jump is smooth (biggest step ${worst.toFixed(2)})`);
-    assert.ok(ropeJump < 0.05, `the vine never jumps (${ropeJump.toFixed(3)})`);
-    assert.equal(legs[0].stepAt(0.5), 0, 'the counter waits until the player lets go');
-    assert.equal(legs[0].stepAt(1), d);
+    assert.ok(Math.hypot(end.x - far.x, end.z - far.z) < 0.01, 'lands on the far side of the gorge');
+    smooth(fx, legs[0], `vine roll of ${d}`);
     assert.ok(fx.ropeFree, 'after letting go the vine swings on by itself');
-    // the rope carries on from where it was let go, without a jump
     const th = fx.ropeTheta; fx.ropeFree.t = 0; fx.s.pawns = {}; fx.update(1 / 60);
     assert.ok(Math.abs(fx.ropeTheta - th) < 0.06, 'the vine swings on smoothly');
+    assert.equal(legs.slice(2).reduce((a, l) => a + l.steps, 0), d + r, 'every space is run');
   }
   // swinging on the vine while the die rolled: the swing carries straight on into the jump
   for (const t0 of [3.7, 4.4, 5.9, 7.2]) {
     const pawn = { x: 0, y: 0, z: 0 }, fx = mk(vineIdx, { vine: { slot: 0, t: t0 - 1 / 60, from: { ...P[vineIdx] } } });
     fx.s.pawns = { 0: pawn }; fx.update(1 / 60); // the last frame of hanging
+    assert.ok(/^pm434_0[12]$/.test(pawn.fx.clip), 'swinging with the real swing clips');
     const hangPos = { x: pawn.x, y: pawn.y, z: pawn.z }, hangTh = fx.ropeTheta;
     const path = [], pts = [{ ...hangPos }];
     for (let k = 1; k <= 5; k++) { path.push({ track: 'island', idx: vineIdx + k }); pts.push({ ...P[vineIdx + k] }); }
@@ -80,11 +72,13 @@ for (const g of GAPS) {
     const first = legs[0].pose(0);
     assert.ok(Math.hypot(first.x - hangPos.x, first.y - hangPos.y, first.z - hangPos.z) < 0.15, `the jump starts exactly where the swinging player is (t=${t0})`);
     assert.ok(Math.abs(fx.ropeTheta - hangTh) < 0.06, 'and the vine is where it was');
-    let prev = null, worst = 0, rp = null, rj = 0;
-    for (let i = 0; i <= 1000; i++) { const q = legs[0].pose(i / 1000); if (prev) worst = Math.max(worst, Math.hypot(q.x - prev.x, q.y - prev.y, q.z - prev.z)); if (rp != null && fx.swinging) rj = Math.max(rj, Math.abs(fx.ropeTheta - rp)); rp = fx.swinging ? fx.ropeTheta : null; prev = q; }
-    assert.ok(worst < 0.6 && rj < 0.05, `smooth all the way (${worst.toFixed(2)}, ${rj.toFixed(3)})`);
-    const end = legs[0].pose(1); assert.ok(Math.hypot(end.x - pts[3].x, end.z - pts[3].z) < 0.01, 'lands 3 spaces on');
+    smooth(fx, legs[0], `from the swing (t=${t0})`);
+    const end = legs[0].pose(1); assert.ok(Math.hypot(end.x - far.x, end.z - far.z) < 0.01, 'lands on the far side');
   }
+  // crossing on the vine without the roll: the real game's timeline (VINE)
+  { const { legs } = walk(vineIdx, vineIdx + 1); const seen = new Set(); for (let i = 0; i <= 400; i++) { const q = legs[0].pose(i / 400); if (q.fx && q.fx.clip) seen.add(q.fx.clip); }
+    for (const c of ['pm405_01', 'pm001_13', 'pm434_01', 'pm434_02', 'pm405_02', 'pm001_09', 'pm001_10']) assert.ok(seen.has(c), 'the crossing plays ' + c);
+    assert.ok(legs[0].ms > 6700, 'and takes the real time'); }
   assert.ok(Math.abs(v.tip(0).y - (v.near.y + v.far.y) / 2) < 0.01, 'the vine reaches down to the level of the banks');
 }
 {

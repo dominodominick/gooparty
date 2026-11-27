@@ -352,7 +352,7 @@ __mods["js15/config.js"] = (() => {
 
 const GAME_TITLE = 'Party Island'; // placeholder name: pick your own
 
-const BUILD = '100'; // shown in the menu and in games; every player must have the same build
+const BUILD = '101'; // shown in the menu and in games; every player must have the same build
 
 const MAX_PLAYERS = 6;
 
@@ -627,6 +627,8 @@ function castOf(key) {
     'note@tornado': ['Lands on the tornado', 'Blown back'], 'move.fly.tornado': ['Blown back'],
     'spike.shock': ['Rolled', 'On the stretch', 'On the stretch', 'On the stretch'],
     'round.start': ['Goes 1st', 'Goes 2nd', 'Goes 3rd', 'Goes 4th'],
+    'game.start': ['Goes 1st', 'Goes 2nd', 'Goes 3rd', 'Goes 4th'],
+    'rest.win': ['Solo player'], 'rest.lose': ['Solo player'],
     'win': ['Winner', 'Another Mii', 'Another Mii', 'Another Mii'],
   };
   return C[key] || ['Player'];
@@ -640,6 +642,8 @@ function allMoments() {
   add('Special spaces', 'minigame.duel', '1 vs 1 space: before the minigame');
   add('Special spaces', 'duel.result', '1 vs 1: who won (after the minigame)');
   add('Special spaces', 'minigame.rest', '1 vs Rest space: before the minigame');
+  add('Special spaces', 'rest.win', '1 vs Rest: the solo player won (after the minigame)');
+  add('Special spaces', 'rest.lose', '1 vs Rest: the rest won (after the minigame)');
   add('Special spaces', 'eruption', 'Volcano space: the eruption');
   add('Special spaces', 'ufo.up', 'UFO space: beamed up');
   add('Special spaces', 'ufo.down', 'UFO space: put down in the other place');
@@ -649,6 +653,7 @@ function allMoments() {
   add('Special spaces', 'move.spring.blue', 'Blue spring (+4 / +5 / +6)');
   add('Special spaces', 'move.spring.red', 'Red spring (-4)');
   add('Special spaces', 'move.drop', 'Skull / volcano-or-not: into the volcano');
+  add('Turns', 'game.start', 'The game starts (everyone cheers at the start)');
   add('Turns', 'round.start', 'A round starts (the order)');
   add('Turns', 'turn.start', "Someone's turn starts");
   add('Turns', 'dice.land', 'The die lands (the number)');
@@ -671,6 +676,8 @@ function allMoments() {
   add('Challenges', 'spike.shock', 'Spike ball: everyone on the stretch jumps');
   add('Challenges', 'note.spikeCount', 'Spike ball: the number goes down');
   add('Challenges', 'smash.spike', 'Spike statue: breaks (end of the turn)');
+  add('Challenges', 'pass.volcanoOrNot', 'Volcano or not: dodged it');
+  add('Challenges', 'pass.spike', 'Spike ball: got past it');
   add('Challenges', 'smash.final', 'Final challenge: gate kicked open');
   add('Challenges', 'note.finalFail', 'Final challenge: missed');
   return out;
@@ -731,7 +738,7 @@ __mods["js15/game/sequences.js"] = (() => {
 // The moments' sequences: what the director (js15/scenes/director.js) plays over the game's own set pieces.
 // Made in the sequence studio, or taken from a trace of the real Board Game Island (tools/trace_to_sequences.mjs:
 // the real clips, faces, timings and camera). A sequence saved in a browser's studio plays there over these.
-const SEQUENCES = {"smash.dragon":{"key":"smash.dragon","v":2,"len":447,"builtin":[],"miis":[{"anim":[{"at":0,"len":37,"clip":"pm301_04","from":0,"speed":1,"facing":"auto","loop":false},{"at":37,"len":24,"clip":"pm301_02","from":0,"speed":1,"facing":"auto","loop":false},{"at":61,"len":24,"clip":"pm301_03","from":0,"speed":1,"facing":"auto","loop":false},{"at":85,"len":32,"clip":"pm301_04","from":0,"speed":1,"facing":"auto","loop":false},{"at":117,"len":151,"clip":"pm301_01","from":0,"speed":1,"facing":"auto"},{"at":268,"len":23,"clip":"pm011_08","from":0,"speed":1,"facing":"auto"},{"at":291,"len":83,"clip":"pm001_06","from":0,"speed":1,"facing":"auto","loop":false},{"at":374,"len":73,"clip":"pm011_08","from":0,"speed":1,"facing":"auto"}],"face":[{"at":291,"len":156,"face":1}]}],"camera":[{"at":0,"kind":"shot","ease":"cut","follow":null,"shot":{"x":-8.62,"y":1.63,"z":-4.48,"tx":-1.44,"ty":2.3,"tz":1.85}},{"at":20,"kind":"shot","ease":"linear","follow":null,"shot":{"x":-8.6,"y":1.72,"z":-4.37,"tx":-1.42,"ty":2.39,"tz":1.96}},{"at":41,"kind":"shot","ease":"linear","follow":null,"shot":{"x":-8.8,"y":1.24,"z":-4.28,"tx":-1.62,"ty":1.91,"tz":2.06}},{"at":44,"kind":"shot","ease":"linear","follow":null,"shot":{"x":-8.69,"y":1.52,"z":-4.54,"tx":-1.51,"ty":2.19,"tz":1.8}},{"at":66,"kind":"shot","ease":"linear","follow":null,"shot":{"x":-8.9,"y":1.67,"z":-4.27,"tx":-1.72,"ty":2.34,"tz":2.06}},{"at":97,"kind":"shot","ease":"linear","follow":null,"shot":{"x":-8.79,"y":2.08,"z":-4.4,"tx":-1.61,"ty":2.75,"tz":1.94}},{"at":104,"kind":"shot","ease":"linear","follow":null,"shot":{"x":-8.63,"y":1.63,"z":-4.47,"tx":-1.45,"ty":2.3,"tz":1.87}},{"at":149,"kind":"shot","ease":"linear","follow":null,"shot":{"x":-8.62,"y":0.84,"z":-4.53,"tx":-1.43,"ty":1.51,"tz":1.81}},{"at":150,"kind":"shot","ease":"linear","follow":null,"shot":{"x":-8.72,"y":1.73,"z":-5.09,"tx":-1.54,"ty":2.4,"tz":1.24}},{"at":151,"kind":"shot","ease":"linear","follow":null,"shot":{"x":-8.16,"y":1.84,"z":-4.32,"tx":-0.97,"ty":2.51,"tz":2.01}},{"at":154,"kind":"shot","ease":"linear","follow":null,"shot":{"x":-8.14,"y":1.73,"z":-4.95,"tx":-0.96,"ty":2.4,"tz":1.38}},{"at":170,"kind":"shot","ease":"linear","follow":null,"shot":{"x":-8.62,"y":1.63,"z":-4.48,"tx":-1.44,"ty":2.3,"tz":1.85}},{"at":272,"kind":"shot","ease":"cut","follow":null,"shot":{"x":0.47,"y":4.46,"z":-7.83,"tx":0.01,"ty":2.56,"tz":-0.07}},{"at":284,"kind":"shot","ease":"linear","follow":null,"shot":{"x":0.46,"y":4.46,"z":-7.76,"tx":0,"ty":2.56,"tz":0}}],"fx":[],"from":"trace","space":"dragon"},"note.fireball":{"key":"note.fireball","v":2,"len":102,"builtin":[],"miis":[{"anim":[{"at":0,"len":86,"clip":"pm001_02","from":0,"speed":1,"facing":"auto"}],"face":[]}],"camera":[{"at":0,"kind":"shot","ease":"cut","follow":null,"shot":{"x":-8.62,"y":1.63,"z":-4.48,"tx":-1.44,"ty":2.3,"tz":1.85}},{"at":4,"kind":"shot","ease":"cut","follow":null,"shot":{"x":-10.71,"y":5.62,"z":-6.32,"tx":-1.44,"ty":2.3,"tz":1.85}}],"fx":[],"from":"trace","space":"dragon"},"move.knock":{"key":"move.knock","v":2,"len":268,"builtin":[{"at":0,"len":268,"from":0,"speed":0.493}],"miis":[{"anim":[{"at":0,"len":36,"clip":"pm001_11","from":0,"speed":1,"facing":"auto"},{"at":36,"len":31,"clip":"pm001_12","from":0,"speed":1,"facing":"auto","loop":false},{"at":67,"len":199,"clip":"pm001_05","from":0,"speed":1,"facing":"auto"}],"face":[{"at":0,"len":266,"face":4}]}],"camera":[{"at":0,"kind":"shot","ease":"cut","follow":null,"shot":{"x":-10.71,"y":5.62,"z":-6.32,"tx":-1.44,"ty":2.3,"tz":1.85}},{"at":2,"kind":"shot","ease":"linear","follow":null,"shot":{"x":-11.02,"y":5.61,"z":-6.69,"tx":-1.25,"ty":2.3,"tz":0.89}},{"at":15,"kind":"shot","ease":"linear","follow":null,"shot":{"x":-11.96,"y":5.54,"z":-8.29,"tx":0.35,"ty":2.23,"tz":-7.17}},{"at":28,"kind":"shot","ease":"linear","follow":null,"shot":{"x":-9.55,"y":5.5,"z":-6.73,"tx":1.4,"ty":2.19,"tz":-12.48}},{"at":37,"kind":"shot","ease":"linear","follow":null,"shot":{"x":-6.22,"y":5.38,"z":-4.58,"tx":1.62,"ty":2.18,"tz":-13.57}},{"at":45,"kind":"shot","ease":"linear","follow":null,"shot":{"x":-3.68,"y":4.37,"z":-7.35,"tx":1.62,"ty":2.18,"tz":-13.58}},{"at":55,"kind":"shot","ease":"linear","follow":null,"shot":{"x":-3.39,"y":4.25,"z":-7.7,"tx":1.62,"ty":2.18,"tz":-13.58}}],"fx":[],"from":"trace","space":"dragon"},"smash.final":{"key":"smash.final","v":2,"len":343,"builtin":[],"miis":[{"anim":[{"at":0,"len":25,"clip":"pm301_02","from":0,"speed":1,"facing":"auto","loop":false},{"at":25,"len":24,"clip":"pm301_03","from":0,"speed":1,"facing":"auto","loop":false},{"at":49,"len":32,"clip":"pm301_04","from":0,"speed":1,"facing":"auto","loop":false},{"at":81,"len":32,"clip":"pm301_05","from":0,"speed":1,"facing":"auto","loop":false},{"at":113,"len":24,"clip":"pm301_02","from":0,"speed":1,"facing":"auto","loop":false},{"at":137,"len":33,"clip":"pm301_04","from":0,"speed":1,"facing":"auto","loop":false},{"at":170,"len":151,"clip":"pm301_01","from":0,"speed":1,"facing":"auto"}],"face":[]}],"camera":[{"at":0,"kind":"shot","ease":"cut","follow":null,"shot":{"x":7.04,"y":3.25,"z":-6.13,"tx":1.44,"ty":3.17,"tz":1.66}},{"at":8,"kind":"shot","ease":"linear","follow":null,"shot":{"x":6.88,"y":3.27,"z":-6.19,"tx":1.28,"ty":3.18,"tz":1.61}},{"at":29,"kind":"shot","ease":"linear","follow":null,"shot":{"x":7.03,"y":3.51,"z":-6.54,"tx":1.43,"ty":3.42,"tz":1.26}},{"at":34,"kind":"shot","ease":"linear","follow":null,"shot":{"x":7.06,"y":3.23,"z":-6.08,"tx":1.46,"ty":3.15,"tz":1.72}},{"at":62,"kind":"shot","ease":"linear","follow":null,"shot":{"x":7.41,"y":3.28,"z":-5.85,"tx":1.81,"ty":3.2,"tz":1.95}},{"at":94,"kind":"shot","ease":"linear","follow":null,"shot":{"x":6.86,"y":3.79,"z":-6.05,"tx":1.26,"ty":3.71,"tz":1.75}},{"at":100,"kind":"shot","ease":"linear","follow":null,"shot":{"x":7.03,"y":3.24,"z":-6.14,"tx":1.43,"ty":3.15,"tz":1.66}},{"at":118,"kind":"shot","ease":"linear","follow":null,"shot":{"x":7.29,"y":3.15,"z":-5.93,"tx":1.69,"ty":3.06,"tz":1.87}},{"at":163,"kind":"shot","ease":"linear","follow":null,"shot":{"x":7.04,"y":3.25,"z":-6.13,"tx":1.44,"ty":3.17,"tz":1.66}},{"at":202,"kind":"shot","ease":"linear","follow":null,"shot":{"x":6.52,"y":2.75,"z":-5.8,"tx":0.91,"ty":2.66,"tz":1.99}},{"at":203,"kind":"shot","ease":"linear","follow":null,"shot":{"x":6.55,"y":3.45,"z":-5.46,"tx":0.95,"ty":3.37,"tz":2.34}},{"at":204,"kind":"shot","ease":"linear","follow":null,"shot":{"x":7.4,"y":3.29,"z":-5.49,"tx":1.8,"ty":3.21,"tz":2.31}},{"at":205,"kind":"shot","ease":"linear","follow":null,"shot":{"x":7.2,"y":3.87,"z":-5.87,"tx":1.6,"ty":3.78,"tz":1.92}},{"at":206,"kind":"shot","ease":"linear","follow":null,"shot":{"x":6.96,"y":3.2,"z":-6.45,"tx":1.36,"ty":3.12,"tz":1.35}},{"at":207,"kind":"shot","ease":"linear","follow":null,"shot":{"x":7.06,"y":3.64,"z":-6.03,"tx":1.46,"ty":3.55,"tz":1.77}},{"at":221,"kind":"shot","ease":"linear","follow":null,"shot":{"x":7.04,"y":3.25,"z":-6.13,"tx":1.44,"ty":3.17,"tz":1.66}},{"at":223,"kind":"shot","ease":"linear","follow":null,"shot":{"x":7.04,"y":3.25,"z":-6.13,"tx":1.44,"ty":3.17,"tz":1.66}}],"fx":[],"from":"trace","space":"final"},"note.finalFail":{"key":"note.finalFail","v":2,"len":147,"builtin":[],"miis":[{"anim":[{"at":0,"len":17,"clip":"pm000_03","from":0,"speed":1,"facing":"auto"},{"at":17,"len":13,"clip":"pm011_08","from":0,"speed":1,"facing":"auto"},{"at":30,"len":88,"clip":"pm001_07","from":0,"speed":1,"facing":"auto","loop":false},{"at":118,"len":29,"clip":"pm011_08","from":0,"speed":1,"facing":"auto"}],"face":[{"at":30,"len":117,"face":3}]}],"camera":[{"at":0,"kind":"shot","ease":"cut","follow":null,"shot":{"x":3.73,"y":2.66,"z":-5.2,"tx":0,"ty":2.61,"tz":0}}],"fx":[],"from":"trace","space":"final"},"duel.challenge":{"key":"duel.challenge","v":2,"len":123,"builtin":[],"miis":[{"anim":[{"at":0,"len":49,"clip":"pm011_06","from":0,"speed":1,"facing":"camera","loop":false},{"at":49,"len":74,"clip":"pm011_12","from":0,"speed":1,"facing":"camera"}],"face":[{"at":0,"len":123,"face":2}]}],"camera":[{"at":0,"kind":"shot","ease":"cut","follow":null,"shot":{"x":-7.9,"y":10.33,"z":9.25,"tx":0,"ty":2.56,"tz":0}},{"at":6,"kind":"shot","ease":"linear","follow":null,"shot":{"x":-4.76,"y":7.24,"z":5.58,"tx":0,"ty":2.56,"tz":0}},{"at":18,"kind":"shot","ease":"linear","follow":null,"shot":{"x":-4.38,"y":6.87,"z":5.13,"tx":0,"ty":2.56,"tz":0}}],"fx":[],"from":"trace","space":"mg11"},"spike.shock":{"key":"spike.shock","v":2,"len":65,"builtin":[],"miis":[{"anim":[{"at":0,"len":57,"clip":"pm001_03","from":0,"speed":1,"facing":"auto","loop":false}],"face":[{"at":3,"len":54,"face":4}]},{"anim":[{"at":0,"len":57,"clip":"pm001_03","from":0,"speed":1,"facing":"auto","loop":false}],"face":[{"at":3,"len":54,"face":4}]},{"anim":[{"at":0,"len":57,"clip":"pm001_03","from":0,"speed":1,"facing":"auto","loop":false}],"face":[{"at":3,"len":54,"face":4}]},{"anim":[{"at":0,"len":57,"clip":"pm001_03","from":0,"speed":1,"facing":"auto","loop":false}],"face":[{"at":3,"len":54,"face":4}]}],"camera":[{"at":0,"kind":"shot","ease":"cut","follow":null,"shot":{"x":-14.78,"y":9.19,"z":-5.79,"tx":-0.68,"ty":4.22,"tz":6.26}},{"at":3,"kind":"shot","ease":"linear","follow":null,"shot":{"x":-14.78,"y":8.95,"z":-5.79,"tx":-0.68,"ty":3.98,"tz":6.26}},{"at":4,"kind":"shot","ease":"cut","follow":null,"shot":{"x":4.53,"y":0.29,"z":-23.57,"tx":-0.34,"ty":2.05,"tz":3.13}},{"at":52,"kind":"shot","ease":"cut","follow":null,"shot":{"x":-17.13,"y":9.74,"z":-7.8,"tx":-0.68,"ty":3.94,"tz":6.26}}],"fx":[],"from":"trace","space":"spike"},"move.spring.blue":{"key":"move.spring.blue","v":2,"len":285,"builtin":[{"at":0,"len":285,"from":0,"speed":0.505}],"miis":[{"anim":[{"at":0,"len":19,"clip":"pm001_15","from":0,"speed":1,"facing":"auto","loop":false},{"at":19,"len":66,"clip":"pm001_08","from":0,"speed":1,"facing":"auto","loop":false},{"at":85,"len":43,"clip":"pm001_09","from":0,"speed":1,"facing":"auto"},{"at":128,"len":71,"clip":"pm001_10","from":0,"speed":1,"facing":"auto","loop":false},{"at":200,"len":83,"clip":"pm001_06","from":0,"speed":1,"facing":"auto","loop":false}],"face":[{"at":200,"len":85,"face":1}]}],"camera":[],"fx":[],"from":"trace"},"move.spring.red":{"key":"move.spring.red","v":2,"len":360,"builtin":[{"at":0,"len":360,"from":0,"speed":0.4}],"miis":[{"anim":[{"at":0,"len":11,"clip":"pm001_02","from":0,"speed":1,"facing":"auto"},{"at":11,"len":114,"clip":"pm001_15","from":0,"speed":1,"facing":"auto","loop":false},{"at":125,"len":48,"clip":"pm001_11","from":0,"speed":1,"facing":"auto"},{"at":173,"len":42,"clip":"pm001_12","from":0,"speed":1,"facing":"auto","loop":false},{"at":215,"len":40,"clip":"pm206_03","from":0,"speed":1,"facing":"auto","loop":false},{"at":255,"len":13,"clip":"pm000_03","from":0,"speed":1,"facing":"auto"},{"at":268,"len":33,"clip":"pm011_08","from":0,"speed":1,"facing":"auto"},{"at":301,"len":59,"clip":"pm001_07","from":0,"speed":1,"facing":"auto","loop":false}],"face":[{"at":11,"len":204,"face":4},{"at":301,"len":59,"face":3}]}],"camera":[],"fx":[],"from":"trace"},"move.spring.green":{"key":"move.spring.green","v":2,"len":297,"builtin":[{"at":0,"len":297,"from":0,"speed":0.485}],"miis":[{"anim":[{"at":0,"len":8,"clip":"pm011_08","from":0,"speed":1,"facing":"auto"},{"at":8,"len":17,"clip":"pm001_15","from":0,"speed":1,"facing":"auto","loop":false},{"at":25,"len":66,"clip":"pm001_08","from":0,"speed":1,"facing":"auto","loop":false},{"at":91,"len":77,"clip":"pm001_09","from":0,"speed":1,"facing":"auto"},{"at":168,"len":73,"clip":"pm001_10","from":0,"speed":1,"facing":"auto","loop":false},{"at":241,"len":56,"clip":"pm001_06","from":0,"speed":1,"facing":"auto","loop":false}],"face":[{"at":241,"len":56,"face":1}]}],"camera":[],"fx":[],"from":"trace"},"move.spring.green.back":{"key":"move.spring.green.back","v":2,"len":315,"builtin":[{"at":0,"len":315,"from":0,"speed":0.457}],"miis":[{"anim":[{"at":0,"len":78,"clip":"pm001_08","from":0,"speed":1,"facing":"auto","loop":false},{"at":78,"len":85,"clip":"pm001_11","from":0,"speed":1,"facing":"auto"},{"at":163,"len":34,"clip":"pm001_12","from":0,"speed":1,"facing":"auto","loop":false},{"at":197,"len":37,"clip":"pm206_03","from":0,"speed":1,"facing":"auto","loop":false},{"at":235,"len":80,"clip":"pm001_07","from":0,"speed":1,"facing":"auto","loop":false}],"face":[{"at":235,"len":80,"face":3}]}],"camera":[],"fx":[],"from":"trace"},"move.fly.statue.blue":{"key":"move.fly.statue.blue","v":2,"len":651,"builtin":[{"at":0,"len":651,"from":0,"speed":1.198}],"miis":[{"anim":[{"at":0,"len":20,"clip":"pm405_02","from":0,"speed":1,"facing":"auto","loop":false},{"at":20,"len":22,"clip":"pm011_08","from":0,"speed":1,"facing":"auto"},{"at":42,"len":12,"clip":"pm000_03","from":0,"speed":1,"facing":"auto"},{"at":54,"len":129,"clip":"pm011_08","from":0,"speed":1,"facing":"auto"},{"at":183,"len":146,"clip":"pm405_09","from":0,"speed":1,"facing":"auto"},{"at":329,"len":64,"clip":"pm001_09","from":0,"speed":1,"facing":"auto"},{"at":393,"len":90,"clip":"pm001_10","from":0,"speed":1,"facing":"auto","loop":false},{"at":483,"len":28,"clip":"pm000_04","from":0,"speed":1,"facing":"auto"},{"at":511,"len":12,"clip":"pm000_03","from":0,"speed":1,"facing":"auto"},{"at":523,"len":29,"clip":"pm011_08","from":0,"speed":1,"facing":"auto"},{"at":552,"len":83,"clip":"pm001_06","from":0,"speed":1,"facing":"auto","loop":false},{"at":635,"len":16,"clip":"pm011_08","from":0,"speed":1,"facing":"auto"}],"face":[{"at":183,"len":210,"face":1},{"at":552,"len":99,"face":1}]}],"camera":[{"at":0,"kind":"shot","ease":"cut","follow":null,"shot":{"x":4.84,"y":4.3,"z":-12.24,"tx":-5.21,"ty":1.52,"tz":-0.1}},{"at":57,"kind":"shot","ease":"linear","follow":null,"shot":{"x":5.55,"y":4.66,"z":-11.78,"tx":-5.14,"ty":1.65,"tz":-0.1}},{"at":71,"kind":"shot","ease":"linear","follow":null,"shot":{"x":10.83,"y":8.08,"z":-5.62,"tx":-4.48,"ty":2.81,"tz":0.33}},{"at":87,"kind":"shot","ease":"linear","follow":null,"shot":{"x":12.62,"y":11.57,"z":2.62,"tx":-4.01,"ty":3.92,"tz":1.41}},{"at":103,"kind":"shot","ease":"linear","follow":null,"shot":{"x":11.77,"y":13.82,"z":8.16,"tx":-3.87,"ty":4.63,"tz":2.43}},{"at":119,"kind":"shot","ease":"linear","follow":null,"shot":{"x":11.3,"y":14.41,"z":9.56,"tx":-3.86,"ty":4.81,"tz":2.74}},{"at":124,"kind":"shot","ease":"linear","follow":null,"shot":{"x":11.3,"y":14.41,"z":9.56,"tx":-3.86,"ty":4.81,"tz":2.74}},{"at":184,"kind":"shot","ease":"cut","follow":null,"shot":{"x":10.1,"y":17.89,"z":9.02,"tx":-5.1,"ty":8.18,"tz":2.19}},{"at":187,"kind":"shot","ease":"linear","follow":null,"shot":{"x":11.12,"y":24.51,"z":9.48,"tx":-4.22,"ty":14.28,"tz":2.59}},{"at":211,"kind":"shot","ease":"linear","follow":null,"shot":{"x":28.1,"y":68.4,"z":17.12,"tx":12.23,"ty":53.54,"tz":9.99}},{"at":229,"kind":"shot","ease":"linear","follow":null,"shot":{"x":39.66,"y":97.4,"z":22.32,"tx":24.27,"ty":79.44,"tz":15.4}},{"at":244,"kind":"shot","ease":"linear","follow":null,"shot":{"x":48.38,"y":117.08,"z":26.24,"tx":33.87,"ty":97.22,"tz":19.72}},{"at":258,"kind":"shot","ease":"linear","follow":null,"shot":{"x":55.83,"y":130.74,"z":29.59,"tx":42.38,"ty":109.85,"tz":23.54}},{"at":271,"kind":"shot","ease":"linear","follow":null,"shot":{"x":62.18,"y":138.79,"z":32.45,"tx":49.8,"ty":117.65,"tz":26.88}},{"at":284,"kind":"shot","ease":"linear","follow":null,"shot":{"x":68.05,"y":142.09,"z":35.09,"tx":56.69,"ty":121.37,"tz":29.98}},{"at":296,"kind":"shot","ease":"linear","follow":null,"shot":{"x":73.03,"y":140.87,"z":37.33,"tx":62.53,"ty":121.05,"tz":32.6}},{"at":310,"kind":"shot","ease":"linear","follow":null,"shot":{"x":78.26,"y":134.46,"z":39.68,"tx":68.62,"ty":116.16,"tz":35.35}},{"at":324,"kind":"shot","ease":"linear","follow":null,"shot":{"x":82.63,"y":123.19,"z":41.65,"tx":73.89,"ty":106.61,"tz":37.72}},{"at":339,"kind":"shot","ease":"linear","follow":null,"shot":{"x":86.33,"y":106.44,"z":43.31,"tx":78.56,"ty":91.68,"tz":39.82}},{"at":356,"kind":"shot","ease":"linear","follow":null,"shot":{"x":89.37,"y":82.8,"z":44.68,"tx":82.55,"ty":69.85,"tz":41.61}},{"at":374,"kind":"shot","ease":"linear","follow":null,"shot":{"x":91.33,"y":54.16,"z":45.56,"tx":85.21,"ty":42.55,"tz":42.81}},{"at":393,"kind":"shot","ease":"linear","follow":null,"shot":{"x":92.05,"y":22.29,"z":45.88,"tx":86.22,"ty":11.2,"tz":43.26}},{"at":399,"kind":"shot","ease":"linear","follow":null,"shot":{"x":92.06,"y":21.18,"z":45.89,"tx":86.22,"ty":10.09,"tz":43.26}},{"at":485,"kind":"shot","ease":"linear","follow":null,"shot":{"x":92.09,"y":21.56,"z":45.82,"tx":86.07,"ty":10.59,"tz":43.11}},{"at":494,"kind":"shot","ease":"linear","follow":null,"shot":{"x":91.19,"y":20.33,"z":44.3,"tx":84.1,"ty":10.16,"tz":41.11}},{"at":514,"kind":"shot","ease":"linear","follow":null,"shot":{"x":88.58,"y":17.53,"z":40.66,"tx":79.64,"ty":9.3,"tz":36.64}},{"at":524,"kind":"shot","ease":"linear","follow":null,"shot":{"x":88.13,"y":17.14,"z":40.45,"tx":79.61,"ty":9.3,"tz":36.62}},{"at":531,"kind":"shot","ease":"linear","follow":null,"shot":{"x":84.52,"y":13.81,"z":38.82,"tx":79.61,"ty":9.3,"tz":36.62}},{"at":544,"kind":"shot","ease":"linear","follow":null,"shot":{"x":84.08,"y":13.41,"z":38.63,"tx":79.61,"ty":9.3,"tz":36.62}}],"fx":[],"from":"trace","space":"statueBlue"},"move.fly.statue.red":{"key":"move.fly.statue.red","v":2,"len":777,"builtin":[{"at":0,"len":777,"from":0,"speed":1.004}],"miis":[{"anim":[{"at":0,"len":41,"clip":"pm001_03","from":0,"speed":1,"facing":"auto","loop":false},{"at":41,"len":92,"clip":"pm001_02","from":0,"speed":1,"facing":"auto"},{"at":133,"len":34,"clip":"pm000_04","from":0,"speed":1,"facing":"auto"},{"at":167,"len":77,"clip":"pm011_08","from":0,"speed":1,"facing":"auto"},{"at":244,"len":212,"clip":"pm001_01","from":0,"speed":1,"facing":"auto"},{"at":456,"len":90,"clip":"pm001_05","from":0,"speed":1,"facing":"auto"},{"at":546,"len":36,"clip":"pm206_03","from":0,"speed":1,"facing":"auto","loop":false},{"at":582,"len":34,"clip":"pm011_08","from":0,"speed":1,"facing":"auto"},{"at":616,"len":28,"clip":"pm000_04","from":0,"speed":1,"facing":"auto"},{"at":644,"len":12,"clip":"pm000_03","from":0,"speed":1,"facing":"auto"},{"at":656,"len":29,"clip":"pm011_08","from":0,"speed":1,"facing":"auto"},{"at":685,"len":88,"clip":"pm001_07","from":0,"speed":1,"facing":"auto","loop":false}],"face":[{"at":0,"len":597,"face":4},{"at":685,"len":92,"face":3}]}],"camera":[{"at":0,"kind":"shot","ease":"cut","follow":null,"shot":{"x":7.15,"y":3.88,"z":-10.25,"tx":-5.19,"ty":1.52,"tz":-0.34}},{"at":170,"kind":"shot","ease":"linear","follow":null,"shot":{"x":6.96,"y":4.49,"z":-10.02,"tx":-5.7,"ty":1.72,"tz":-0.29}},{"at":208,"kind":"shot","ease":"linear","follow":null,"shot":{"x":3.22,"y":12.96,"z":-5.82,"tx":-12.34,"ty":4.37,"tz":0.26}},{"at":231,"kind":"shot","ease":"linear","follow":null,"shot":{"x":2.34,"y":14.4,"z":-4.99,"tx":-13.41,"ty":4.8,"tz":0.35}},{"at":236,"kind":"shot","ease":"linear","follow":null,"shot":{"x":2.34,"y":14.4,"z":-4.99,"tx":-13.41,"ty":4.8,"tz":0.35}},{"at":246,"kind":"shot","ease":"linear","follow":null,"shot":{"x":0.21,"y":15.94,"z":-4.26,"tx":-15.57,"ty":6.22,"tz":1.09}},{"at":248,"kind":"shot","ease":"linear","follow":null,"shot":{"x":0.26,"y":19.39,"z":-4.28,"tx":-15.62,"ty":9.34,"tz":1.1}},{"at":273,"kind":"shot","ease":"linear","follow":null,"shot":{"x":21.39,"y":64.85,"z":-11.44,"tx":4.92,"ty":49.8,"tz":-5.86}},{"at":290,"kind":"shot","ease":"linear","follow":null,"shot":{"x":33.4,"y":89.49,"z":-15.52,"tx":17.37,"ty":71.69,"tz":-10.08}},{"at":303,"kind":"shot","ease":"linear","follow":null,"shot":{"x":42.41,"y":106.21,"z":-18.57,"tx":27.13,"ty":86.66,"tz":-13.39}},{"at":315,"kind":"shot","ease":"linear","follow":null,"shot":{"x":50.75,"y":119.16,"z":-21.4,"tx":36.46,"ty":98.48,"tz":-16.55}},{"at":329,"kind":"shot","ease":"linear","follow":null,"shot":{"x":58.48,"y":127.8,"z":-24.02,"tx":45.28,"ty":106.67,"tz":-19.54}},{"at":342,"kind":"shot","ease":"linear","follow":null,"shot":{"x":65.61,"y":131.82,"z":-26.44,"tx":53.51,"ty":110.9,"tz":-22.33}},{"at":356,"kind":"shot","ease":"linear","follow":null,"shot":{"x":72.17,"y":131.09,"z":-28.66,"tx":61.05,"ty":111.01,"tz":-24.89}},{"at":369,"kind":"shot","ease":"linear","follow":null,"shot":{"x":78.12,"y":125.72,"z":-30.68,"tx":67.86,"ty":106.95,"tz":-27.2}},{"at":383,"kind":"shot","ease":"linear","follow":null,"shot":{"x":83.62,"y":115.18,"z":-32.54,"tx":74.28,"ty":98.1,"tz":-29.37}},{"at":397,"kind":"shot","ease":"linear","follow":null,"shot":{"x":88.09,"y":100.32,"z":-34.06,"tx":79.69,"ty":84.97,"tz":-31.21}},{"at":412,"kind":"shot","ease":"linear","follow":null,"shot":{"x":91.76,"y":80.43,"z":-35.3,"tx":84.3,"ty":66.78,"tz":-32.77}},{"at":430,"kind":"shot","ease":"linear","follow":null,"shot":{"x":94.73,"y":52.64,"z":-36.31,"tx":88.14,"ty":40.59,"tz":-34.07}},{"at":453,"kind":"shot","ease":"linear","follow":null,"shot":{"x":96.31,"y":14.17,"z":-36.85,"tx":90.24,"ty":3.06,"tz":-34.79}},{"at":456,"kind":"shot","ease":"linear","follow":null,"shot":{"x":96.34,"y":9.13,"z":-36.86,"tx":90.28,"ty":-1.96,"tz":-34.8}},{"at":462,"kind":"shot","ease":"linear","follow":null,"shot":{"x":96.35,"y":8.01,"z":-36.86,"tx":90.29,"ty":-3.07,"tz":-34.8}},{"at":618,"kind":"shot","ease":"linear","follow":null,"shot":{"x":96.4,"y":8.39,"z":-36.76,"tx":90.15,"ty":-2.58,"tz":-34.64}},{"at":626,"kind":"shot","ease":"linear","follow":null,"shot":{"x":95.77,"y":7.32,"z":-35.25,"tx":88.53,"ty":-2.95,"tz":-32.79}},{"at":647,"kind":"shot","ease":"linear","follow":null,"shot":{"x":93.4,"y":4.39,"z":-30.91,"tx":84.12,"ty":-3.84,"tz":-27.76}},{"at":657,"kind":"shot","ease":"linear","follow":null,"shot":{"x":92.94,"y":4,"z":-30.73,"tx":84.09,"ty":-3.84,"tz":-27.73}},{"at":664,"kind":"shot","ease":"linear","follow":null,"shot":{"x":89.19,"y":0.68,"z":-29.46,"tx":84.09,"ty":-3.84,"tz":-27.73}},{"at":677,"kind":"shot","ease":"linear","follow":null,"shot":{"x":88.73,"y":0.27,"z":-29.3,"tx":84.09,"ty":-3.84,"tz":-27.73}}],"fx":[],"from":"trace","space":"statueRed"},"ufo.up":{"key":"ufo.up","v":2,"len":183,"builtin":[{"at":0,"len":183,"from":0,"speed":0.852}],"miis":[{"anim":[{"at":0,"len":183,"clip":"pm001_01","from":0,"speed":1,"facing":"auto"}],"face":[]},{"anim":[{"at":0,"len":183,"clip":"pm011_08","from":0,"speed":1,"facing":"auto"}],"face":[]}],"camera":[],"fx":[],"from":"trace"},"ufo.down":{"key":"ufo.down","v":2,"len":135,"builtin":[{"at":0,"len":135,"from":0,"speed":1.156}],"miis":[{"anim":[{"at":0,"len":71,"clip":"pm001_11","from":0,"speed":1,"facing":"auto"},{"at":71,"len":15,"clip":"pm001_12","from":0,"speed":1,"facing":"auto","loop":false},{"at":86,"len":49,"clip":"pm206_03","from":0,"speed":1,"facing":"auto","loop":false}],"face":[]},{"anim":[{"at":0,"len":135,"clip":"pm001_01","from":0,"speed":1,"facing":"auto"}],"face":[]}],"camera":[],"fx":[],"from":"trace"},"note.crates":{"key":"note.crates","v":2,"len":42,"builtin":[],"miis":[{"anim":[{"at":0,"len":26,"clip":"pm405_02","from":0,"speed":1,"facing":"auto","loop":false},{"at":26,"len":13,"clip":"pm011_08","from":0,"speed":1,"facing":"auto"}],"face":[]}],"camera":[{"at":0,"kind":"shot","ease":"cut","follow":null,"shot":{"x":0.94,"y":9.32,"z":-14.65,"tx":0.03,"ty":2.55,"tz":-0.18}},{"at":7,"kind":"shot","ease":"linear","follow":null,"shot":{"x":1.08,"y":9.63,"z":-14.07,"tx":0.18,"ty":2.87,"tz":0.41}},{"at":28,"kind":"shot","ease":"linear","follow":null,"shot":{"x":2.33,"y":10.56,"z":-8.91,"tx":1.43,"ty":3.8,"tz":5.56}},{"at":39,"kind":"shot","ease":"linear","follow":null,"shot":{"x":2.99,"y":9.28,"z":-6.2,"tx":2.08,"ty":2.52,"tz":8.27}}],"fx":[],"from":"trace","space":"crates"},"move.swim":{"key":"move.swim","v":2,"len":330,"builtin":[{"at":0,"len":330,"from":0,"speed":0.545}],"miis":[{"anim":[{"at":0,"len":184,"clip":"pm001_01","from":0,"speed":1,"facing":"auto"},{"at":184,"len":146,"clip":"pm001_16","from":0,"speed":1,"facing":"auto"}],"face":[{"at":184,"len":146,"face":3}]}],"camera":[{"at":0,"kind":"shot","ease":"cut","follow":null,"shot":{"x":2.99,"y":9.28,"z":-6.2,"tx":2.08,"ty":2.52,"tz":8.27}},{"at":14,"kind":"shot","ease":"linear","follow":null,"shot":{"x":3.09,"y":6.1,"z":-5.79,"tx":2.18,"ty":-0.66,"tz":8.68}},{"at":52,"kind":"shot","ease":"linear","follow":null,"shot":{"x":2.84,"y":6.08,"z":-5.09,"tx":1.93,"ty":-0.68,"tz":9.38}},{"at":142,"kind":"shot","ease":"linear","follow":null,"shot":{"x":-1.01,"y":6.08,"z":4.68,"tx":-1.92,"ty":-0.68,"tz":19.15}},{"at":184,"kind":"shot","ease":"linear","follow":null,"shot":{"x":-0.66,"y":6.08,"z":9.24,"tx":-1.56,"ty":-0.68,"tz":23.71}},{"at":185,"kind":"shot","ease":"cut","follow":null,"shot":{"x":0.02,"y":9.35,"z":13.89,"tx":-0.88,"ty":2.59,"tz":28.36}},{"at":235,"kind":"shot","ease":"linear","follow":null,"shot":{"x":-0.02,"y":9.04,"z":14.57,"tx":-0.88,"ty":2.59,"tz":28.36}},{"at":242,"kind":"shot","ease":"linear","follow":null,"shot":{"x":-0.38,"y":6.3,"z":20.41,"tx":-0.88,"ty":2.59,"tz":28.36}},{"at":254,"kind":"shot","ease":"linear","follow":null,"shot":{"x":-0.43,"y":5.97,"z":21.12,"tx":-0.88,"ty":2.59,"tz":28.36}}],"fx":[],"from":"trace","space":"crates"},"win":{"key":"win","v":2,"len":1050,"builtin":[],"miis":[{"anim":[{"at":0,"len":32,"clip":"pm011_08","from":0,"speed":1,"facing":"auto"},{"at":32,"len":84,"clip":"pm001_06","from":0,"speed":1,"facing":"auto","loop":false},{"at":116,"len":270,"clip":"pm011_08","from":0,"speed":1,"facing":"auto"},{"at":386,"len":402,"clip":"pm000_11","from":0,"speed":1,"facing":"auto"},{"at":788,"len":86,"clip":"pm441_03","from":0,"speed":1,"facing":"auto","loop":false},{"at":874,"len":96,"clip":"pm441_04","from":0,"speed":1,"facing":"auto"},{"at":970,"len":80,"clip":"pm000_11","from":0,"speed":1,"facing":"auto"}],"face":[{"at":32,"len":1018,"face":1}]},{"anim":[{"at":0,"len":31,"clip":"pm000_16","from":0,"speed":1,"facing":"auto"},{"at":31,"len":58,"clip":"pm000_08","from":0,"speed":1,"facing":"auto","loop":false},{"at":89,"len":961,"clip":"pm000_15","from":0,"speed":1,"facing":"auto"}],"face":[{"at":31,"len":1019,"face":3}]},{"anim":[{"at":0,"len":31,"clip":"pm000_16","from":0,"speed":1,"facing":"auto"},{"at":31,"len":58,"clip":"pm000_08","from":0,"speed":1,"facing":"auto","loop":false},{"at":89,"len":961,"clip":"pm000_15","from":0,"speed":1,"facing":"auto"}],"face":[{"at":31,"len":1019,"face":3}]},{"anim":[{"at":0,"len":31,"clip":"pm000_16","from":0,"speed":1,"facing":"auto"},{"at":31,"len":58,"clip":"pm000_08","from":0,"speed":1,"facing":"auto","loop":false},{"at":89,"len":961,"clip":"pm000_15","from":0,"speed":1,"facing":"auto"}],"face":[{"at":31,"len":1019,"face":3}]}],"camera":[{"at":0,"kind":"shot","ease":"cut","follow":null,"shot":{"x":7.04,"y":-1.6,"z":-22.13,"tx":1.44,"ty":-1.68,"tz":-14.34}},{"at":8,"kind":"shot","ease":"cut","follow":null,"shot":{"x":0,"y":-2.16,"z":-25.6,"tx":0,"ty":-2.24,"tz":-16}},{"at":251,"kind":"shot","ease":"linear","follow":null,"shot":{"x":0,"y":-2.16,"z":-24.87,"tx":0,"ty":-2.24,"tz":-15.27}},{"at":272,"kind":"shot","ease":"linear","follow":null,"shot":{"x":0,"y":-1.78,"z":-18.6,"tx":0,"ty":-1.86,"tz":-9}},{"at":298,"kind":"shot","ease":"linear","follow":null,"shot":{"x":0,"y":2.97,"z":-12.34,"tx":0,"ty":2.89,"tz":-2.74}},{"at":309,"kind":"shot","ease":"linear","follow":null,"shot":{"x":0,"y":2.65,"z":-9.72,"tx":0,"ty":2.57,"tz":-0.12}},{"at":318,"kind":"shot","ease":"linear","follow":null,"shot":{"x":0,"y":2.65,"z":-9.7,"tx":0,"ty":2.57,"tz":-0.1}}],"fx":[],"from":"trace","space":"finish"},"duel.result":{"key":"duel.result","v":2,"len":120,"builtin":[],"camera":[],"fx":[],"from":"trace","miis":[{"anim":[{"at":0,"len":84,"clip":"pm001_06","from":0,"speed":1,"facing":"camera","loop":false}],"face":[{"at":0,"len":110,"face":1}]},{"anim":[{"at":0,"len":92,"clip":"pm001_07","from":0,"speed":1,"facing":"auto","loop":false}],"face":[{"at":0,"len":110,"face":3}]}]}};
+const SEQUENCES = {"smash.dragon":{"key":"smash.dragon","v":2,"len":447,"builtin":[],"miis":[{"anim":[{"at":0,"len":37,"clip":"pm301_04","from":0,"speed":1,"facing":"auto","loop":false},{"at":37,"len":24,"clip":"pm301_02","from":0,"speed":1,"facing":"auto","loop":false},{"at":61,"len":24,"clip":"pm301_03","from":0,"speed":1,"facing":"auto","loop":false},{"at":85,"len":32,"clip":"pm301_04","from":0,"speed":1,"facing":"auto","loop":false},{"at":117,"len":151,"clip":"pm301_01","from":0,"speed":1,"facing":"auto"},{"at":268,"len":23,"clip":"pm011_08","from":0,"speed":1,"facing":"auto"},{"at":291,"len":83,"clip":"pm001_06","from":0,"speed":1,"facing":"auto","loop":false},{"at":374,"len":73,"clip":"pm011_08","from":0,"speed":1,"facing":"auto"}],"face":[{"at":291,"len":156,"face":1}]}],"camera":[{"at":0,"kind":"shot","ease":"cut","follow":null,"shot":{"x":-8.62,"y":1.63,"z":-4.48,"tx":-1.44,"ty":2.3,"tz":1.85}},{"at":20,"kind":"shot","ease":"linear","follow":null,"shot":{"x":-8.6,"y":1.72,"z":-4.37,"tx":-1.42,"ty":2.39,"tz":1.96}},{"at":41,"kind":"shot","ease":"linear","follow":null,"shot":{"x":-8.8,"y":1.24,"z":-4.28,"tx":-1.62,"ty":1.91,"tz":2.06}},{"at":44,"kind":"shot","ease":"linear","follow":null,"shot":{"x":-8.69,"y":1.52,"z":-4.54,"tx":-1.51,"ty":2.19,"tz":1.8}},{"at":66,"kind":"shot","ease":"linear","follow":null,"shot":{"x":-8.9,"y":1.67,"z":-4.27,"tx":-1.72,"ty":2.34,"tz":2.06}},{"at":97,"kind":"shot","ease":"linear","follow":null,"shot":{"x":-8.79,"y":2.08,"z":-4.4,"tx":-1.61,"ty":2.75,"tz":1.94}},{"at":104,"kind":"shot","ease":"linear","follow":null,"shot":{"x":-8.63,"y":1.63,"z":-4.47,"tx":-1.45,"ty":2.3,"tz":1.87}},{"at":149,"kind":"shot","ease":"linear","follow":null,"shot":{"x":-8.62,"y":0.84,"z":-4.53,"tx":-1.43,"ty":1.51,"tz":1.81}},{"at":150,"kind":"shot","ease":"linear","follow":null,"shot":{"x":-8.72,"y":1.73,"z":-5.09,"tx":-1.54,"ty":2.4,"tz":1.24}},{"at":151,"kind":"shot","ease":"linear","follow":null,"shot":{"x":-8.16,"y":1.84,"z":-4.32,"tx":-0.97,"ty":2.51,"tz":2.01}},{"at":154,"kind":"shot","ease":"linear","follow":null,"shot":{"x":-8.14,"y":1.73,"z":-4.95,"tx":-0.96,"ty":2.4,"tz":1.38}},{"at":170,"kind":"shot","ease":"linear","follow":null,"shot":{"x":-8.62,"y":1.63,"z":-4.48,"tx":-1.44,"ty":2.3,"tz":1.85}},{"at":272,"kind":"shot","ease":"cut","follow":null,"shot":{"x":0.47,"y":4.46,"z":-7.83,"tx":0.01,"ty":2.56,"tz":-0.07}},{"at":284,"kind":"shot","ease":"linear","follow":null,"shot":{"x":0.46,"y":4.46,"z":-7.76,"tx":0,"ty":2.56,"tz":0}}],"fx":[],"from":"trace","space":"dragon"},"note.fireball":{"key":"note.fireball","v":2,"len":102,"builtin":[],"miis":[{"anim":[{"at":0,"len":86,"clip":"pm001_02","from":0,"speed":1,"facing":"auto"}],"face":[]}],"camera":[{"at":0,"kind":"shot","ease":"cut","follow":null,"shot":{"x":-8.62,"y":1.63,"z":-4.48,"tx":-1.44,"ty":2.3,"tz":1.85}},{"at":4,"kind":"shot","ease":"cut","follow":null,"shot":{"x":-10.71,"y":5.62,"z":-6.32,"tx":-1.44,"ty":2.3,"tz":1.85}}],"fx":[],"from":"trace","space":"dragon"},"move.knock":{"key":"move.knock","v":2,"len":268,"builtin":[{"at":0,"len":268,"from":0,"speed":0.493}],"miis":[{"anim":[{"at":0,"len":36,"clip":"pm001_11","from":0,"speed":1,"facing":"auto"},{"at":36,"len":31,"clip":"pm001_12","from":0,"speed":1,"facing":"auto","loop":false},{"at":67,"len":199,"clip":"pm001_05","from":0,"speed":1,"facing":"auto"}],"face":[{"at":0,"len":266,"face":4}]}],"camera":[{"at":0,"kind":"shot","ease":"cut","follow":null,"shot":{"x":-10.71,"y":5.62,"z":-6.32,"tx":-1.44,"ty":2.3,"tz":1.85}},{"at":2,"kind":"shot","ease":"linear","follow":null,"shot":{"x":-11.02,"y":5.61,"z":-6.69,"tx":-1.25,"ty":2.3,"tz":0.89}},{"at":15,"kind":"shot","ease":"linear","follow":null,"shot":{"x":-11.96,"y":5.54,"z":-8.29,"tx":0.35,"ty":2.23,"tz":-7.17}},{"at":28,"kind":"shot","ease":"linear","follow":null,"shot":{"x":-9.55,"y":5.5,"z":-6.73,"tx":1.4,"ty":2.19,"tz":-12.48}},{"at":37,"kind":"shot","ease":"linear","follow":null,"shot":{"x":-6.22,"y":5.38,"z":-4.58,"tx":1.62,"ty":2.18,"tz":-13.57}},{"at":45,"kind":"shot","ease":"linear","follow":null,"shot":{"x":-3.68,"y":4.37,"z":-7.35,"tx":1.62,"ty":2.18,"tz":-13.58}},{"at":55,"kind":"shot","ease":"linear","follow":null,"shot":{"x":-3.39,"y":4.25,"z":-7.7,"tx":1.62,"ty":2.18,"tz":-13.58}}],"fx":[],"from":"trace","space":"dragon"},"smash.final":{"key":"smash.final","v":2,"len":343,"builtin":[],"miis":[{"anim":[{"at":0,"len":25,"clip":"pm301_02","from":0,"speed":1,"facing":"auto","loop":false},{"at":25,"len":24,"clip":"pm301_03","from":0,"speed":1,"facing":"auto","loop":false},{"at":49,"len":32,"clip":"pm301_04","from":0,"speed":1,"facing":"auto","loop":false},{"at":81,"len":32,"clip":"pm301_05","from":0,"speed":1,"facing":"auto","loop":false},{"at":113,"len":24,"clip":"pm301_02","from":0,"speed":1,"facing":"auto","loop":false},{"at":137,"len":33,"clip":"pm301_04","from":0,"speed":1,"facing":"auto","loop":false},{"at":170,"len":151,"clip":"pm301_01","from":0,"speed":1,"facing":"auto"}],"face":[]}],"camera":[{"at":0,"kind":"shot","ease":"cut","follow":null,"shot":{"x":7.04,"y":3.25,"z":-6.13,"tx":1.44,"ty":3.17,"tz":1.66}},{"at":8,"kind":"shot","ease":"linear","follow":null,"shot":{"x":6.88,"y":3.27,"z":-6.19,"tx":1.28,"ty":3.18,"tz":1.61}},{"at":29,"kind":"shot","ease":"linear","follow":null,"shot":{"x":7.03,"y":3.51,"z":-6.54,"tx":1.43,"ty":3.42,"tz":1.26}},{"at":34,"kind":"shot","ease":"linear","follow":null,"shot":{"x":7.06,"y":3.23,"z":-6.08,"tx":1.46,"ty":3.15,"tz":1.72}},{"at":62,"kind":"shot","ease":"linear","follow":null,"shot":{"x":7.41,"y":3.28,"z":-5.85,"tx":1.81,"ty":3.2,"tz":1.95}},{"at":94,"kind":"shot","ease":"linear","follow":null,"shot":{"x":6.86,"y":3.79,"z":-6.05,"tx":1.26,"ty":3.71,"tz":1.75}},{"at":100,"kind":"shot","ease":"linear","follow":null,"shot":{"x":7.03,"y":3.24,"z":-6.14,"tx":1.43,"ty":3.15,"tz":1.66}},{"at":118,"kind":"shot","ease":"linear","follow":null,"shot":{"x":7.29,"y":3.15,"z":-5.93,"tx":1.69,"ty":3.06,"tz":1.87}},{"at":163,"kind":"shot","ease":"linear","follow":null,"shot":{"x":7.04,"y":3.25,"z":-6.13,"tx":1.44,"ty":3.17,"tz":1.66}},{"at":202,"kind":"shot","ease":"linear","follow":null,"shot":{"x":6.52,"y":2.75,"z":-5.8,"tx":0.91,"ty":2.66,"tz":1.99}},{"at":203,"kind":"shot","ease":"linear","follow":null,"shot":{"x":6.55,"y":3.45,"z":-5.46,"tx":0.95,"ty":3.37,"tz":2.34}},{"at":204,"kind":"shot","ease":"linear","follow":null,"shot":{"x":7.4,"y":3.29,"z":-5.49,"tx":1.8,"ty":3.21,"tz":2.31}},{"at":205,"kind":"shot","ease":"linear","follow":null,"shot":{"x":7.2,"y":3.87,"z":-5.87,"tx":1.6,"ty":3.78,"tz":1.92}},{"at":206,"kind":"shot","ease":"linear","follow":null,"shot":{"x":6.96,"y":3.2,"z":-6.45,"tx":1.36,"ty":3.12,"tz":1.35}},{"at":207,"kind":"shot","ease":"linear","follow":null,"shot":{"x":7.06,"y":3.64,"z":-6.03,"tx":1.46,"ty":3.55,"tz":1.77}},{"at":221,"kind":"shot","ease":"linear","follow":null,"shot":{"x":7.04,"y":3.25,"z":-6.13,"tx":1.44,"ty":3.17,"tz":1.66}},{"at":223,"kind":"shot","ease":"linear","follow":null,"shot":{"x":7.04,"y":3.25,"z":-6.13,"tx":1.44,"ty":3.17,"tz":1.66}}],"fx":[],"from":"trace","space":"final"},"note.finalFail":{"key":"note.finalFail","v":2,"len":147,"builtin":[],"miis":[{"anim":[{"at":0,"len":17,"clip":"pm000_03","from":0,"speed":1,"facing":"auto"},{"at":17,"len":13,"clip":"pm011_08","from":0,"speed":1,"facing":"auto"},{"at":30,"len":88,"clip":"pm001_07","from":0,"speed":1,"facing":"auto","loop":false},{"at":118,"len":29,"clip":"pm011_08","from":0,"speed":1,"facing":"auto"}],"face":[{"at":30,"len":117,"face":3}]}],"camera":[{"at":0,"kind":"shot","ease":"cut","follow":null,"shot":{"x":3.73,"y":2.66,"z":-5.2,"tx":0,"ty":2.61,"tz":0}}],"fx":[],"from":"trace","space":"final"},"duel.challenge":{"key":"duel.challenge","v":2,"len":123,"builtin":[],"miis":[{"anim":[{"at":0,"len":49,"clip":"pm011_06","from":0,"speed":1,"facing":"camera","loop":false},{"at":49,"len":74,"clip":"pm011_12","from":0,"speed":1,"facing":"camera"}],"face":[{"at":0,"len":123,"face":2}]}],"camera":[{"at":0,"kind":"shot","ease":"cut","follow":null,"shot":{"x":-7.9,"y":10.33,"z":9.25,"tx":0,"ty":2.56,"tz":0}},{"at":6,"kind":"shot","ease":"linear","follow":null,"shot":{"x":-4.76,"y":7.24,"z":5.58,"tx":0,"ty":2.56,"tz":0}},{"at":18,"kind":"shot","ease":"linear","follow":null,"shot":{"x":-4.38,"y":6.87,"z":5.13,"tx":0,"ty":2.56,"tz":0}}],"fx":[],"from":"trace","space":"mg11"},"spike.shock":{"key":"spike.shock","v":2,"len":65,"builtin":[],"miis":[{"anim":[{"at":0,"len":57,"clip":"pm001_03","from":0,"speed":1,"facing":"auto","loop":false}],"face":[{"at":3,"len":54,"face":4}]},{"anim":[{"at":0,"len":57,"clip":"pm001_03","from":0,"speed":1,"facing":"auto","loop":false}],"face":[{"at":3,"len":54,"face":4}]},{"anim":[{"at":0,"len":57,"clip":"pm001_03","from":0,"speed":1,"facing":"auto","loop":false}],"face":[{"at":3,"len":54,"face":4}]},{"anim":[{"at":0,"len":57,"clip":"pm001_03","from":0,"speed":1,"facing":"auto","loop":false}],"face":[{"at":3,"len":54,"face":4}]}],"camera":[{"at":0,"kind":"shot","ease":"cut","follow":null,"shot":{"x":-14.78,"y":9.19,"z":-5.79,"tx":-0.68,"ty":4.22,"tz":6.26}},{"at":3,"kind":"shot","ease":"linear","follow":null,"shot":{"x":-14.78,"y":8.95,"z":-5.79,"tx":-0.68,"ty":3.98,"tz":6.26}},{"at":4,"kind":"shot","ease":"cut","follow":null,"shot":{"x":4.53,"y":0.29,"z":-23.57,"tx":-0.34,"ty":2.05,"tz":3.13}},{"at":52,"kind":"shot","ease":"cut","follow":null,"shot":{"x":-17.13,"y":9.74,"z":-7.8,"tx":-0.68,"ty":3.94,"tz":6.26}}],"fx":[],"from":"trace","space":"spike"},"move.spring.blue":{"key":"move.spring.blue","v":2,"len":285,"builtin":[{"at":0,"len":285,"from":0,"speed":0.505}],"miis":[{"anim":[{"at":0,"len":19,"clip":"pm001_15","from":0,"speed":1,"facing":"auto","loop":false},{"at":19,"len":66,"clip":"pm001_08","from":0,"speed":1,"facing":"auto","loop":false},{"at":85,"len":43,"clip":"pm001_09","from":0,"speed":1,"facing":"auto"},{"at":128,"len":71,"clip":"pm001_10","from":0,"speed":1,"facing":"auto","loop":false},{"at":200,"len":83,"clip":"pm001_06","from":0,"speed":1,"facing":"auto","loop":false}],"face":[{"at":200,"len":85,"face":1}]}],"camera":[{"at":188,"kind":"board","preset":"react","follow":0},{"at":284,"kind":"board","preset":"follow","follow":0}],"fx":[],"from":"trace"},"move.spring.red":{"key":"move.spring.red","v":2,"len":360,"builtin":[{"at":0,"len":360,"from":0,"speed":0.4}],"miis":[{"anim":[{"at":0,"len":11,"clip":"pm001_02","from":0,"speed":1,"facing":"auto"},{"at":11,"len":114,"clip":"pm001_15","from":0,"speed":1,"facing":"auto","loop":false},{"at":125,"len":48,"clip":"pm001_11","from":0,"speed":1,"facing":"auto"},{"at":173,"len":42,"clip":"pm001_12","from":0,"speed":1,"facing":"auto","loop":false},{"at":215,"len":40,"clip":"pm206_03","from":0,"speed":1,"facing":"auto","loop":false},{"at":255,"len":13,"clip":"pm000_03","from":0,"speed":1,"facing":"auto"},{"at":268,"len":33,"clip":"pm011_08","from":0,"speed":1,"facing":"auto"},{"at":301,"len":59,"clip":"pm001_07","from":0,"speed":1,"facing":"auto","loop":false}],"face":[{"at":11,"len":204,"face":4},{"at":301,"len":59,"face":3}]}],"camera":[{"at":289,"kind":"board","preset":"react","follow":0}],"fx":[],"from":"trace"},"move.spring.green":{"key":"move.spring.green","v":2,"len":297,"builtin":[{"at":0,"len":297,"from":0,"speed":0.485}],"miis":[{"anim":[{"at":0,"len":8,"clip":"pm011_08","from":0,"speed":1,"facing":"auto"},{"at":8,"len":17,"clip":"pm001_15","from":0,"speed":1,"facing":"auto","loop":false},{"at":25,"len":66,"clip":"pm001_08","from":0,"speed":1,"facing":"auto","loop":false},{"at":91,"len":77,"clip":"pm001_09","from":0,"speed":1,"facing":"auto"},{"at":168,"len":73,"clip":"pm001_10","from":0,"speed":1,"facing":"auto","loop":false},{"at":241,"len":56,"clip":"pm001_06","from":0,"speed":1,"facing":"auto","loop":false}],"face":[{"at":241,"len":56,"face":1}]}],"camera":[{"at":229,"kind":"board","preset":"react","follow":0}],"fx":[],"from":"trace"},"move.spring.green.back":{"key":"move.spring.green.back","v":2,"len":315,"builtin":[{"at":0,"len":315,"from":0,"speed":0.457}],"miis":[{"anim":[{"at":0,"len":78,"clip":"pm001_08","from":0,"speed":1,"facing":"auto","loop":false},{"at":78,"len":85,"clip":"pm001_11","from":0,"speed":1,"facing":"auto"},{"at":163,"len":34,"clip":"pm001_12","from":0,"speed":1,"facing":"auto","loop":false},{"at":197,"len":37,"clip":"pm206_03","from":0,"speed":1,"facing":"auto","loop":false},{"at":235,"len":80,"clip":"pm001_07","from":0,"speed":1,"facing":"auto","loop":false}],"face":[{"at":235,"len":80,"face":3}]}],"camera":[{"at":223,"kind":"board","preset":"react","follow":0}],"fx":[],"from":"trace"},"move.fly.statue.blue":{"key":"move.fly.statue.blue","v":2,"len":651,"builtin":[{"at":0,"len":651,"from":0,"speed":1.198}],"miis":[{"anim":[{"at":0,"len":20,"clip":"pm405_02","from":0,"speed":1,"facing":"auto","loop":false},{"at":20,"len":22,"clip":"pm011_08","from":0,"speed":1,"facing":"auto"},{"at":42,"len":12,"clip":"pm000_03","from":0,"speed":1,"facing":"auto"},{"at":54,"len":129,"clip":"pm011_08","from":0,"speed":1,"facing":"auto"},{"at":183,"len":146,"clip":"pm405_09","from":0,"speed":1,"facing":"auto"},{"at":329,"len":64,"clip":"pm001_09","from":0,"speed":1,"facing":"auto"},{"at":393,"len":90,"clip":"pm001_10","from":0,"speed":1,"facing":"auto","loop":false},{"at":483,"len":28,"clip":"pm000_04","from":0,"speed":1,"facing":"auto"},{"at":511,"len":12,"clip":"pm000_03","from":0,"speed":1,"facing":"auto"},{"at":523,"len":29,"clip":"pm011_08","from":0,"speed":1,"facing":"auto"},{"at":552,"len":83,"clip":"pm001_06","from":0,"speed":1,"facing":"auto","loop":false},{"at":635,"len":16,"clip":"pm011_08","from":0,"speed":1,"facing":"auto"}],"face":[{"at":183,"len":210,"face":1},{"at":552,"len":99,"face":1}]}],"camera":[{"at":0,"kind":"shot","ease":"cut","follow":null,"shot":{"x":4.84,"y":4.3,"z":-12.24,"tx":-5.21,"ty":1.52,"tz":-0.1}},{"at":57,"kind":"shot","ease":"linear","follow":null,"shot":{"x":5.55,"y":4.66,"z":-11.78,"tx":-5.14,"ty":1.65,"tz":-0.1}},{"at":71,"kind":"shot","ease":"linear","follow":null,"shot":{"x":10.83,"y":8.08,"z":-5.62,"tx":-4.48,"ty":2.81,"tz":0.33}},{"at":87,"kind":"shot","ease":"linear","follow":null,"shot":{"x":12.62,"y":11.57,"z":2.62,"tx":-4.01,"ty":3.92,"tz":1.41}},{"at":103,"kind":"shot","ease":"linear","follow":null,"shot":{"x":11.77,"y":13.82,"z":8.16,"tx":-3.87,"ty":4.63,"tz":2.43}},{"at":119,"kind":"shot","ease":"linear","follow":null,"shot":{"x":11.3,"y":14.41,"z":9.56,"tx":-3.86,"ty":4.81,"tz":2.74}},{"at":124,"kind":"shot","ease":"linear","follow":null,"shot":{"x":11.3,"y":14.41,"z":9.56,"tx":-3.86,"ty":4.81,"tz":2.74}},{"at":184,"kind":"shot","ease":"cut","follow":null,"shot":{"x":10.1,"y":17.89,"z":9.02,"tx":-5.1,"ty":8.18,"tz":2.19}},{"at":187,"kind":"shot","ease":"linear","follow":null,"shot":{"x":11.12,"y":24.51,"z":9.48,"tx":-4.22,"ty":14.28,"tz":2.59}},{"at":211,"kind":"shot","ease":"linear","follow":null,"shot":{"x":28.1,"y":68.4,"z":17.12,"tx":12.23,"ty":53.54,"tz":9.99}},{"at":229,"kind":"shot","ease":"linear","follow":null,"shot":{"x":39.66,"y":97.4,"z":22.32,"tx":24.27,"ty":79.44,"tz":15.4}},{"at":244,"kind":"shot","ease":"linear","follow":null,"shot":{"x":48.38,"y":117.08,"z":26.24,"tx":33.87,"ty":97.22,"tz":19.72}},{"at":258,"kind":"shot","ease":"linear","follow":null,"shot":{"x":55.83,"y":130.74,"z":29.59,"tx":42.38,"ty":109.85,"tz":23.54}},{"at":271,"kind":"shot","ease":"linear","follow":null,"shot":{"x":62.18,"y":138.79,"z":32.45,"tx":49.8,"ty":117.65,"tz":26.88}},{"at":284,"kind":"shot","ease":"linear","follow":null,"shot":{"x":68.05,"y":142.09,"z":35.09,"tx":56.69,"ty":121.37,"tz":29.98}},{"at":296,"kind":"shot","ease":"linear","follow":null,"shot":{"x":73.03,"y":140.87,"z":37.33,"tx":62.53,"ty":121.05,"tz":32.6}},{"at":310,"kind":"shot","ease":"linear","follow":null,"shot":{"x":78.26,"y":134.46,"z":39.68,"tx":68.62,"ty":116.16,"tz":35.35}},{"at":324,"kind":"shot","ease":"linear","follow":null,"shot":{"x":82.63,"y":123.19,"z":41.65,"tx":73.89,"ty":106.61,"tz":37.72}},{"at":339,"kind":"shot","ease":"linear","follow":null,"shot":{"x":86.33,"y":106.44,"z":43.31,"tx":78.56,"ty":91.68,"tz":39.82}},{"at":356,"kind":"shot","ease":"linear","follow":null,"shot":{"x":89.37,"y":82.8,"z":44.68,"tx":82.55,"ty":69.85,"tz":41.61}},{"at":374,"kind":"shot","ease":"linear","follow":null,"shot":{"x":91.33,"y":54.16,"z":45.56,"tx":85.21,"ty":42.55,"tz":42.81}},{"at":393,"kind":"shot","ease":"linear","follow":null,"shot":{"x":92.05,"y":22.29,"z":45.88,"tx":86.22,"ty":11.2,"tz":43.26}},{"at":399,"kind":"shot","ease":"linear","follow":null,"shot":{"x":92.06,"y":21.18,"z":45.89,"tx":86.22,"ty":10.09,"tz":43.26}},{"at":485,"kind":"shot","ease":"linear","follow":null,"shot":{"x":92.09,"y":21.56,"z":45.82,"tx":86.07,"ty":10.59,"tz":43.11}},{"at":494,"kind":"shot","ease":"linear","follow":null,"shot":{"x":91.19,"y":20.33,"z":44.3,"tx":84.1,"ty":10.16,"tz":41.11}},{"at":514,"kind":"shot","ease":"linear","follow":null,"shot":{"x":88.58,"y":17.53,"z":40.66,"tx":79.64,"ty":9.3,"tz":36.64}},{"at":524,"kind":"shot","ease":"linear","follow":null,"shot":{"x":88.13,"y":17.14,"z":40.45,"tx":79.61,"ty":9.3,"tz":36.62}},{"at":531,"kind":"shot","ease":"linear","follow":null,"shot":{"x":84.52,"y":13.81,"z":38.82,"tx":79.61,"ty":9.3,"tz":36.62}},{"at":544,"kind":"shot","ease":"linear","follow":null,"shot":{"x":84.08,"y":13.41,"z":38.63,"tx":79.61,"ty":9.3,"tz":36.62}}],"fx":[],"from":"trace","space":"statueBlue"},"move.fly.statue.red":{"key":"move.fly.statue.red","v":2,"len":777,"builtin":[{"at":0,"len":777,"from":0,"speed":1.004}],"miis":[{"anim":[{"at":0,"len":41,"clip":"pm001_03","from":0,"speed":1,"facing":"auto","loop":false},{"at":41,"len":92,"clip":"pm001_02","from":0,"speed":1,"facing":"auto"},{"at":133,"len":34,"clip":"pm000_04","from":0,"speed":1,"facing":"auto"},{"at":167,"len":77,"clip":"pm011_08","from":0,"speed":1,"facing":"auto"},{"at":244,"len":212,"clip":"pm001_01","from":0,"speed":1,"facing":"auto"},{"at":456,"len":90,"clip":"pm001_05","from":0,"speed":1,"facing":"auto"},{"at":546,"len":36,"clip":"pm206_03","from":0,"speed":1,"facing":"auto","loop":false},{"at":582,"len":34,"clip":"pm011_08","from":0,"speed":1,"facing":"auto"},{"at":616,"len":28,"clip":"pm000_04","from":0,"speed":1,"facing":"auto"},{"at":644,"len":12,"clip":"pm000_03","from":0,"speed":1,"facing":"auto"},{"at":656,"len":29,"clip":"pm011_08","from":0,"speed":1,"facing":"auto"},{"at":685,"len":88,"clip":"pm001_07","from":0,"speed":1,"facing":"auto","loop":false}],"face":[{"at":0,"len":597,"face":4},{"at":685,"len":92,"face":3}]}],"camera":[{"at":0,"kind":"shot","ease":"cut","follow":null,"shot":{"x":7.15,"y":3.88,"z":-10.25,"tx":-5.19,"ty":1.52,"tz":-0.34}},{"at":170,"kind":"shot","ease":"linear","follow":null,"shot":{"x":6.96,"y":4.49,"z":-10.02,"tx":-5.7,"ty":1.72,"tz":-0.29}},{"at":208,"kind":"shot","ease":"linear","follow":null,"shot":{"x":3.22,"y":12.96,"z":-5.82,"tx":-12.34,"ty":4.37,"tz":0.26}},{"at":231,"kind":"shot","ease":"linear","follow":null,"shot":{"x":2.34,"y":14.4,"z":-4.99,"tx":-13.41,"ty":4.8,"tz":0.35}},{"at":236,"kind":"shot","ease":"linear","follow":null,"shot":{"x":2.34,"y":14.4,"z":-4.99,"tx":-13.41,"ty":4.8,"tz":0.35}},{"at":246,"kind":"shot","ease":"linear","follow":null,"shot":{"x":0.21,"y":15.94,"z":-4.26,"tx":-15.57,"ty":6.22,"tz":1.09}},{"at":248,"kind":"shot","ease":"linear","follow":null,"shot":{"x":0.26,"y":19.39,"z":-4.28,"tx":-15.62,"ty":9.34,"tz":1.1}},{"at":273,"kind":"shot","ease":"linear","follow":null,"shot":{"x":21.39,"y":64.85,"z":-11.44,"tx":4.92,"ty":49.8,"tz":-5.86}},{"at":290,"kind":"shot","ease":"linear","follow":null,"shot":{"x":33.4,"y":89.49,"z":-15.52,"tx":17.37,"ty":71.69,"tz":-10.08}},{"at":303,"kind":"shot","ease":"linear","follow":null,"shot":{"x":42.41,"y":106.21,"z":-18.57,"tx":27.13,"ty":86.66,"tz":-13.39}},{"at":315,"kind":"shot","ease":"linear","follow":null,"shot":{"x":50.75,"y":119.16,"z":-21.4,"tx":36.46,"ty":98.48,"tz":-16.55}},{"at":329,"kind":"shot","ease":"linear","follow":null,"shot":{"x":58.48,"y":127.8,"z":-24.02,"tx":45.28,"ty":106.67,"tz":-19.54}},{"at":342,"kind":"shot","ease":"linear","follow":null,"shot":{"x":65.61,"y":131.82,"z":-26.44,"tx":53.51,"ty":110.9,"tz":-22.33}},{"at":356,"kind":"shot","ease":"linear","follow":null,"shot":{"x":72.17,"y":131.09,"z":-28.66,"tx":61.05,"ty":111.01,"tz":-24.89}},{"at":369,"kind":"shot","ease":"linear","follow":null,"shot":{"x":78.12,"y":125.72,"z":-30.68,"tx":67.86,"ty":106.95,"tz":-27.2}},{"at":383,"kind":"shot","ease":"linear","follow":null,"shot":{"x":83.62,"y":115.18,"z":-32.54,"tx":74.28,"ty":98.1,"tz":-29.37}},{"at":397,"kind":"shot","ease":"linear","follow":null,"shot":{"x":88.09,"y":100.32,"z":-34.06,"tx":79.69,"ty":84.97,"tz":-31.21}},{"at":412,"kind":"shot","ease":"linear","follow":null,"shot":{"x":91.76,"y":80.43,"z":-35.3,"tx":84.3,"ty":66.78,"tz":-32.77}},{"at":430,"kind":"shot","ease":"linear","follow":null,"shot":{"x":94.73,"y":52.64,"z":-36.31,"tx":88.14,"ty":40.59,"tz":-34.07}},{"at":453,"kind":"shot","ease":"linear","follow":null,"shot":{"x":96.31,"y":14.17,"z":-36.85,"tx":90.24,"ty":3.06,"tz":-34.79}},{"at":456,"kind":"shot","ease":"linear","follow":null,"shot":{"x":96.34,"y":9.13,"z":-36.86,"tx":90.28,"ty":-1.96,"tz":-34.8}},{"at":462,"kind":"shot","ease":"linear","follow":null,"shot":{"x":96.35,"y":8.01,"z":-36.86,"tx":90.29,"ty":-3.07,"tz":-34.8}},{"at":618,"kind":"shot","ease":"linear","follow":null,"shot":{"x":96.4,"y":8.39,"z":-36.76,"tx":90.15,"ty":-2.58,"tz":-34.64}},{"at":626,"kind":"shot","ease":"linear","follow":null,"shot":{"x":95.77,"y":7.32,"z":-35.25,"tx":88.53,"ty":-2.95,"tz":-32.79}},{"at":647,"kind":"shot","ease":"linear","follow":null,"shot":{"x":93.4,"y":4.39,"z":-30.91,"tx":84.12,"ty":-3.84,"tz":-27.76}},{"at":657,"kind":"shot","ease":"linear","follow":null,"shot":{"x":92.94,"y":4,"z":-30.73,"tx":84.09,"ty":-3.84,"tz":-27.73}},{"at":664,"kind":"shot","ease":"linear","follow":null,"shot":{"x":89.19,"y":0.68,"z":-29.46,"tx":84.09,"ty":-3.84,"tz":-27.73}},{"at":677,"kind":"shot","ease":"linear","follow":null,"shot":{"x":88.73,"y":0.27,"z":-29.3,"tx":84.09,"ty":-3.84,"tz":-27.73}}],"fx":[],"from":"trace","space":"statueRed"},"ufo.up":{"key":"ufo.up","v":2,"len":183,"builtin":[{"at":0,"len":183,"from":0,"speed":0.852}],"miis":[{"anim":[{"at":0,"len":183,"clip":"pm001_01","from":0,"speed":1,"facing":"auto"}],"face":[]},{"anim":[{"at":0,"len":183,"clip":"pm011_08","from":0,"speed":1,"facing":"auto"}],"face":[]}],"camera":[],"fx":[],"from":"trace"},"ufo.down":{"key":"ufo.down","v":2,"len":135,"builtin":[{"at":0,"len":135,"from":0,"speed":1.156}],"miis":[{"anim":[{"at":0,"len":71,"clip":"pm001_11","from":0,"speed":1,"facing":"auto"},{"at":71,"len":15,"clip":"pm001_12","from":0,"speed":1,"facing":"auto","loop":false},{"at":86,"len":49,"clip":"pm206_03","from":0,"speed":1,"facing":"auto","loop":false}],"face":[]},{"anim":[{"at":0,"len":135,"clip":"pm001_01","from":0,"speed":1,"facing":"auto"}],"face":[]}],"camera":[],"fx":[],"from":"trace"},"note.crates":{"key":"note.crates","v":2,"len":42,"builtin":[],"miis":[{"anim":[{"at":0,"len":26,"clip":"pm405_02","from":0,"speed":1,"facing":"auto","loop":false},{"at":26,"len":13,"clip":"pm011_08","from":0,"speed":1,"facing":"auto"}],"face":[]}],"camera":[{"at":0,"kind":"shot","ease":"cut","follow":null,"shot":{"x":0.94,"y":9.32,"z":-14.65,"tx":0.03,"ty":2.55,"tz":-0.18}},{"at":7,"kind":"shot","ease":"linear","follow":null,"shot":{"x":1.08,"y":9.63,"z":-14.07,"tx":0.18,"ty":2.87,"tz":0.41}},{"at":28,"kind":"shot","ease":"linear","follow":null,"shot":{"x":2.33,"y":10.56,"z":-8.91,"tx":1.43,"ty":3.8,"tz":5.56}},{"at":39,"kind":"shot","ease":"linear","follow":null,"shot":{"x":2.99,"y":9.28,"z":-6.2,"tx":2.08,"ty":2.52,"tz":8.27}}],"fx":[],"from":"trace","space":"crates"},"move.swim":{"key":"move.swim","v":2,"len":330,"builtin":[{"at":0,"len":330,"from":0,"speed":0.545}],"miis":[{"anim":[{"at":0,"len":184,"clip":"pm001_01","from":0,"speed":1,"facing":"auto"},{"at":184,"len":146,"clip":"pm001_16","from":0,"speed":1,"facing":"auto"}],"face":[{"at":184,"len":146,"face":3}]}],"camera":[{"at":0,"kind":"shot","ease":"cut","follow":null,"shot":{"x":2.99,"y":9.28,"z":-6.2,"tx":2.08,"ty":2.52,"tz":8.27}},{"at":14,"kind":"shot","ease":"linear","follow":null,"shot":{"x":3.09,"y":6.1,"z":-5.79,"tx":2.18,"ty":-0.66,"tz":8.68}},{"at":52,"kind":"shot","ease":"linear","follow":null,"shot":{"x":2.84,"y":6.08,"z":-5.09,"tx":1.93,"ty":-0.68,"tz":9.38}},{"at":142,"kind":"shot","ease":"linear","follow":null,"shot":{"x":-1.01,"y":6.08,"z":4.68,"tx":-1.92,"ty":-0.68,"tz":19.15}},{"at":184,"kind":"shot","ease":"linear","follow":null,"shot":{"x":-0.66,"y":6.08,"z":9.24,"tx":-1.56,"ty":-0.68,"tz":23.71}},{"at":185,"kind":"shot","ease":"cut","follow":null,"shot":{"x":0.02,"y":9.35,"z":13.89,"tx":-0.88,"ty":2.59,"tz":28.36}},{"at":235,"kind":"shot","ease":"linear","follow":null,"shot":{"x":-0.02,"y":9.04,"z":14.57,"tx":-0.88,"ty":2.59,"tz":28.36}},{"at":242,"kind":"shot","ease":"linear","follow":null,"shot":{"x":-0.38,"y":6.3,"z":20.41,"tx":-0.88,"ty":2.59,"tz":28.36}},{"at":254,"kind":"shot","ease":"linear","follow":null,"shot":{"x":-0.43,"y":5.97,"z":21.12,"tx":-0.88,"ty":2.59,"tz":28.36}}],"fx":[],"from":"trace","space":"crates"},"win":{"key":"win","v":2,"len":1050,"builtin":[],"miis":[{"anim":[{"at":0,"len":32,"clip":"pm011_08","from":0,"speed":1,"facing":"auto"},{"at":32,"len":84,"clip":"pm001_06","from":0,"speed":1,"facing":"auto","loop":false},{"at":116,"len":270,"clip":"pm011_08","from":0,"speed":1,"facing":"auto"},{"at":386,"len":402,"clip":"pm000_11","from":0,"speed":1,"facing":"auto"},{"at":788,"len":86,"clip":"pm441_03","from":0,"speed":1,"facing":"auto","loop":false},{"at":874,"len":96,"clip":"pm441_04","from":0,"speed":1,"facing":"auto"},{"at":970,"len":80,"clip":"pm000_11","from":0,"speed":1,"facing":"auto"}],"face":[{"at":32,"len":1018,"face":1}]},{"anim":[{"at":0,"len":31,"clip":"pm000_16","from":0,"speed":1,"facing":"auto"},{"at":31,"len":58,"clip":"pm000_08","from":0,"speed":1,"facing":"auto","loop":false},{"at":89,"len":961,"clip":"pm000_15","from":0,"speed":1,"facing":"auto"}],"face":[{"at":31,"len":1019,"face":3}]},{"anim":[{"at":0,"len":31,"clip":"pm000_16","from":0,"speed":1,"facing":"auto"},{"at":31,"len":58,"clip":"pm000_08","from":0,"speed":1,"facing":"auto","loop":false},{"at":89,"len":961,"clip":"pm000_15","from":0,"speed":1,"facing":"auto"}],"face":[{"at":31,"len":1019,"face":3}]},{"anim":[{"at":0,"len":31,"clip":"pm000_16","from":0,"speed":1,"facing":"auto"},{"at":31,"len":58,"clip":"pm000_08","from":0,"speed":1,"facing":"auto","loop":false},{"at":89,"len":961,"clip":"pm000_15","from":0,"speed":1,"facing":"auto"}],"face":[{"at":31,"len":1019,"face":3}]}],"camera":[{"at":0,"kind":"shot","ease":"cut","follow":null,"shot":{"x":7.04,"y":-1.6,"z":-22.13,"tx":1.44,"ty":-1.68,"tz":-14.34}},{"at":8,"kind":"shot","ease":"cut","follow":null,"shot":{"x":0,"y":-2.16,"z":-25.6,"tx":0,"ty":-2.24,"tz":-16}},{"at":251,"kind":"shot","ease":"linear","follow":null,"shot":{"x":0,"y":-2.16,"z":-24.87,"tx":0,"ty":-2.24,"tz":-15.27}},{"at":272,"kind":"shot","ease":"linear","follow":null,"shot":{"x":0,"y":-1.78,"z":-18.6,"tx":0,"ty":-1.86,"tz":-9}},{"at":298,"kind":"shot","ease":"linear","follow":null,"shot":{"x":0,"y":2.97,"z":-12.34,"tx":0,"ty":2.89,"tz":-2.74}},{"at":309,"kind":"shot","ease":"linear","follow":null,"shot":{"x":0,"y":2.65,"z":-9.72,"tx":0,"ty":2.57,"tz":-0.12}},{"at":318,"kind":"shot","ease":"linear","follow":null,"shot":{"x":0,"y":2.65,"z":-9.7,"tx":0,"ty":2.57,"tz":-0.1}}],"fx":[],"from":"trace","space":"finish"},"pass.volcanoOrNot":{"key":"pass.volcanoOrNot","v":2,"len":166,"builtin":[],"miis":[{"anim":[{"at":0,"len":105,"clip":"pm001_18","from":0,"speed":1,"facing":"auto"},{"at":105,"len":61,"clip":"pm001_14","from":0,"speed":1,"facing":"auto"}],"face":[{"at":2,"len":103,"face":1},{"at":105,"len":61,"face":4}]}],"camera":[{"at":0,"kind":"shot","ease":"cut","follow":null,"shot":{"x":-11.19,"y":10.19,"z":0.45,"tx":-0.18,"ty":2.47,"tz":-0.1}},{"at":113,"kind":"shot","ease":"linear","follow":null,"shot":{"x":-11.02,"y":10.28,"z":1.1,"tx":-0.02,"ty":2.56,"tz":0.55}}],"fx":[],"from":"trace","space":"volcanoOrNot"},"pass.spike":{"key":"pass.spike","v":2,"len":168,"builtin":[],"miis":[{"anim":[{"at":0,"len":87,"clip":"pm001_06","from":0,"speed":1,"facing":"auto","loop":false},{"at":87,"len":81,"clip":"pm011_08","from":0,"speed":1,"facing":"auto"}],"face":[{"at":3,"len":99,"face":1}]}],"camera":[{"at":0,"kind":"shot","ease":"cut","follow":null,"shot":{"x":-3.68,"y":2,"z":-7.08,"tx":0,"ty":2.56,"tz":0}}],"fx":[],"from":"trace","space":"spike"},"game.start":{"key":"game.start","v":2,"len":156,"builtin":[],"miis":[{"anim":[{"at":0,"len":67,"clip":"pm000_40","from":0,"speed":1,"facing":"auto","loop":false},{"at":67,"len":76,"clip":"pm000_41","from":0,"speed":1,"facing":"auto"}],"face":[{"at":3,"len":140,"face":1}]},{"anim":[{"at":0,"len":6,"clip":"pm000_17","from":0,"speed":1,"facing":"auto"},{"at":6,"len":64,"clip":"pm000_40","from":0,"speed":1,"facing":"auto","loop":false},{"at":70,"len":73,"clip":"pm000_41","from":0,"speed":1,"facing":"auto"}],"face":[{"at":6,"len":137,"face":1}]},{"anim":[{"at":0,"len":9,"clip":"pm000_16","from":0,"speed":1,"facing":"auto"},{"at":9,"len":64,"clip":"pm000_40","from":0,"speed":1,"facing":"auto","loop":false},{"at":73,"len":70,"clip":"pm000_41","from":0,"speed":1,"facing":"auto"}],"face":[{"at":9,"len":134,"face":1}]},{"anim":[{"at":0,"len":12,"clip":"pm000_17","from":0,"speed":1,"facing":"auto"},{"at":12,"len":64,"clip":"pm000_40","from":0,"speed":1,"facing":"auto","loop":false},{"at":76,"len":67,"clip":"pm000_41","from":0,"speed":1,"facing":"auto"}],"face":[{"at":12,"len":131,"face":1}]}],"camera":[{"at":0,"kind":"shot","ease":"cut","follow":null,"shot":{"x":0,"y":1.84,"z":-9.2,"tx":0,"ty":1.6,"tz":0}}],"fx":[],"from":"trace","space":"start"},"duel.result":{"key":"duel.result","v":2,"len":120,"builtin":[],"camera":[{"at":0,"kind":"board","preset":"react","follow":0},{"at":84,"kind":"board","preset":"follow","follow":0}],"fx":[],"from":"trace","miis":[{"anim":[{"at":0,"len":84,"clip":"pm001_06","from":0,"speed":1,"facing":"camera","loop":false}],"face":[{"at":0,"len":110,"face":1}]},{"anim":[{"at":0,"len":92,"clip":"pm001_07","from":0,"speed":1,"facing":"auto","loop":false}],"face":[{"at":0,"len":110,"face":3}]}]},"rest.win":{"key":"rest.win","v":2,"len":96,"builtin":[],"camera":[{"at":0,"kind":"board","preset":"react","follow":0},{"at":84,"kind":"board","preset":"follow","follow":0}],"fx":[],"from":"trace","miis":[{"anim":[{"at":0,"len":84,"clip":"pm001_06","from":0,"speed":1,"facing":"camera","loop":false}],"face":[{"at":0,"len":96,"face":1}]}]},"rest.lose":{"key":"rest.lose","v":2,"len":96,"builtin":[],"camera":[{"at":0,"kind":"board","preset":"react","follow":0},{"at":84,"kind":"board","preset":"follow","follow":0}],"fx":[],"from":"trace","miis":[{"anim":[{"at":0,"len":92,"clip":"pm001_07","from":0,"speed":1,"facing":"auto","loop":false}],"face":[{"at":0,"len":96,"face":3}]}]}};
 
 return { SEQUENCES };
 })();
@@ -788,11 +795,19 @@ const DRAGON_SMASH = { punches: SMASH.punches * SMASH.swing, stance: SMASH.stanc
 const GATE_SMASH = { kicks: SMASH.kicks * SMASH.swing, watch: (SMASH.kicks - 1) * SMASH.swing + SMASH.impact + SMASH.breakUp - SMASH.kicks * SMASH.swing, beat: SMASH.beat, cheer: SMASH.cheer };
 const sum = (o) => Object.values(o).reduce((a, b) => a + b, 0);
 
+// The vine, as the real game plays it (a trace of Board Game Island; seconds from the leap for the vine): the leap
+// (pm405_01), hanging on (pm001_13), the swings (pm434_01 forward, from `swing`; pm434_02 back, from each turn of the
+// swing), letting go near the bottom of a forward swing (pm405_02), landing (pm001_09), a cheer (pm001_10), on at a run.
+// `back`: when the vine is at the back of its swing (its swings take a second each way).
+const VINE = { hang: 0.2, swing: 0.52, turns: [1.16, 2.16, 3.16, 4.16], letGo: 4.69, land: 4.97, cheer: 5.4, end: 6.7, back: 0.16 };
+
 const DUR = {
-  diceStop: 3600, wonder: 2000, walkStep: 185, fastStep: 140, moveTail: 350, fly: 2600, drop: 0, banner: 1100, round: 2600, turnIntro: 2000, flyover: 7000, eruption: 10000, meteorHit: 2200, minigame: 2200,
+  diceStop: 3600, wonder: 2000, walkStep: 270, fastStep: 140, moveTail: 350, fly: 2600, drop: 0, banner: 1100, round: 2600, turnIntro: 2000, flyover: 7000, eruption: 10000, meteorHit: 2200, minigame: 2200,
   cross: 1500,   // extra time for a step that crosses a gap (a jump over the pit, over the creek...)
-  swing: 2400,   // the vine swing
-  vinePause: 1000, // standing on the landing spot after the vine, before walking the rest
+  swing: 3200,   // the vine roll: swinging on until the let-go (up to two seconds), and the flight to the far side
+  vinePause: 1300, // landed from the vine roll: the cheer (pm001_10), before walking the rest
+  vineCross: 6900, // crossing the gorge on the vine without stopping, as the real game does (see VINE)
+  cratesCross: 3200, // hopping across the pool on the crates or barrels (a hop and a landing on each, then the far side)
   wall: F(sum(DRAGON_SMASH)), // punching the dragon wall to pieces, then a cheer (see DRAGON_SMASH)
   gate: F(sum(GATE_SMASH)),     // kicking the summit gate to pieces, then a cheer (see GATE_SMASH)
   finalFail: F(SMASH.beat + SMASH.letdown + SMASH.beat), // the gate stays shut: they turn to the camera, let down
@@ -874,14 +889,16 @@ function spacesToGo(pos, returnTo = null) {
 }
 
 // count = { total, dir }: the number shown at the top while the player travels ("9", then 8, 7...).
-const crossings = (start, path) => { // how many steps cross a gap (they are long: a bridge, a gorge, a tunnel, stairs)
+/** The extra time a step across a gap takes (ms): the vine, the pool, or a plain gap (a bridge, a gorge, a tunnel, stairs). */
+const crossMs = (kind) => (kind === 'swing' ? DUR.vineCross : kind === 'crates' ? DUR.cratesCross : DUR.cross);
+const crossings = (start, path) => { // the extra time of the steps that cross a gap
   let n = 0, prev = start && start.across ? null : start; // (from a spot past a challenge the gap is already crossed)
-  for (const p of path) { if (prev && prev.track === 'island' && p.track === 'island') { const g = gapBetween(prev.idx, p.idx); if (g) n++; } prev = p; }
+  for (const p of path) { if (prev && prev.track === 'island' && p.track === 'island') { const g = gapBetween(prev.idx, p.idx); if (g) n += crossMs(g.kind); } prev = p; }
   return n;
 };
 const move = (slot, mode, path, count, follow = false, start = null) => {
-  const dur = mode === 'walk' ? path.length * DUR.walkStep + DUR.moveTail + crossings(start, path) * DUR.cross
-    : mode === 'fast' ? path.length * DUR.fastStep + DUR.moveTail + crossings(start, path) * DUR.cross
+  const dur = mode === 'walk' ? path.length * DUR.walkStep + DUR.moveTail + crossings(start, path)
+    : mode === 'fast' ? path.length * DUR.fastStep + DUR.moveTail + crossings(start, path)
     : mode === 'fly' ? DUR.fly : mode === 'spring' ? DUR.spring : mode === 'knock' ? DUR.knock : DUR.drop;
   const ev = { t: 'move', slot, mode, path, dur };
   if (count && mode !== 'drop') ev.count = count;
@@ -937,7 +954,7 @@ class BoardGame {
     });
     this.phase = 'waiting';
     this.readyAt = now + DUR.round + TIMING.gap;
-    return [{ t: 'roundStart', round: this.round, order: [...order], curves: { ...this.curves }, tiers: { ...this.tiers }, dur: DUR.round }];
+    return [{ t: 'roundStart', round: this.round, order: [...order], curves: { ...this.curves }, tiers: { ...this.tiers }, dur: DUR.round, ...(this.round === 1 ? { moment: 'game.start' } : {}) }]; // (the first: everyone cheers at the start, as the real game)
   }
 
   // ---- what to show the player right now ----
@@ -1239,8 +1256,8 @@ class BoardGame {
     this.rigNext = null;
     events.push({ t: 'diceStop', slot, dice: [{ v: d, kind: 'base' }], total: d, doubles: false, dur: DUR.diceStop });
     const pos = this.positions[slot];
-    const pass = (text, wall = null) => {
-      events.push(note(slot, text));
+    const pass = (text, wall = null, extra = {}) => {
+      events.push(note(slot, text, extra));
       if (wall) { // the wall is gone for everyone from now on
         this.broken[wall] = true;
         events.push({ t: 'broken', slot, challenge: wall, dur: DUR.wall }); // slot: who smashes it (the scene plays them doing it)
@@ -1256,10 +1273,9 @@ class BoardGame {
       case 'vine': // wiki: no penalty; the roll is extra spaces
         events.push(note(slot, `Vine swing! +${d} spaces`));
         { const from = events.length, r = this._pass(slot, step.remaining + d, events), mv = events.slice(from).find((e) => e.t === 'move');
-          if (mv) { // the first d spaces are flown on the vine: they take the swing's time, not walking time (and the gorge is flown over)
+          if (mv) { // swinging on until the let-go, the flight to the far side and a cheer take the gorge's place; then a run
             mv.swing = Math.min(d, mv.path.length);
-            mv.dur += DUR.swing + (mv.path.length > mv.swing ? DUR.vinePause : 0) - mv.swing * DUR.walkStep - DUR.cross;
-            mv.dur = Math.max(mv.dur, DUR.swing);
+            mv.dur += DUR.swing + DUR.vinePause - DUR.vineCross;
           }
           return r; }
       case 'dragon':
@@ -1268,13 +1284,13 @@ class BoardGame {
         this._moveTo(slot, walkBack(pos, 1), 'knock', events, BACK(1));
         return true;
       case 'volcanoOrNot':
-        if (d >= VOLCANO_NEEDS) return pass('You dodge the volcano!');
+        if (d >= VOLCANO_NEEDS) return pass('You dodge the volcano!', null, { moment: 'pass.volcanoOrNot' });
         events.push(note(slot, 'Into the volcano!'));
         this._intoVolcano(slot, { track: 'island', idx: VOLCANO_CHALLENGE_IDX, across: true }, events); // they come back out past the pit, short of the next space (not a space)
         return true;
       case 'spike': {
         if (d >= this.spikeNeeds) { // they go on at once; the statue breaks once everything this turn has played out
-          events.push(note(slot, 'You get past the spike ball!'));
+          events.push(note(slot, 'You get past the spike ball!', { moment: 'pass.spike' }));
           this.broken.spike = true; this.pendingBreak = { challenge: 'spike', slot };
           return this._pass(slot, step.remaining, events);
         }
@@ -1471,8 +1487,8 @@ class BoardGame {
       case 'mgRest': { // placeholder minigame: the solo player wins with probability 1 / players
         say('1 vs Rest! {' + slot + '} plays alone against everyone else');
         events.push({ t: 'minigame', kind: 'rest', slot, dur: DUR.minigame });
-        if (this.rng() < 1 / this.players.length) { say(`{${slot}} wins! +${REST_WIN_MOVE}`); this._spring(slot, walkForward(pos, REST_WIN_MOVE), 'green', events, FWD(REST_WIN_MOVE)); }
-        else say('The rest win. Nothing happens.');
+        if (this.rng() < 1 / this.players.length) { events.push(note(slot, `{${slot}} wins! +${REST_WIN_MOVE}`, { moment: 'rest.win' })); this._spring(slot, walkForward(pos, REST_WIN_MOVE), 'green', events, FWD(REST_WIN_MOVE)); }
+        else events.push(note(slot, 'The rest win. Nothing happens.', { moment: 'rest.lose' }));
         break;
       }
       case 'mg11': { // the roller picks an opponent who is not in the volcano
@@ -1488,7 +1504,7 @@ class BoardGame {
   }
 }
 
-return { CURVE_MAX, TIERS, WIN_ROLL, DRAGON_NEEDS, VOLCANO_NEEDS, SPIKE_START, SPIKE_MIN, SPIKE_RUNBACK, TORNADO_BACK, REST_WIN_MOVE, DUEL_MOVE, ERUPTION_TURNS, LAVA_BACK, ERUPTION_STRETCHES, SMASH, DRAGON_SMASH, GATE_SMASH, DUR, DROP, TIMING, rollDie, walkForward, walkBack, spacesToGo, BoardGame };
+return { CURVE_MAX, TIERS, WIN_ROLL, DRAGON_NEEDS, VOLCANO_NEEDS, SPIKE_START, SPIKE_MIN, SPIKE_RUNBACK, TORNADO_BACK, REST_WIN_MOVE, DUEL_MOVE, ERUPTION_TURNS, LAVA_BACK, ERUPTION_STRETCHES, SMASH, DRAGON_SMASH, GATE_SMASH, VINE, DUR, DROP, TIMING, rollDie, walkForward, walkBack, spacesToGo, crossMs, BoardGame };
 })();
 __mods["js15/world/miic.js"] = (() => {
 // Mii data from the Mii creator (the open-source Mii Maker in mii/): its own "miic" format (version 4, 124 bytes, the
@@ -2772,7 +2788,8 @@ __mods["js15/scenes/director.js"] = (() => {
 //            moment starts on (and the way the path goes there) so it fits every space of that kind, or to a Mii
 //            (follow). Between two shot keys the camera moves smoothly (or at an even speed, or cuts at the second).
 //            An 'own' key hands the camera back to the set piece's own cameras; a 'normal' key to the board's camera.
-//            Before the first key, the set piece's own.
+//            A 'board' key: the real game's board camera in one of its shots (follow, turn, react: boardCamera.js), on
+//            a Mii (follow: which). Before the first key, the set piece's own.
 //   fx       things that happen: a glint, the screen shaking, a caption, a fade to black, a wall's jolt, stone chips,
 //            close-up (no number badges).
 // A block recorded from the game (rec) is only shown: it is what the game does there now, to edit from.
@@ -2868,7 +2885,7 @@ function cameraAt(keys, T, where) {
   let i = -1; for (let j = 0; j < ks.length; j++) if (ks[j].at <= T) i = j;
   if (i < 0) return { kind: 'none' };
   const k = ks[i];
-  if (k.kind === 'own' || k.kind === 'normal') return { kind: k.kind, key: k };
+  if (k.kind === 'own' || k.kind === 'normal' || k.kind === 'board') return { kind: k.kind, key: k };
   const pose = (q) => shotToWorld(where(q), q.shot);
   const P1 = pose(k), next = ks[i + 1];
   if (!next || next.kind !== 'shot' || next.ease === 'cut' || next.at <= k.at) return { kind: 'shot', pose: P1, key: k };
@@ -2948,10 +2965,15 @@ function direct(scene, anim, ev) {
       if (cam.kind === 'shot') {
         if (st.lastKey !== cam.key && !cam.between) scene.snapCamera = true; // (a cut)
         scene.camHold = cam.pose; st.lastPose = cam.pose; st.ours = true; scene.snapCamera = true; st.lastKey = cam.key;
+      } else if (cam.kind === 'board') { // the real game's board camera, in one of its shots (boardCamera.js: follow, turn, react), on a Mii
+        if (scene.camHold === st.lastPose || st.lastKey !== cam.key) scene.camHold = null;
+        scene.camPreset = { name: cam.key.preset || 'follow', slot: cast[cam.key.follow == null ? 0 : cam.key.follow] };
+        st.ours = true; st.preset = true; st.lastKey = cam.key;
       } else if (cam.kind === 'normal') {
         if (!st.ours || st.lastKey !== cam.key) scene.snapCamera = true;
         scene.camHold = null; st.ours = true; st.lastKey = cam.key;
       } else if (st.ours) { st.ours = false; st.lastKey = null; scene.snapCamera = true; } // back to the set piece's own
+      if (cam.kind !== 'board' && st.preset) { scene.camPreset = null; st.preset = false; }
       // things that happen
       applyFx(scene, S.fx || [], T, st, cast, A);
       st.prevT = T;
@@ -2962,6 +2984,7 @@ function direct(scene, anim, ev) {
       if (st.ours && (scene.camHold === st.lastPose || scene.camHold === null)) { scene.camHold = null; scene.snapCamera = true; }
       for (const p of st.touched) if (p && p.fx && p.fx.__dir) { p.fx = null; } // (bodies the sequence moved, back to the game's)
       for (const p of st.faced) setPawnFace(p, 0);
+      if (st.preset) { scene.camPreset = null; st.preset = false; }
       if (st.shake) scene.shake = 0;
       if (st.banner && scene.clearBanner) scene.clearBanner();
       if (st.closeUp) scene.closeUp = false;
@@ -3058,6 +3081,142 @@ function recordedSequence(key, rec) {
 }
 
 return { localSequences, saveLocalSequences, sequenceFor, spotOf, anchorOf, fromAnchor, toAnchor, shotToWorld, shotFromWorld, builtinFrame, activeBlock, castSlots, cameraAt, setPawnFace, direct, recordedSequence };
+})();
+__mods["js15/game/boardCamera.js"] = (() => {
+// The real Board Game Island's board camera, measured from a trace of the real game (the owner's Wii Party recomp:
+// see tools/trace_to_sequences.mjs and the project notes). It is not a free chase camera: every space has its own
+// shot, set by the game's designers, that the camera eases between as a Mii runs along:
+//   follow    the space's shot: [distance, pitch, yaw] (game units, degrees; yaw is the way from the target to the
+//             camera, atan2(x, z)), looking at a point 160 above the Mii (wherever they are, in the air too)
+//   turn      while the die spins: 500 away at 35 degrees, the same way as the space's follow shot
+//   react     a Mii landing and reacting (pm001_06 with a smile, pm001_07 with sorrow): cut to 400 away, at the
+//             space's pitch, 150 degrees round from the follow shot (a three-quarter view of their face), for ~1.4 s
+// Game units are 0.016 of ours (the same map: the start space is (-1500, 30, 6280) there, (-24, 0.48, 100.48) here).
+
+const GAME_UNIT = 0.016;
+const TARGET_UP = 160;
+const TURN = { d: 500, p: 35 };
+const REACT = { d: 400, turn: -150 };
+
+/** The follow shot of each island space: [distance, pitch, yaw]. (Spaces the trace never settled on are in between their neighbours.) */
+const SPACE_SHOTS = [
+  [720, 5, 2],
+  [720, 5, 2],
+  [720, 5, 2],
+  [720, 5, 2],
+  [750, 7, -1],
+  [780, 9, -4],
+  [883, 11, 9],
+  [987, 13, 23],
+  [1090, 15, 36],
+  [1090, 15, 26],
+  [1090, 15, 15],
+  [1090, 15, 4],
+  [1090, 15, -6],
+  [1090, 15, -17],
+  [980, 15, -28],
+  [870, 15, -40],
+  [855, 10.5, -34],
+  [840, 6, -29],
+  [840, 6, -38],
+  [840, 6, -46],
+  [840, 6, -48],
+  [840, 6, -51],
+  [885, 10.5, -59],
+  [930, 15, -67],
+  [855, 12.5, -76],
+  [780, 10, -84],
+  [780, 10, -86],
+  [780, 10, -87],
+  [780, 10, -88],
+  [780, 10, -90],
+  [820, 10, -105],
+  [860, 10, -120],
+  [940, 10, -137],
+  [1020, 16.5, -147],
+  [1100, 23, -157],
+  [1083, 21.3, -150],
+  [1067, 19.7, -143],
+  [1050, 18, -136],
+  [990, 16, -153],
+  [1100, 23, -123],
+  [920, 20, 66],
+  [953, 23, 91],
+  [987, 26, 116],
+  [1020, 29, 141],
+  [1050, 20, 144],
+  [1080, 11, 146],
+  [1013, 16.3, 116],
+  [947, 21.7, 86],
+  [880, 27, 56],
+  [840, 35, 34],
+  [900, 10, 85],
+  [960, 27, 75],
+  [1020, 11, 59],
+  [1080, 11, 45],
+  [1080, 11, 37],
+  [1080, 11, 28],
+  [1080, 11, -40],
+  [1080, 11, 12],
+  [1080, 23, 5],
+  [1180, 14, -8],
+  [1290, 29, -21],
+  [1342, 27.5, -35],
+  [1395, 26, -50],
+  [1448, 24.5, -64],
+  [1500, 23, -78],
+  [1500, 23, -86],
+  [1500, 23, -94],
+  [1500, 23, -101],
+  [1500, 23, -93],
+  [1500, 23, -84],
+  [1500, 23, -76],
+  [1360, 18.7, -92],
+  [1220, 14.3, -107],
+  [1080, 10, -123],
+  [1080, 10, -182],
+  [1080, 10, 119],
+  [1080, 10, 103],
+  [1080, 10, 87],
+  [840, 5, 44],
+  [600, 0, 0],
+];
+
+const lerpAngle = (a, b, u) => a + ((((b - a) % 360) + 540) % 360 - 180) * u;
+
+/** The follow shot at a place along the island path (index i, and u of the way to the next space). */
+function followAt(i, u = 0) {
+  const a = SPACE_SHOTS[Math.max(0, Math.min(SPACE_SHOTS.length - 1, i))], b = SPACE_SHOTS[Math.max(0, Math.min(SPACE_SHOTS.length - 1, i + 1))];
+  return { d: a[0] + (b[0] - a[0]) * u, p: a[1] + (b[1] - a[1]) * u, yaw: lerpAngle(a[2], b[2], u) };
+}
+
+/** A preset shot ('follow', 'turn' or 'react') at a place along the path. */
+function presetAt(name, i, u = 0) {
+  const f = followAt(i, u);
+  if (name === 'turn') return { d: TURN.d, p: TURN.p, yaw: f.yaw };
+  if (name === 'react') return { d: REACT.d, p: f.p, yaw: f.yaw + REACT.turn };
+  return f;
+}
+
+/** Camera position and the point it looks at, in our units, for a shot {d, p, yaw} at a Mii standing at (x, y, z). */
+function shotAround(x, y, z, s) {
+  const ty = y + TARGET_UP * GAME_UNIT, d = s.d * GAME_UNIT, p = s.p * Math.PI / 180, w = s.yaw * Math.PI / 180;
+  return { x: x + d * Math.cos(p) * Math.sin(w), y: ty + d * Math.sin(p), z: z + d * Math.cos(p) * Math.cos(w), tx: x, ty, tz: z };
+}
+
+/** Where a point is along the island path: the nearest stretch (i to i + 1) and how far along it (u). */
+function placeOnPath(P, x, z, near = null) {
+  let best = { i: 0, u: 0, d: Infinity };
+  const from = near == null ? 0 : Math.max(0, near - 3), to = near == null ? P.length - 1 : Math.min(P.length - 1, near + 3);
+  for (let i = from; i < to; i++) {
+    const a = P[i], b = P[i + 1], vx = b.x - a.x, vz = b.z - a.z, L = vx * vx + vz * vz || 1;
+    const u = Math.max(0, Math.min(1, ((x - a.x) * vx + (z - a.z) * vz) / L)), px = a.x + vx * u, pz = a.z + vz * u, d = (x - px) ** 2 + (z - pz) ** 2;
+    if (d < best.d) best = { i, u, d };
+  }
+  return best;
+}
+
+return { GAME_UNIT, TARGET_UP, TURN, REACT, SPACE_SHOTS, followAt, presetAt, shotAround, placeOnPath };
 })();
 __mods["js15/game/boardMap.js"] = (() => {
 // GENERATED by tools/gen_board_map.py from assets/board-game-island (board.json, island.glb). Wii units, Y up.
@@ -4124,7 +4283,7 @@ __mods["js15/scenes/challengeFx.js"] = (() => {
 const { PAWN_SCALE } = __mods["js15/world/miis.js"];
 const { ISLAND, gapBetween } = __mods["js15/game/boardData.js"];
 const islandTypeAt = (i) => ISLAND[i] && ISLAND[i].type;
-const { DUR, SPIKE_START, SPIKE_MIN, SMASH, DRAGON_SMASH, GATE_SMASH } = __mods["js15/game/boardGame.js"];
+const { DUR, VINE, crossMs, SPIKE_START, SPIKE_MIN, SMASH, DRAGON_SMASH, GATE_SMASH } = __mods["js15/game/boardGame.js"];
 const { BREAKS } = __mods["js15/world/breakData.js"];
 const { rigBreak, restorePristine } = __mods["js15/world/breakRig.js"];
 const { GLINT_STAR, GLINT_GLOW, GLINT_RING, GLINT_STREAK } = __mods["js15/world/glintTex.js"];
@@ -4164,7 +4323,22 @@ function sequence(parts) {
 }
 
 const SWING_AMP = 0.85;   // how far the vine swings each way (radians)
-const VINE_W = 2.1;
+const VINE_W = Math.PI;          // the vine's rhythm while a player swings on it (radians of phase per second): a second each way, as the real game
+/** The real game's swing clips, kept in time with the vine: pm434_01 on the way forward, pm434_02 on the way back. */
+const swingClip = (ph) => { const m = ((ph % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI); return m < Math.PI ? { clip: 'pm434_01', clipF: (m / Math.PI) * 60 } : { clip: 'pm434_02', clipF: ((m - Math.PI) / Math.PI) * 60 }; };
+/** Which of the real game's clips the vine crossing is in, `tau` seconds after the leap for the vine (VINE). */
+function vineClip(tau) {
+  if (tau < VINE.hang) return { clip: 'pm405_01', clipF: tau * 60 };
+  if (tau < VINE.swing) return { clip: 'pm001_13', clipF: Math.min(9, (tau - VINE.hang) * 60) };
+  if (tau < VINE.letGo) {
+    const starts = [VINE.swing, ...VINE.turns]; let k = 0;
+    while (k + 1 < starts.length && tau >= starts[k + 1]) k++;
+    return { clip: k % 2 ? 'pm434_02' : 'pm434_01', clipF: (tau - starts[k]) * 60 };
+  }
+  if (tau < VINE.land) return { clip: 'pm405_02', clipF: 1 };
+  if (tau < VINE.cheer) return { clip: 'pm001_09', clipF: Math.min(29, (tau - VINE.land) * 60) };
+  return { clip: 'pm001_10', clipF: Math.min(70, (tau - VINE.cheer) * 60) };
+}
 const CHASE_SPEED = 17;   // world units a second, once nobody is in its way (it can go twice that to keep up)
 const CHASE_GAP = 3.4;    // how far behind the hindmost runner the ball's centre stays (its radius is 2.5)
 const HIDE_MS = 450;             // ducking into the tunnel mouth   // how fast the spike ball rolls down the stretch (world units per second)              // the vine's rhythm while a player swings on it (radians of phase per second)
@@ -4535,7 +4709,7 @@ class ChallengeFX {
     const kind = ISLAND[pawn.idx].type;
     // while the die spins: eager at the dragon wall and the summit gate (pm011_09); everywhere else the real game's
     // turn pose, pm011_07 (the spike ball too)
-    pawn.rollClip = (kind === 'dragon' || kind === 'final') && !this.broken[kind] ? 'eager' : 'puzzled';
+    pawn.rollClip = (kind === 'dragon' || kind === 'final') && !this.broken[kind] ? 'eager' : kind === 'volcanoOrNot' ? 'pm001_18' : 'puzzled'; // (at the volcano: still the nervous wait)
     if (!['vine', 'dragon', 'crates', 'spike', 'final'].includes(kind) || this.broken[kind]) return;
     if (this.active && this.active.slot === slot && this.active.kind === kind) return;
     this.active = { slot, kind };
@@ -5320,21 +5494,21 @@ class ChallengeFX {
         else legs.push({ ms: stepMs, steps: 1, kind: 'walk', pose: (l) => lerp3(P0, P1, l) });
         prev = cur; track = node.track; continue;
       }
-      if (g.kind === 'swing' && fwd && i === 0 && ev.swing > 0) { // the vine roll: leap for the vine, swing, let go and fly the rolled spaces
-        const k = Math.min(ev.swing, n), land = pts[k], jp = this.vineJump(P0, land, hanging);
-        // the vine has its own counter: the rolled number counts down through the flight
-        legs.push({ ms: jp.ms, steps: k, kind: 'swing', pose: jp.pose, stepAt: (l) => jp.stepAt(l, k), counter: (l) => k - jp.stepAt(l, k) });
-        if (k < n) { // landed: a moment standing there, then the spaces still left take the counter's place and the walk goes on
-          const r = n - k, at = { ...land };
-          legs.push({ ms: DUR.vinePause, steps: 0, kind: 'pause', pose: () => ({ ...at }), counter: (l) => (l < 0.55 ? 0 : r) });
-        }
-        prev = ev.path[k - 1].idx; track = ev.path[k - 1].track; i = k - 1;
+      if (g.kind === 'swing' && fwd && i === 0 && ev.swing > 0) {
+        // the vine roll, as the real game: swinging on while the die rolled, let go near the bottom of a forward swing,
+        // land on the far side, cheer (pm001_10), then run the spaces (the rolled ones and any left from before)
+        const far = { x: this.sp.swing.far.x, y: this.sp.swing.far.y + 0.05, z: this.sp.swing.far.z }, jp = this.vineJump(P0, far, hanging);
+        const yaw = Math.atan2(P1.x - far.x, P1.z - far.z);
+        legs.push({ ms: jp.ms, steps: 0, kind: 'swing', pose: jp.pose });
+        legs.push({ ms: DUR.vinePause, steps: 0, kind: 'pause', pose: (l) => ({ ...far, fx: { yaw, clip: 'pm001_10', clipF: Math.min(70, l * DUR.vinePause * 0.06) } }) });
+        legs.push({ ms: stepMs, steps: 1, kind: 'walk', pose: (l) => lerp3(far, P1, l) });
+        prev = cur; track = node.track;
         continue;
       }
       const chain = this.chainFor(prev, cur, P0, P1, i === 0);
-      let ms = stepMs + DUR.cross, pose;
-      if (g.kind === 'swing') { ms += ev.swing && i === 0 ? DUR.swing : 0; pose = this.swingPose(chain, fwd, !!hanging && i === 0); }
-      else if (g.kind === 'crates') { if (ev.swim) ms = Math.max(ms, ev.dur - 400); pose = this.poolPose(chain, fwd, i === 0 ? this.pending : null); }
+      let ms = stepMs + crossMs(g.kind), pose;
+      if (g.kind === 'swing') { const sw = this.swingPose(chain, fwd, !!hanging && i === 0, ms); ms = sw.ms; pose = sw.pose; }
+      else if (g.kind === 'crates') { if (ev.swim) ms = Math.max(ms, ev.dur - 400); const pp = this.poolPose(chain, fwd, i === 0 ? this.pending : null); pose = pp.pose; if (!ev.swim) ms = Math.max(ms, pp.ms); }
       else pose = chainPose(chain);
       const done = { v: false };
       legs.push({ ms, steps: 1, kind: g.kind, pose: (l) => { const p = pose(l); if (l > 0.96 && !done.v && this.active) { done.v = true; this.release(); } return p; } });
@@ -5345,127 +5519,130 @@ class ChallengeFX {
   }
 
   /**
-   * The vine roll, in one unbroken movement: run to the edge while the vine is drawn back, leap and catch it at the
-   * top of its swing, ride it down and up the other side, let go while still moving forward and fly through the air
-   * to land on the space the roll reaches. The vine then swings on by itself and settles. Returns { ms, pose, stepAt }.
+   * The vine roll's swing and flight: from hanging on (below), or, when nobody was on the vine yet, run to the edge,
+   * leap for it (pm405_01) and catch it at the back of its swing (pm001_13) first. `land`: the far side. The vine then
+   * swings on by itself and settles. Returns { ms, pose, yaw }.
    */
   vineJump(P0, land, hanging = null) {
     if (hanging) return this.vineJumpFromSwing(land, hanging);
-    const v = this.sp.swing, A = SWING_AMP, th0 = -A, REL = 0.8;            // let go at 80% of the half swing
-    const yaw = Math.atan2(v.u.x, v.u.z), grab = v.hang(th0);
-    const tRun = flat(P0, v.near) / 9 + 0.05, tHop = 0.6, tSwing = 1.25 * REL;
-    const thRel = -A * Math.cos(Math.PI * REL), letGo = v.hang(thRel);
-    const d = flat(letGo, land), tFly = 0.7 + d * 0.03, hFly = 3 + d * 0.3; // a real leap, well clear of the ground
-    const run = chainPose([P0, v.near]), rope0 = { th: null };
-    const pull = (t) => { // the vine is drawn back while the player runs up and leaps, and is at the top when caught
-      if (rope0.th == null) rope0.th = this.ropeTheta;
-      this.ropeFree = null; this.swinging = true;
-      this.ropeTheta = rope0.th + (th0 - rope0.th) * ease(t);
-    };
-    const T = tRun + tHop;
+    // (nobody was hanging on yet: run to the edge and leap for it, then the same as below, from the vine's back swing)
+    const v = this.sp.swing, yaw = Math.atan2(v.u.x, v.u.z), tRun = flat(P0, v.near) / 9 + 0.05, A = SWING_AMP * 0.8;
+    const ph0 = 0, grab = v.hang(-A), run = chainPose([P0, v.near]), rope0 = { th: null };
+    const jp = this.vineJumpFromSwing(land, { t: ph0 / VINE_W });
     const parts = [
-      [tRun, (t) => { pull((t * tRun) / T); const p = run(t); return { ...p, fx: { yaw, arms: [-0.6 - t * 1.6, -0.6 - t * 1.6] } }; }],
-      [tHop, (t) => { pull((tRun + t * tHop) / T); return { ...hop(v.near, grab, ease(t), 2.2), fx: { yaw, groundY: v.riverY, arms: [-2.8, -2.8], legs: [0.5, -0.4] } }; }],
-      [tSwing, (t) => { // a pendulum: slow at the top, fastest at the bottom
-        const th = -A * Math.cos(Math.PI * REL * t); this.swinging = true; this.ropeTheta = th;
-        return { ...v.hang(th), fx: { yaw, groundY: v.riverY, arms: [-3.0, -3.0], legs: [0.6 * Math.sin(t * Math.PI), -0.3], tilt: -th * 0.5 } };
-      }],
-      [tFly, (t) => {
-        if (this.swinging) { // let go: the vine swings on by itself, and the camera is free to follow the flight
-          this.swinging = false; this.ropeFree = { t: 0, phase: Math.PI * REL, w: (Math.PI * REL) / tSwing };
-          if (this.active) { this.active = null; this.walkTo = null; if (this.s.camHold && !this.s.runHold) this.s.camHold = null; }
-        }
-        const p = hop(letGo, land, t, hFly), ground = t < 0.25 ? v.riverY : terrainHeight(p.x, p.z) + 0.14;
-        return { ...p, fx: { yaw, groundY: Math.min(p.y, ground), arms: [-2.6 + t * 1.2, -2.6 + t * 1.2], legs: [0.7 * (1 - t), -0.6 * (1 - t)], tilt: -0.35 * (1 - t) } };
-      }],
+      [tRun, (t) => { if (rope0.th == null) rope0.th = this.ropeTheta; this.ropeFree = null; this.swinging = true; this.ropeTheta = rope0.th + (-A - rope0.th) * ease(t); return run(t); }],
+      [VINE.hang, (t) => { this.swinging = true; this.ropeTheta = -A; return { ...hop(v.near, grab, ease(t), 1.2), fx: { yaw, groundY: v.riverY, clip: 'pm405_01', clipF: t * VINE.hang * 60 } }; }],
+      [VINE.swing - VINE.hang, (t) => { this.swinging = true; this.ropeTheta = -A; return { ...grab, fx: { yaw, groundY: v.riverY, clip: 'pm001_13', clipF: Math.min(9, t * 19) } }; }],
+      [jp.ms / 1000, jp.pose],
     ];
-    const total = tRun + tHop + tSwing + tFly, flyStart = (tRun + tHop + tSwing) / total;
-    return {
-      ms: total * 1000,
-      pose: sequence(parts),
-      stepAt: (l, k) => (l <= flyStart ? 0 : l >= 1 ? k : Math.min(k, Math.floor(((l - flyStart) / (1 - flyStart)) * k + 1e-9))), // the counter ticks down through the flight
-    };
+    return { ms: (tRun + VINE.swing) * 1000 + jp.ms, yaw: jp.yaw, pose: sequence(parts) };
   }
 
   /**
-   * The vine roll when the player has been swinging on the vine while the die rolled: the swing simply carries on
-   * (same rhythm, a little higher each time) until the next forward swing, they let go on the way up and fly the
-   * rolled spaces. Nothing restarts or jumps: the first frame is exactly the hanging pose of the frame before.
+   * The vine roll when the player has been swinging on the vine while the die rolled: the swing simply carries on, in
+   * the real game's rhythm (a second each way, a little higher each time) until it is near the bottom of a forward
+   * swing, where they let go (pm405_02) and fly over to the far side (`land`), touching down (pm001_09). Nothing
+   * restarts or jumps: the first frame is exactly the hanging pose of the frame before. Returns { ms, pose, yaw }.
    */
   vineJumpFromSwing(land, hanging) {
-    const v = this.sp.swing, A = SWING_AMP, W = VINE_W, REL = 0.8, yaw = Math.atan2(v.u.x, v.u.z);
+    const v = this.sp.swing, A = SWING_AMP, W = VINE_W, yaw = Math.atan2(v.u.x, v.u.z);
+    const REL = 0.55; // let go just past the bottom of the swing, on the way forward (the real game: 4.69 s, VINE)
     const ph0 = W * hanging.t, rel = Math.PI * REL;
-    let phEnd = rel + 2 * Math.PI * Math.ceil((ph0 + 0.5 - rel) / (2 * Math.PI)); // the next let-go point at least a moment away
+    const phEnd = rel + 2 * Math.PI * Math.ceil((ph0 + 0.5 - rel) / (2 * Math.PI)); // the next let-go point at least a moment away
     const tSwing = (phEnd - ph0) / W, amp = (t) => A * (0.8 + 0.2 * ease(t));        // swings a bit higher towards the end
     const thRel = -amp(1) * Math.cos(phEnd), letGo = v.hang(thRel);
-    const d = flat(letGo, land), tFly = 0.7 + d * 0.03, hFly = 3 + d * 0.3; // a real leap, well clear of the ground
+    const d = flat(letGo, land), tFly = 0.45 + d * 0.01, hFly = 2.5 + d * 0.12; // (the real game: 0.6 s from letting go to touching down)
+    const tTumble = Math.min(0.45, tFly * 0.45); // the last of the flight: tumbling down onto the far side (pm001_09)
     const parts = [
       [tSwing, (t) => {
         const ph = ph0 + (phEnd - ph0) * t, th = -amp(t) * Math.cos(ph); this.ropeFree = null; this.swinging = true; this.ropeTheta = th;
-        return { ...v.hang(th), fx: { yaw, groundY: v.riverY, arms: [-3.0, -3.0], legs: [0.35 * Math.sin(ph), -0.2], tilt: -th * 0.4 } };
+        return { ...v.hang(th), fx: { yaw, groundY: v.riverY, ...swingClip(ph) } };
       }],
       [tFly, (t) => {
         if (this.swinging) {
           this.swinging = false; this.ropeFree = { t: 0, phase: phEnd, w: W, amp: amp(1) };
           if (this.active) { this.active = null; this.walkTo = null; if (this.s.camHold && !this.s.runHold) this.s.camHold = null; }
         }
-        const p = hop(letGo, land, t, hFly), ground = t < 0.25 ? v.riverY : terrainHeight(p.x, p.z) + 0.14;
-        return { ...p, fx: { yaw, groundY: Math.min(p.y, ground), arms: [-2.6 + t * 1.2, -2.6 + t * 1.2], legs: [0.7 * (1 - t), -0.6 * (1 - t)], tilt: -0.35 * (1 - t) } };
+        const p = hop(letGo, land, t, hFly), ground = t < 0.25 ? v.riverY : terrainHeight(p.x, p.z) + 0.14, left = (1 - t) * tFly;
+        const c = left > tTumble ? { clip: 'pm405_02', clipF: 1 } : { clip: 'pm001_09', clipF: Math.min(29, (tTumble - left) * 60) };
+        return { ...p, fx: { yaw, groundY: Math.min(p.y, ground), ...c } };
       }],
     ];
-    const total = tSwing + tFly, flyStart = tSwing / total;
-    return {
-      ms: total * 1000,
-      pose: sequence(parts),
-      stepAt: (l, k) => (l <= flyStart ? 0 : l >= 1 ? k : Math.min(k, Math.floor(((l - flyStart) / (1 - flyStart)) * k + 1e-9))),
-    };
+    return { ms: (tSwing + tFly) * 1000, yaw, pose: sequence(parts) };
   }
 
-  /** Across the gorge on the vine: run to the edge, leap for the vine, ride it over, let go, land, walk on. */
-  swingPose(chain, fwd, hanging) {
+  /**
+   * Across the gorge on the vine, as the real game (VINE, from a trace of it): run to the edge, leap for the vine
+   * (pm405_01), hang on (pm001_13), two swings each way (pm434_01 / pm434_02, the vine going with them), let go near the
+   * bottom of a forward swing (pm405_02), land on the far side (pm001_09), cheer (pm001_10), and run on. `ms`: the time
+   * the leg has; the run up and the run on take what the vine leaves. Returns { ms, pose }.
+   */
+  swingPose(chain, fwd, hanging, ms = 0) {
     const v = this.sp.swing, A = SWING_AMP, sgn = fwd ? 1 : -1;
     const edgeIn = fwd ? v.near : v.far, edgeOut = fwd ? v.far : v.near, P0 = chain[0], P1 = chain[chain.length - 1];
-    const yaw = Math.atan2(v.u.x * sgn, v.u.z * sgn), th0 = -A * sgn, th1 = A * sgn;
-    const air = (p, extra) => ({ ...p, fx: { yaw, groundY: v.riverY, ...extra } });
-    const start = hanging ? null : chainPose([P0, edgeIn]);
-    const grab = v.hang(th0), let_go = v.hang(th1);
+    const yaw = Math.atan2(v.u.x * sgn, v.u.z * sgn);
+    const th = (tau) => -sgn * A * Math.cos(Math.PI * (tau - VINE.back)); // the vine through the crossing (a second each way)
+    const tLand = VINE.cheer - 0.1; // touching down on the far side
+    const air = (p, tau, extra = {}) => ({ ...p, fx: { yaw, groundY: v.riverY, ...vineClip(tau), ...extra } });
+    const runIn = hanging ? 0 : flat(P0, edgeIn), runOut = flat(edgeOut, P1);
+    const fixed = (hanging ? VINE.end - VINE.swing + 0.4 : VINE.end);
+    const spare = Math.max(0.3, (ms ? ms / 1000 : fixed + (runIn + runOut) / 9 + 0.1) - fixed);
+    const tIn = hanging ? 0 : Math.max(0.12, spare * runIn / Math.max(0.01, runIn + runOut)), tOut = Math.max(0.15, spare - tIn);
+    const start = chainPose([P0, edgeIn]), walkOut = chainPose([edgeOut, P1]);
+    const leave = th(VINE.letGo), letGo = v.hang(leave);
     const parts = [];
-    if (hanging) parts.push([0.5, (t) => { const th = this.ropeTheta + (th0 - this.ropeTheta) * ease(t); this.swinging = true; this.ropeTheta = th; return air(v.hang(th), { arms: [-3.0, -3.0], legs: [0.3, -0.2] }); }]);
-    else {
-      parts.push([flat(P0, edgeIn) / 9 + 0.05, (t) => { this.swinging = true; this.ropeTheta += (th0 - this.ropeTheta) * 0.2; return start(t); }]);
-      parts.push([0.7, (t) => { this.swinging = true; this.ropeTheta = th0; return air(hop(edgeIn, grab, t, 2.5), { arms: [-2.8, -2.8] }); }]);
+    if (hanging) { // already on the vine (it was swinging while the die rolled): ease into the real swing, then on as below
+      parts.push([0.4, (t) => { const a = this.ropeTheta + (th(VINE.swing) - this.ropeTheta) * ease(t); this.swinging = true; this.ropeTheta = a; return air(v.hang(a), VINE.hang + t * 0.3); }]);
+    } else {
+      parts.push([tIn, (t) => { this.ropeFree = null; this.swinging = true; this.ropeTheta += (th(0) - this.ropeTheta) * 0.2; return start(t); }]);
+      const reach = flat(edgeIn, v.hang(th(0))); // (the vine hangs nearer one bank: from the far side it is a longer leap)
+      parts.push([Math.max(VINE.hang, reach / 20), (t) => { const tau = t * VINE.hang; this.swinging = true; this.ropeTheta = th(tau); return air(hop(edgeIn, v.hang(th(tau)), ease(t), 0.8 + reach * 0.1), tau); }]);
+      parts.push([VINE.swing - VINE.hang, (t) => { const tau = VINE.hang + t * (VINE.swing - VINE.hang); this.swinging = true; this.ropeTheta = th(tau); return air(v.hang(th(tau)), tau); }]);
     }
-    parts.push([1.3, (t) => { const th = th0 + (th1 - th0) * ease(t); this.swinging = true; this.ropeTheta = th; return air(v.hang(th), { arms: [-3.0, -3.0], legs: [0.5 * sgn * Math.cos(t * 3), -0.3], tilt: -th * sgn * 0.5 }); }]);
-    parts.push([0.9, (t) => { this.swinging = false; return air(hop(let_go, edgeOut, t, 3.5), { arms: [-2.4, -2.4], legs: [0.6, -0.5] }); }]);
-    const walkOut = chainPose([edgeOut, P1]);
-    parts.push([flat(edgeOut, P1) / 9 + 0.05, (t) => { this.swinging = false; return walkOut(t); }]);
-    return sequence(parts);
+    parts.push([VINE.letGo - VINE.swing, (t) => { const tau = VINE.swing + t * (VINE.letGo - VINE.swing); this.swinging = true; this.ropeTheta = th(tau); return air(v.hang(th(tau)), tau); }]);
+    parts.push([tLand - VINE.letGo, (t) => {
+      if (this.swinging) { this.swinging = false; this.ropeFree = { t: 0, phase: Math.PI * (VINE.letGo - VINE.back), w: Math.PI, amp: A * sgn }; } // the vine swings on by itself
+      const tau = VINE.letGo + t * (tLand - VINE.letGo), d = flat(letGo, edgeOut);
+      return air(hop(letGo, edgeOut, t, 2.5 + d * 0.12), tau, { groundY: t < 0.5 ? v.riverY : edgeOut.y });
+    }]);
+    parts.push([VINE.end - tLand, (t) => { this.swinging = false; const tau = tLand + t * (VINE.end - tLand); return { ...edgeOut, fx: { yaw, ...vineClip(tau) } }; }]);
+    parts.push([tOut, (t) => { this.swinging = false; return walkOut(t); }]);
+    const total = parts.reduce((a, q) => a + q[0], 0);
+    return { ms: total * 1000, pose: sequence(parts) };
   }
 
-  /** Across the pool: hop from one floating crate (or barrel) to the next. If the wrong lane was picked, one breaks and it is a swim. */
+  /**
+   * Across the pool: hop from one floating crate (or barrel) to the next, as the real game: a hop (pm405_02, in the
+   * air) and a moment standing on each (pm011_08), about 0.7 s a crate. If the wrong lane was picked, one breaks under
+   * them and it is a swim (pm001_01, as the real game) to the far side. Returns { ms, pose }.
+   */
   poolPose(chain, fwd, pending) {
     const c = this.sp.crates, li = pending ? pending.picked : 0, lane = c.lanes[li], P0 = chain[0], P1 = chain[chain.length - 1];
     const order = lane.spots.map((p, k) => ({ p: { x: p.x, y: c.top, z: p.z }, k })); if (!fwd) order.reverse();
     const inB = fwd ? lane.a : lane.b, outB = fwd ? lane.b : lane.a;
-    const yaw = Math.atan2(outB.x - inB.x, outB.z - inB.z), air = (p) => ({ ...p, fx: { yaw, groundY: c.water } });
-    const parts = [[flat(P0, inB) / 9 + 0.05, chainPose([P0, inB])]];
+    const yaw = Math.atan2(outB.x - inB.x, outB.z - inB.z);
+    const jump = (from, to, h) => (t) => ({ ...hop(from, to, t, h), fx: { yaw, groundY: c.water, clip: 'pm405_02', clipF: 1 } });
+    const stand = (at, gy) => () => ({ ...at, fx: { yaw, groundY: gy, clip: 'pm011_08' } });
+    const parts = [[flat(P0, inB) / 12 + 0.1, chainPose([P0, inB])]];
     const bad = pending && !pending.safe ? Math.min(order.length - 1, pending.hit) : -1;
     let at = inB;
     for (let i = 0; i < order.length; i++) {
       const from = at, to = order[i].p, k = order[i].k;
-      parts.push([0.55, (t) => air(hop(from, to, t, 2.2))]);
+      parts.push([0.4, jump(from, to, 2.2)]);
       at = to;
       if (i === bad) { // crack: this one gives way under the player
         const swimY = c.water - 2.9, sunk = { x: to.x, y: swimY, z: to.z }, shore = { x: outB.x, y: swimY, z: outB.z };
-        parts.push([0.35, (t) => { this.breakFloater(li, k); return air(lerp3(to, sunk, t)); }]);
-        parts.push([flat(sunk, shore) / 7, (t) => { const p = lerp3(sunk, shore, t); p.y += Math.sin(t * 40) * 0.12; return { ...p, fx: { yaw, tilt: 0.9, clip: 'swim', arms: [-2.4 + Math.sin(t * 50) * 0.8, -2.4 - Math.sin(t * 50) * 0.8], groundY: swimY } }; }]);
-        parts.push([0.4, (t) => air(hop(shore, outB, t, 1.5))]);
+        parts.push([0.2, stand(to, to.y)]);
+        parts.push([0.35, (t) => { this.breakFloater(li, k); return { ...lerp3(to, sunk, t), fx: { yaw, groundY: c.water, clip: 'pm001_01', clipF: t * 20 } }; }]);
+        parts.push([flat(sunk, shore) / 7, (t) => { const p = lerp3(sunk, shore, t); p.y += Math.sin(t * 40) * 0.12; return { ...p, fx: { yaw, tilt: 0.3, clip: 'pm001_01', groundY: swimY } }; }]);
+        parts.push([0.4, jump(shore, outB, 1.5)]);
         at = null; break;
       }
+      parts.push([0.3, stand(to, to.y)]);
     }
-    if (at) { const from = at; parts.push([0.55, (t) => air(hop(from, outB, t, 2.2))]); }
-    parts.push([flat(outB, P1) / 9 + 0.05, chainPose([outB, P1])]);
-    return sequence(parts);
+    if (at) parts.push([0.4, jump(at, outB, 2.2)], [0.2, stand(outB, outB.y)]);
+    parts.push([flat(outB, P1) / 12 + 0.1, chainPose([outB, P1])]);
+    return { ms: parts.reduce((x, q) => x + q[0], 0) * 1000, pose: sequence(parts) };
   }
 
   breakFloater(li, k) {
@@ -5486,8 +5663,10 @@ class ChallengeFX {
       const th = -SWING_AMP * 0.8 * Math.cos(this.vine.t * VINE_W);
       this.ropeTheta = th; this.swinging = true;
       if (pawn) {
-        const h = v.hang(th), k = ease(clamp01(this.vine.t / 0.7)), p = k < 1 ? hop(this.vine.from, h, k, 2.5) : h;
-        pawn.fx = { x: p.x, y: p.y, z: p.z, yaw: Math.atan2(v.u.x, v.u.z), arms: [-3.0, -3.0], legs: [0.35 * Math.sin(this.vine.t * VINE_W), -0.2], tilt: -th * 0.4, groundY: v.riverY };
+        const t = this.vine.t, h = v.hang(th), k = ease(clamp01(t / (VINE.hang + 0.1))), p = k < 1 ? hop(this.vine.from, h, k, 1.6) : h;
+        // the real game's clips: the leap (pm405_01), hanging on (pm001_13), then the swings in time with the vine
+        const c = t < VINE.hang ? { clip: 'pm405_01', clipF: t * 60 } : t < VINE.swing ? { clip: 'pm001_13', clipF: Math.min(9, (t - VINE.hang) * 60) } : swingClip(t * VINE_W);
+        pawn.fx = { x: p.x, y: p.y, z: p.z, yaw: Math.atan2(v.u.x, v.u.z), ...c, groundY: v.riverY };
         pawn.x = p.x; pawn.y = p.y; pawn.z = p.z; // the move that follows starts from the vine
       }
     } else if (!this.swinging && this.ropeFree) { // let go of: it swings on by itself and dies down
@@ -5912,6 +6091,7 @@ return { TORNADO };
 })();
 __mods["js15/scenes/boardScene.js"] = (() => {
 const { direct, setPawnFace } = __mods["js15/scenes/director.js"];
+const { presetAt, shotAround, placeOnPath } = __mods["js15/game/boardCamera.js"];
 const { app } = __mods["js15/app.js"];
 const { PLAYER_COLORS, VIRTUAL, BUILD } = __mods["js15/config.js"];
 const { ISLAND, VOLCANO, LABELS, TILE_COLORS, isChallenge, EXIT_POS } = __mods["js15/game/boardData.js"];
@@ -6786,6 +6966,8 @@ class BoardScene {
       });
       if (!a.shown && u > 0.6) {
         a.shown = true;
+        const roller = this.pawns && this.pawns[ev.slot];
+        if (ev.partial && roller) roller.after = { clip: 'pm000_07', face: 1, left: 1.05 }; // doubles: a fist pump and a smile (pm000_07, as the real game)
         if (ev.wheel) this.setBanner(`${esc(this.nameOf(ev.wheel.target))}<small>${ev.total ? `Back ${ev.total} spaces!` : 'is picked!'}</small>`);
         else this.setBanner(ev.partial
           ? `${esc(this.nameOf(ev.slot))} rolled ${ev.total}<small>Doubles! One more die to stop.</small>`
@@ -6870,7 +7052,7 @@ class BoardScene {
     if (ev.follow) { this.camSlot = ev.slot; a.fast = true; } // someone else's pawn is flying: the camera pans over to it
 
     if (ev.mode === 'walk' || ev.mode === 'fast') {
-      const n = pts.length - 1, stepMs = ev.mode === 'walk' ? 340 : 190;
+      const n = pts.length - 1, stepMs = ev.mode === 'walk' ? 270 : 190; // (walk: the real game runs about a space every 0.27 s)
       // cum[k] = how many of the first k steps count as spaces (challenge spaces are free)
       const cum = [0];
       ev.path.forEach((nd, k) => {
@@ -6882,7 +7064,9 @@ class BoardScene {
       const legs = this.fx.buildLegs(ev, pts, stepMs, pawn);
       const hideLeg = this.fx.hideLegFor(ev, B); // running from the spike ball: the run ends ducked into the tunnel mouth
       if (hideLeg) legs.push(hideLeg);
-      const total = legs.reduce((x, l) => x + l.ms, 0), moveFrac = Math.min(1, total / Math.max(1, ev.dur));
+      const total = legs.reduce((x, l) => x + l.ms, 0);
+      if (total > a.dur && total < a.dur * 1.5) a.dur = total; // (a little over the host's estimate: the real game's timings are kept, the next event waits; far over, it is hurried)
+      const moveFrac = Math.min(1, total / Math.max(1, a.dur));
       if (count) this.setCounter(count, count.total);
       if (count && count.dir === 'back' && !this.camHold && !ev.side) { // running backwards: cut to a camera in front of the pawn and let it run towards it; nothing spins
         const dx = B.x - A.x, dz = B.z - A.z, dl = Math.hypot(dx, dz) || 1, ux = dx / dl, uz = dz / dl;
@@ -7492,6 +7676,13 @@ class BoardScene {
       pw.fleeing = true;
       const end = anim.end; anim.end = () => { if (end) end(); pw.fleeing = false; pw.after = { clip: 'sad', face: 3, left: 4.5 }; };
     }
+    const last = ev.path[ev.path.length - 1];
+    if (pw && (ev.mode === 'walk' || ev.mode === 'fast') && !ev.stopShort && last && last.track === 'island' && !last.across) { // stopped by a challenge: how the real game has them take it in
+      const type = ISLAND[last.idx] && ISLAND[last.idx].type;
+      const end = anim.end;
+      if (type === 'volcanoOrNot') anim.end = () => { if (end) end(); pw.after = { clip: 'pm001_14', face: 4, left: 1.0 }; }; // startled at the edge of the volcano (then the nervous wait, pm001_18)
+      else if (type === 'final' && !(this.fx && this.fx.broken.final)) anim.end = () => { if (end) end(); pw.after = { clip: 'pm011_08', left: 0.4 }; }; // a breath, then the fighting stance (pm301_01) in front of the gate
+    }
     if (pw && pw.track === 'volcano' && ev.path.some((n) => n.track === 'island') && this.exitGlow) { // the way out lights up as the player leaves
       for (const m of this.exitGlow) m.visible = true;
       const end = anim.end; anim.end = () => { if (end) end(); for (const m of this.exitGlow) m.visible = false; };
@@ -7566,6 +7757,7 @@ class BoardScene {
     const vView = vn && onV && !this.camHold && (this.rolling || this.pushing);
     if (vView) { const st = vn.star, d = vn.dir; want = { x: st.x + d.x * 11, y: st.y + 5.2, z: st.z + d.z * 11, tx: st.x - d.x * 0.6, ty: st.y + 2.2, tz: st.z - d.z * 0.6 }; }
     if (this.camHold) want = { ...this.camHold };
+    if (!volcano && !this.camHold && !vView && !this.oldCamera) { this.realCamera(dt, pawn); return; } // the real game's board camera (boardCamera.js)
     if (!volcano && !this.camHold && !vView) want = this.fitCamera(want, pawn);
     if (!this.cam || this.camTrack !== pawn.track || this.snapCamera || this.camHold) { // cuts only happen behind a black screen
       this.cam = want; this.camTrack = pawn.track; this.snapCamera = false;
@@ -7574,6 +7766,32 @@ class BoardScene {
       for (const key of Object.keys(want)) this.cam[key] += (want[key] - this.cam[key]) * k;
     }
     const sh = this.shake > 0 ? 0.35 : 0; // a little rumble while the volcano erupts
+    this.camera.position.set(this.cam.x + Math.sin(this.t * 53) * sh, this.cam.y + Math.sin(this.t * 61) * sh, this.cam.z + Math.cos(this.t * 47) * sh);
+    this.camera.lookAt(this.cam.tx, this.cam.ty, this.cam.tz);
+  }
+
+  /**
+   * The real Board Game Island's board camera (measured from a trace of the real game: js15/game/boardCamera.js): each
+   * space's own shot, eased between as the Mii runs, looking 160 above them (in the air too); the turn shot while the
+   * die spins; the close-up on their face when a sequence asks for it (camPreset: { name, slot }).
+   */
+  realCamera(dt, pawn) {
+    const pre = this.camPreset, who = (pre && pre.slot != null && this.pawns[pre.slot]) || pawn;
+    const q = who.fx && who.fx.x != null ? who.fx : who, P = this.pos.island;
+    const at = placeOnPath(P, q.x, q.z, who.track === 'island' ? who.idx : null);
+    const name = pre ? pre.name : this.rolling || this.staged ? 'turn' : 'follow';
+    const s = presetAt(name, at.i, at.u);
+    const cut = !this.rc || this.snapCamera || this.camTrack !== 'island' || (name === 'react' && this.rcName !== 'react'); // (the close-up is a cut, as in the game)
+    if (cut) this.rc = { d: s.d, p: s.p, yaw: s.yaw, x: q.x, y: q.y, z: q.z };
+    else {
+      const k = 1 - Math.exp(-dt * 2.6), kt = 1 - Math.exp(-dt * 12); // (the shot eases over about a second; the aim stays on the Mii)
+      const r = this.rc;
+      r.d += (s.d - r.d) * k; r.p += (s.p - r.p) * k; r.yaw += ((((s.yaw - r.yaw) % 360) + 540) % 360 - 180) * k;
+      r.x += (q.x - r.x) * kt; r.y += (q.y - r.y) * kt; r.z += (q.z - r.z) * kt;
+    }
+    this.rcName = name; this.camTrack = 'island'; this.snapCamera = false;
+    this.cam = shotAround(this.rc.x, this.rc.y, this.rc.z, this.rc);
+    const sh = this.shake > 0 ? 0.35 : 0;
     this.camera.position.set(this.cam.x + Math.sin(this.t * 53) * sh, this.cam.y + Math.sin(this.t * 61) * sh, this.cam.z + Math.cos(this.t * 47) * sh);
     this.camera.lookAt(this.cam.tx, this.cam.ty, this.cam.tz);
   }
@@ -7719,6 +7937,10 @@ class BoardScene {
    * pm000_16, pm000_17) every few seconds, each on their own (from a trace of the real Board Game Island).
    */
   boardIdle(pawn, dt) {
+    // waiting at a challenge, as the real game: nervous at the volcano's edge (pm001_18), the fighting stance at the summit gate (pm301_01)
+    const at = pawn.track === 'island' && !pawn.across && ISLAND[pawn.idx] ? ISLAND[pawn.idx].type : null;
+    if (at === 'volcanoOrNot') return 'pm001_18';
+    if (at === 'final' && !(this.fx && this.fx.broken.final)) return 'pm301_01';
     const I = pawn.idleCycle || (pawn.idleCycle = { clip: 'pm011_08', left: 2 + Math.random() * 6 });
     I.left -= dt;
     if (I.left <= 0) { const o = BOARD_IDLES.filter((c) => c !== I.clip); I.clip = o[Math.floor(Math.random() * o.length)]; I.left = 3 + Math.random() * 6; }
@@ -8494,6 +8716,11 @@ class ViewerScene extends BoardScene {
       'minigame.duel': () => { const s = stopOf('mg11'); at(s); put(1, s - 3); this.demo.push(game({ t: 'minigame', kind: 'duel', slot: 0, opp: 1, dur: DUR.minigame })); },
       'duel.challenge': () => { const s = stopOf('mg11'); at(s); put(1, s - 3); this.demo.push(game({ t: 'space', slot: 0, text: '1 vs 1! {0} challenges {1}', cast: [1], moment: 'duel.challenge', dur: DUR.banner })); },
       'duel.result': () => { const s = stopOf('mg11'); at(s); put(1, s - 3); this.demo.push(game({ t: 'space', slot: 0, text: '{0} wins! +7, and {1} goes back 7', cast: [1], moment: 'duel.result', dur: DUR.banner })); },
+      'rest.win': () => { const s = stopOf('mgRest'); at(s); this.demo.push(game({ t: 'space', slot: 0, text: '{0} wins! +7', moment: 'rest.win', dur: DUR.banner })); },
+      'rest.lose': () => { const s = stopOf('mgRest'); at(s); this.demo.push(game({ t: 'space', slot: 0, text: 'The rest win. Nothing happens.', moment: 'rest.lose', dur: DUR.banner })); },
+      'pass.volcanoOrNot': () => { const s = stopOf('volcanoOrNot'); at(s); this.demo.push(game({ t: 'space', slot: 0, text: 'You dodge the volcano!', moment: 'pass.volcanoOrNot', dur: DUR.banner }), move(walk(s, 2, 'walk'))); },
+      'pass.spike': () => { const s = stopOf('spike'); at(s); this.demo.push(game({ t: 'space', slot: 0, text: 'You get past the spike ball!', moment: 'pass.spike', dur: DUR.banner }), move(walk(s, 2, 'walk'))); },
+      'game.start': () => { at(0); put(1, 0); put(2, 0); put(3, 0); this.demo.push(game({ t: 'roundStart', round: 1, order: [0, 1, 2, 3], moment: 'game.start', dur: DUR.round })); },
       'move.spring.green.back': () => { const s = stopOf('mg11') + 4; at(s); this.demo.push(move({ t: 'move', slot: 0, mode: 'spring', spring: 'green', path: walkBack({ track: 'island', idx: s }, 7).path, count: { total: 7, dir: 'back' }, dur: DUR.spring })); },
       'minigame.rest': () => { const s = stopOf('mgRest'); at(s); put(1, s - 2); put(2, s - 5); put(3, s + 3); this.demo.push(game({ t: 'minigame', kind: 'rest', slot: 0, dur: DUR.minigame })); },
       'win': () => { const s = stopOf('final'); at(s); put(1, s - 4); put(2, s - 9); put(3, s - 14); this.demo.push(move(walk(s, 1, 'walk')), game({ t: 'win', slot: 0, dur: 3000 })); },
@@ -8537,7 +8764,10 @@ class ViewerScene extends BoardScene {
     const done = () => () => { this.fx.release(); this.camHold = null; return { t: 0, dur: 0 }; };
     const put = (slot, idx) => { const p = this.pawns[slot], q = this.pos.island[idx]; Object.assign(p, { track: 'island', idx, x: q.x, y: q.y + 0.05, z: q.z, scale: 1, fx: null }); p.group.visible = true; this.place(p); return p; };
     const list = [
-      ['Vine swing (4, then walk 2)', () => { const v = stopOf('vine'); at(v); this.fx.begin(0); this.demo.push(() => ({ t: 0, dur: 1200 }), move({ ...walk(v, 6, 'walk', { swing: 4 }), dur: 6 * 340 + 350 + DUR.cross + DUR.swing + DUR.vinePause })); }], // rolled 4 on the vine, 2 spaces left to walk
+      ['Vine swing (4, then walk 2)', () => { const v = stopOf('vine'); at(v); this.fx.begin(0); this.demo.push(() => ({ t: 0, dur: 3600 }), move({ ...walk(v, 6, 'walk', { swing: 4 }), dur: 6 * DUR.walkStep + 350 + DUR.swing + DUR.vinePause })); }], // (swinging while the die rolls, then the real game's let-go, landing, cheer and run)
+      ['Vine crossing (the real timeline)', () => { const v = stopOf('vine'); at(v - 1); this.demo.push(move({ ...walk(v - 1, 3, 'walk'), dur: 3 * DUR.walkStep + 350 + DUR.vineCross })); }], // (leap, hang, two swings each way, let go, land, cheer, run on)
+      ['Crates: hop across', () => { const s = stopOf('crates'), p = at(s); this.fx.begin(0);
+        this.demo.push(() => { this.fx.playNote({ fx: 'crates', picked: 0, safe: true }, p); return { t: 0, dur: 700 }; }, move({ ...walk(s, 2, 'walk'), dur: 2 * DUR.walkStep + 350 + DUR.cratesCross })); }], // rolled 4 on the vine, 2 spaces left to walk
       ['Dragon fireball', () => { const s = stopOf('dragon'), p = at(s); this.demo.push(rolling(0), look(0), () => this.fx.playNote({ fx: 'fireball', dur: DUR.fire }, p), move({ t: 'move', slot: 0, mode: 'knock', path: [{ track: 'island', idx: s - 1 }], count: { total: 1, dir: 'back' }, dur: DUR.knock }), done()); }],
       ['Smash dragon wall', () => { const s = stopOf('dragon'), p = at(s); this.demo.push(rolling(0), () => this.fx.brokenAnim({ challenge: 'dragon', slot: 0, dur: DUR.wall }, p), move(walk(s, 3, 'walk')), done()); }], // rolled 4 or more: punches, cheer, walks on
       ['Blue statue throw', () => { const s = stopOf('statueBlue'); at(s); this.demo.push(move(throwBy(s, 'blue'))); }],
@@ -8624,6 +8854,10 @@ class ViewerScene extends BoardScene {
       return;
     }
     const o = this.orbit, p = this.pawns[this.camSlot ?? 0] || this.pawns[0];
+    if (this.gameCam && p && p.track === 'island' && p.group.visible && (this.anim || this.demo.length) && !this.gallery) { // as a game shows it: the real board camera
+      this.setAmbience('island'); this.realCamera(dt, p);
+      const c = this.cam; o.tx = c.tx; o.ty = c.ty; o.tz = c.tz; return;
+    }
     if (this.follow && p && p.group.visible && (this.anim || this.demo.length)) { // keep the player of a set piece in view
       const fx = p.fx && p.fx.x != null ? p.fx : p, k = 1 - Math.exp(-dt * 3);
       if (Math.abs(fx.x - o.tx) > 200 || this.snapCamera) { o.tx = fx.x; o.ty = fx.y + 1.5; o.tz = fx.z; this.snapCamera = false; } // a jump into the volcano, or a cut: cut
@@ -8666,6 +8900,8 @@ class ViewerScene extends BoardScene {
     head('Play');
     for (const [label, fn] of this.demos()) btn(label, () => { if (!this.anim && !this.gallery) fn(); }, '#3c7a4a');
     const second = btn('Second player on the spike stretch: off', () => { this.secondPlayer = !this.secondPlayer; second.textContent = `Second player on the spike stretch: ${this.secondPlayer ? 'on' : 'off'}`; }, '#4a4a7a');
+    this.gameCam = typeof window !== 'undefined' && !!window.__VIEW_GAMECAM;
+    const gc = btn(`Game camera: ${this.gameCam ? 'on' : 'off'}`, () => { this.gameCam = !this.gameCam; this.rc = null; gc.textContent = `Game camera: ${this.gameCam ? 'on' : 'off'}`; }, '#4a4a7a'); // (the set pieces as a game shows them: the real board camera)
     const slow = btn('Slow motion: off', () => { this.slow = this.slow === 0.15 ? 0.04 : this.slow === 0.04 ? 1 : 0.15; slow.textContent = `Slow motion: ${this.slow === 0.04 ? 'very slow' : this.slow < 1 ? 'on' : 'off'}`; }, '#4a4a7a'); // off -> on -> very slow -> off
     head('');
     btn('Reset everything', () => app.go('viewer'), '#7a5a2a');
@@ -9036,7 +9272,7 @@ const CSS = `
 #studio .blk .g{position:absolute;top:0;bottom:0;width:.55em;cursor:ew-resize}#studio .blk .g.l{left:0}#studio .blk .g.r{right:0}
 #studio .blk .g:hover{background:#ffffff40}
 #studio .key{position:absolute;top:50%;width:1em;height:1em;margin:-.5em 0 0 -.5em;transform:rotate(45deg);background:#5fe0b0;border:.12em solid #0c1520;cursor:grab;z-index:2}
-#studio .key.own,#studio .key.normal{background:#9aa9b8}#studio .key.sel{background:#fff;box-shadow:0 0 .6em #9cc4ff}
+#studio .key.own,#studio .key.normal{background:#9aa9b8}#studio .key.board{background:#f0b84a}#studio .key.sel{background:#fff;box-shadow:0 0 .6em #9cc4ff}
 #studio .seg-line{position:absolute;top:50%;height:.18em;margin-top:-.09em;background:#5fe0b0;opacity:.7;pointer-events:none}
 #studio .seg-line.linear{background:repeating-linear-gradient(90deg,#5fe0b0 0 .5em,transparent .5em .8em)}
 #studio .seg-line.hold{background:#5fe0b055;height:.5em;margin-top:-.25em;border-radius:.2em}
@@ -9390,6 +9626,10 @@ class StudioScene extends ViewerScene {
       if (this.held.has('a')) { o.tx -= rx * sp; o.tz -= rz * sp; }
       if (this.held.has('e')) o.ty += sp;
       if (this.held.has('q')) o.ty -= sp;
+    }
+    if (!this.seqFreeCam && !(this.camHold && (this.anim || this.seqPaused))) { // as a game shows it: the real board camera
+      const pawn = this.pawns[(this.camPreset && this.camPreset.slot) ?? this.camSlot ?? 0] || this.pawns[0];
+      if (pawn && pawn.track === 'island' && pawn.group.visible) { this.rolling = this.diceGroup && this.diceGroup.visible; this.setAmbience('island'); this.realCamera(dt, pawn); return; }
     }
     super.updateCamera(dt);
   }
@@ -9788,7 +10028,12 @@ class StudioScene extends ViewerScene {
     if (sel.list === 'camera') {
       I.append(h('h3', { text: '🎥 Camera keyframe' }));
       I.append(num('At frame', () => b.at, (v) => { b.at = Math.max(0, Math.round(v)); this.seq.camera.sort((x, y) => x.at - y.at); }));
-      I.append(field('What the camera does from here', choice([['shot', 'This view'], ['own', 'The game’s own camera', "Hand the camera back to the set piece's own shots"], ['normal', 'The board camera', 'The camera that follows the player on the board']], b.kind, (v) => { b.kind = v; if (v === 'shot' && !b.shot && this.anchor) b.shot = shotFromWorld(this.keyAnchor(b), this.cameraNow()); })));
+      I.append(field('What the camera does from here', choice([['shot', 'This view'], ['board', 'A board shot', "The real game's own board camera: its shot for the space the Mii is on"], ['own', 'The set piece’s camera', "Hand the camera back to the set piece's own shots"], ['normal', 'The board camera', 'Follow the player as on the board']], b.kind, (v) => { b.kind = v; if (v === 'board' && !b.preset) b.preset = 'react'; if (v === 'shot' && !b.shot && this.anchor) b.shot = shotFromWorld(this.keyAnchor(b), this.cameraNow()); })));
+      if (b.kind === 'board') {
+        I.append(field('Which shot', choice([['react', 'Close-up', 'In front of the Mii, as when they land and react'], ['follow', 'Follow', "The space's own shot"], ['turn', 'Turn start', 'Close and high, as while the die spins']], b.preset || 'react', (v) => { b.preset = v; })));
+        I.append(field('On', choice(this.seq.miis.map((_, i) => [i, `Mii ${i + 1}`]), b.follow ?? 0, (v) => { b.follow = v; })));
+        I.append(h('div', { class: 'hint', text: "The real game's camera has its own shot for every space: this uses it, so it fits whichever space the Mii is on." }));
+      }
       if (b.kind === 'shot') {
         I.append(field('How it gets here from the keyframe before', choice([['smooth', 'Smooth', 'Eases out of the last keyframe and into this one'], ['linear', 'Even speed'], ['cut', 'Cut', 'Jumps here at this frame']], b.ease || 'smooth', (v) => { b.ease = v; })));
         const roles = castOf(this.key);

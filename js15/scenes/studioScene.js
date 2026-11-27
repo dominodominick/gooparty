@@ -100,7 +100,7 @@ const CSS = `
 #studio .blk .g{position:absolute;top:0;bottom:0;width:.55em;cursor:ew-resize}#studio .blk .g.l{left:0}#studio .blk .g.r{right:0}
 #studio .blk .g:hover{background:#ffffff40}
 #studio .key{position:absolute;top:50%;width:1em;height:1em;margin:-.5em 0 0 -.5em;transform:rotate(45deg);background:#5fe0b0;border:.12em solid #0c1520;cursor:grab;z-index:2}
-#studio .key.own,#studio .key.normal{background:#9aa9b8}#studio .key.sel{background:#fff;box-shadow:0 0 .6em #9cc4ff}
+#studio .key.own,#studio .key.normal{background:#9aa9b8}#studio .key.board{background:#f0b84a}#studio .key.sel{background:#fff;box-shadow:0 0 .6em #9cc4ff}
 #studio .seg-line{position:absolute;top:50%;height:.18em;margin-top:-.09em;background:#5fe0b0;opacity:.7;pointer-events:none}
 #studio .seg-line.linear{background:repeating-linear-gradient(90deg,#5fe0b0 0 .5em,transparent .5em .8em)}
 #studio .seg-line.hold{background:#5fe0b055;height:.5em;margin-top:-.25em;border-radius:.2em}
@@ -454,6 +454,10 @@ export class StudioScene extends ViewerScene {
       if (this.held.has('a')) { o.tx -= rx * sp; o.tz -= rz * sp; }
       if (this.held.has('e')) o.ty += sp;
       if (this.held.has('q')) o.ty -= sp;
+    }
+    if (!this.seqFreeCam && !(this.camHold && (this.anim || this.seqPaused))) { // as a game shows it: the real board camera
+      const pawn = this.pawns[(this.camPreset && this.camPreset.slot) ?? this.camSlot ?? 0] || this.pawns[0];
+      if (pawn && pawn.track === 'island' && pawn.group.visible) { this.rolling = this.diceGroup && this.diceGroup.visible; this.setAmbience('island'); this.realCamera(dt, pawn); return; }
     }
     super.updateCamera(dt);
   }
@@ -852,7 +856,12 @@ export class StudioScene extends ViewerScene {
     if (sel.list === 'camera') {
       I.append(h('h3', { text: '🎥 Camera keyframe' }));
       I.append(num('At frame', () => b.at, (v) => { b.at = Math.max(0, Math.round(v)); this.seq.camera.sort((x, y) => x.at - y.at); }));
-      I.append(field('What the camera does from here', choice([['shot', 'This view'], ['own', 'The game’s own camera', "Hand the camera back to the set piece's own shots"], ['normal', 'The board camera', 'The camera that follows the player on the board']], b.kind, (v) => { b.kind = v; if (v === 'shot' && !b.shot && this.anchor) b.shot = shotFromWorld(this.keyAnchor(b), this.cameraNow()); })));
+      I.append(field('What the camera does from here', choice([['shot', 'This view'], ['board', 'A board shot', "The real game's own board camera: its shot for the space the Mii is on"], ['own', 'The set piece’s camera', "Hand the camera back to the set piece's own shots"], ['normal', 'The board camera', 'Follow the player as on the board']], b.kind, (v) => { b.kind = v; if (v === 'board' && !b.preset) b.preset = 'react'; if (v === 'shot' && !b.shot && this.anchor) b.shot = shotFromWorld(this.keyAnchor(b), this.cameraNow()); })));
+      if (b.kind === 'board') {
+        I.append(field('Which shot', choice([['react', 'Close-up', 'In front of the Mii, as when they land and react'], ['follow', 'Follow', "The space's own shot"], ['turn', 'Turn start', 'Close and high, as while the die spins']], b.preset || 'react', (v) => { b.preset = v; })));
+        I.append(field('On', choice(this.seq.miis.map((_, i) => [i, `Mii ${i + 1}`]), b.follow ?? 0, (v) => { b.follow = v; })));
+        I.append(h('div', { class: 'hint', text: "The real game's camera has its own shot for every space: this uses it, so it fits whichever space the Mii is on." }));
+      }
       if (b.kind === 'shot') {
         I.append(field('How it gets here from the keyframe before', choice([['smooth', 'Smooth', 'Eases out of the last keyframe and into this one'], ['linear', 'Even speed'], ['cut', 'Cut', 'Jumps here at this frame']], b.ease || 'smooth', (v) => { b.ease = v; })));
         const roles = castOf(this.key);

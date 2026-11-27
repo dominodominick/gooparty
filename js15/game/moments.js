@@ -61,6 +61,8 @@ export function castOf(key) {
     'note@tornado': ['Lands on the tornado', 'Blown back'], 'move.fly.tornado': ['Blown back'],
     'spike.shock': ['Rolled', 'On the stretch', 'On the stretch', 'On the stretch'],
     'round.start': ['Goes 1st', 'Goes 2nd', 'Goes 3rd', 'Goes 4th'],
+    'game.start': ['Goes 1st', 'Goes 2nd', 'Goes 3rd', 'Goes 4th'],
+    'rest.win': ['Solo player'], 'rest.lose': ['Solo player'],
     'win': ['Winner', 'Another Mii', 'Another Mii', 'Another Mii'],
   };
   return C[key] || ['Player'];
@@ -74,6 +76,8 @@ export function allMoments() {
   add('Special spaces', 'minigame.duel', '1 vs 1 space: before the minigame');
   add('Special spaces', 'duel.result', '1 vs 1: who won (after the minigame)');
   add('Special spaces', 'minigame.rest', '1 vs Rest space: before the minigame');
+  add('Special spaces', 'rest.win', '1 vs Rest: the solo player won (after the minigame)');
+  add('Special spaces', 'rest.lose', '1 vs Rest: the rest won (after the minigame)');
   add('Special spaces', 'eruption', 'Volcano space: the eruption');
   add('Special spaces', 'ufo.up', 'UFO space: beamed up');
   add('Special spaces', 'ufo.down', 'UFO space: put down in the other place');
@@ -83,6 +87,7 @@ export function allMoments() {
   add('Special spaces', 'move.spring.blue', 'Blue spring (+4 / +5 / +6)');
   add('Special spaces', 'move.spring.red', 'Red spring (-4)');
   add('Special spaces', 'move.drop', 'Skull / volcano-or-not: into the volcano');
+  add('Turns', 'game.start', 'The game starts (everyone cheers at the start)');
   add('Turns', 'round.start', 'A round starts (the order)');
   add('Turns', 'turn.start', "Someone's turn starts");
   add('Turns', 'dice.land', 'The die lands (the number)');
@@ -105,6 +110,8 @@ export function allMoments() {
   add('Challenges', 'spike.shock', 'Spike ball: everyone on the stretch jumps');
   add('Challenges', 'note.spikeCount', 'Spike ball: the number goes down');
   add('Challenges', 'smash.spike', 'Spike statue: breaks (end of the turn)');
+  add('Challenges', 'pass.volcanoOrNot', 'Volcano or not: dodged it');
+  add('Challenges', 'pass.spike', 'Spike ball: got past it');
   add('Challenges', 'smash.final', 'Final challenge: gate kicked open');
   add('Challenges', 'note.finalFail', 'Final challenge: missed');
   return out;

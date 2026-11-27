@@ -5,7 +5,7 @@
 import { PAWN_SCALE } from '../world/miis.js';
 import { ISLAND, gapBetween } from '../game/boardData.js';
 const islandTypeAt = (i) => ISLAND[i] && ISLAND[i].type;
-import { DUR, SPIKE_START, SPIKE_MIN, SMASH, DRAGON_SMASH, GATE_SMASH } from '../game/boardGame.js';
+import { DUR, VINE, crossMs, SPIKE_START, SPIKE_MIN, SMASH, DRAGON_SMASH, GATE_SMASH } from '../game/boardGame.js';
 import { BREAKS } from '../world/breakData.js';
 import { rigBreak, restorePristine } from '../world/breakRig.js';
 import { GLINT_STAR, GLINT_GLOW, GLINT_RING, GLINT_STREAK } from '../world/glintTex.js';
@@ -45,7 +45,22 @@ function sequence(parts) {
 }
 
 export const SWING_AMP = 0.85;   // how far the vine swings each way (radians)
-const VINE_W = 2.1;
+const VINE_W = Math.PI;          // the vine's rhythm while a player swings on it (radians of phase per second): a second each way, as the real game
+/** The real game's swing clips, kept in time with the vine: pm434_01 on the way forward, pm434_02 on the way back. */
+const swingClip = (ph) => { const m = ((ph % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI); return m < Math.PI ? { clip: 'pm434_01', clipF: (m / Math.PI) * 60 } : { clip: 'pm434_02', clipF: ((m - Math.PI) / Math.PI) * 60 }; };
+/** Which of the real game's clips the vine crossing is in, `tau` seconds after the leap for the vine (VINE). */
+function vineClip(tau) {
+  if (tau < VINE.hang) return { clip: 'pm405_01', clipF: tau * 60 };
+  if (tau < VINE.swing) return { clip: 'pm001_13', clipF: Math.min(9, (tau - VINE.hang) * 60) };
+  if (tau < VINE.letGo) {
+    const starts = [VINE.swing, ...VINE.turns]; let k = 0;
+    while (k + 1 < starts.length && tau >= starts[k + 1]) k++;
+    return { clip: k % 2 ? 'pm434_02' : 'pm434_01', clipF: (tau - starts[k]) * 60 };
+  }
+  if (tau < VINE.land) return { clip: 'pm405_02', clipF: 1 };
+  if (tau < VINE.cheer) return { clip: 'pm001_09', clipF: Math.min(29, (tau - VINE.land) * 60) };
+  return { clip: 'pm001_10', clipF: Math.min(70, (tau - VINE.cheer) * 60) };
+}
 export const CHASE_SPEED = 17;   // world units a second, once nobody is in its way (it can go twice that to keep up)
 export const CHASE_GAP = 3.4;    // how far behind the hindmost runner the ball's centre stays (its radius is 2.5)
 const HIDE_MS = 450;             // ducking into the tunnel mouth   // how fast the spike ball rolls down the stretch (world units per second)              // the vine's rhythm while a player swings on it (radians of phase per second)
@@ -416,7 +431,7 @@ export class ChallengeFX {
     const kind = ISLAND[pawn.idx].type;
     // while the die spins: eager at the dragon wall and the summit gate (pm011_09); everywhere else the real game's
     // turn pose, pm011_07 (the spike ball too)
-    pawn.rollClip = (kind === 'dragon' || kind === 'final') && !this.broken[kind] ? 'eager' : 'puzzled';
+    pawn.rollClip = (kind === 'dragon' || kind === 'final') && !this.broken[kind] ? 'eager' : kind === 'volcanoOrNot' ? 'pm001_18' : 'puzzled'; // (at the volcano: still the nervous wait)
     if (!['vine', 'dragon', 'crates', 'spike', 'final'].includes(kind) || this.broken[kind]) return;
     if (this.active && this.active.slot === slot && this.active.kind === kind) return;
     this.active = { slot, kind };
@@ -1201,21 +1216,21 @@ export class ChallengeFX {
         else legs.push({ ms: stepMs, steps: 1, kind: 'walk', pose: (l) => lerp3(P0, P1, l) });
         prev = cur; track = node.track; continue;
       }
-      if (g.kind === 'swing' && fwd && i === 0 && ev.swing > 0) { // the vine roll: leap for the vine, swing, let go and fly the rolled spaces
-        const k = Math.min(ev.swing, n), land = pts[k], jp = this.vineJump(P0, land, hanging);
-        // the vine has its own counter: the rolled number counts down through the flight
-        legs.push({ ms: jp.ms, steps: k, kind: 'swing', pose: jp.pose, stepAt: (l) => jp.stepAt(l, k), counter: (l) => k - jp.stepAt(l, k) });
-        if (k < n) { // landed: a moment standing there, then the spaces still left take the counter's place and the walk goes on
-          const r = n - k, at = { ...land };
-          legs.push({ ms: DUR.vinePause, steps: 0, kind: 'pause', pose: () => ({ ...at }), counter: (l) => (l < 0.55 ? 0 : r) });
-        }
-        prev = ev.path[k - 1].idx; track = ev.path[k - 1].track; i = k - 1;
+      if (g.kind === 'swing' && fwd && i === 0 && ev.swing > 0) {
+        // the vine roll, as the real game: swinging on while the die rolled, let go near the bottom of a forward swing,
+        // land on the far side, cheer (pm001_10), then run the spaces (the rolled ones and any left from before)
+        const far = { x: this.sp.swing.far.x, y: this.sp.swing.far.y + 0.05, z: this.sp.swing.far.z }, jp = this.vineJump(P0, far, hanging);
+        const yaw = Math.atan2(P1.x - far.x, P1.z - far.z);
+        legs.push({ ms: jp.ms, steps: 0, kind: 'swing', pose: jp.pose });
+        legs.push({ ms: DUR.vinePause, steps: 0, kind: 'pause', pose: (l) => ({ ...far, fx: { yaw, clip: 'pm001_10', clipF: Math.min(70, l * DUR.vinePause * 0.06) } }) });
+        legs.push({ ms: stepMs, steps: 1, kind: 'walk', pose: (l) => lerp3(far, P1, l) });
+        prev = cur; track = node.track;
         continue;
       }
       const chain = this.chainFor(prev, cur, P0, P1, i === 0);
-      let ms = stepMs + DUR.cross, pose;
-      if (g.kind === 'swing') { ms += ev.swing && i === 0 ? DUR.swing : 0; pose = this.swingPose(chain, fwd, !!hanging && i === 0); }
-      else if (g.kind === 'crates') { if (ev.swim) ms = Math.max(ms, ev.dur - 400); pose = this.poolPose(chain, fwd, i === 0 ? this.pending : null); }
+      let ms = stepMs + crossMs(g.kind), pose;
+      if (g.kind === 'swing') { const sw = this.swingPose(chain, fwd, !!hanging && i === 0, ms); ms = sw.ms; pose = sw.pose; }
+      else if (g.kind === 'crates') { if (ev.swim) ms = Math.max(ms, ev.dur - 400); const pp = this.poolPose(chain, fwd, i === 0 ? this.pending : null); pose = pp.pose; if (!ev.swim) ms = Math.max(ms, pp.ms); }
       else pose = chainPose(chain);
       const done = { v: false };
       legs.push({ ms, steps: 1, kind: g.kind, pose: (l) => { const p = pose(l); if (l > 0.96 && !done.v && this.active) { done.v = true; this.release(); } return p; } });
@@ -1226,127 +1241,130 @@ export class ChallengeFX {
   }
 
   /**
-   * The vine roll, in one unbroken movement: run to the edge while the vine is drawn back, leap and catch it at the
-   * top of its swing, ride it down and up the other side, let go while still moving forward and fly through the air
-   * to land on the space the roll reaches. The vine then swings on by itself and settles. Returns { ms, pose, stepAt }.
+   * The vine roll's swing and flight: from hanging on (below), or, when nobody was on the vine yet, run to the edge,
+   * leap for it (pm405_01) and catch it at the back of its swing (pm001_13) first. `land`: the far side. The vine then
+   * swings on by itself and settles. Returns { ms, pose, yaw }.
    */
   vineJump(P0, land, hanging = null) {
     if (hanging) return this.vineJumpFromSwing(land, hanging);
-    const v = this.sp.swing, A = SWING_AMP, th0 = -A, REL = 0.8;            // let go at 80% of the half swing
-    const yaw = Math.atan2(v.u.x, v.u.z), grab = v.hang(th0);
-    const tRun = flat(P0, v.near) / 9 + 0.05, tHop = 0.6, tSwing = 1.25 * REL;
-    const thRel = -A * Math.cos(Math.PI * REL), letGo = v.hang(thRel);
-    const d = flat(letGo, land), tFly = 0.7 + d * 0.03, hFly = 3 + d * 0.3; // a real leap, well clear of the ground
-    const run = chainPose([P0, v.near]), rope0 = { th: null };
-    const pull = (t) => { // the vine is drawn back while the player runs up and leaps, and is at the top when caught
-      if (rope0.th == null) rope0.th = this.ropeTheta;
-      this.ropeFree = null; this.swinging = true;
-      this.ropeTheta = rope0.th + (th0 - rope0.th) * ease(t);
-    };
-    const T = tRun + tHop;
+    // (nobody was hanging on yet: run to the edge and leap for it, then the same as below, from the vine's back swing)
+    const v = this.sp.swing, yaw = Math.atan2(v.u.x, v.u.z), tRun = flat(P0, v.near) / 9 + 0.05, A = SWING_AMP * 0.8;
+    const ph0 = 0, grab = v.hang(-A), run = chainPose([P0, v.near]), rope0 = { th: null };
+    const jp = this.vineJumpFromSwing(land, { t: ph0 / VINE_W });
     const parts = [
-      [tRun, (t) => { pull((t * tRun) / T); const p = run(t); return { ...p, fx: { yaw, arms: [-0.6 - t * 1.6, -0.6 - t * 1.6] } }; }],
-      [tHop, (t) => { pull((tRun + t * tHop) / T); return { ...hop(v.near, grab, ease(t), 2.2), fx: { yaw, groundY: v.riverY, arms: [-2.8, -2.8], legs: [0.5, -0.4] } }; }],
-      [tSwing, (t) => { // a pendulum: slow at the top, fastest at the bottom
-        const th = -A * Math.cos(Math.PI * REL * t); this.swinging = true; this.ropeTheta = th;
-        return { ...v.hang(th), fx: { yaw, groundY: v.riverY, arms: [-3.0, -3.0], legs: [0.6 * Math.sin(t * Math.PI), -0.3], tilt: -th * 0.5 } };
-      }],
-      [tFly, (t) => {
-        if (this.swinging) { // let go: the vine swings on by itself, and the camera is free to follow the flight
-          this.swinging = false; this.ropeFree = { t: 0, phase: Math.PI * REL, w: (Math.PI * REL) / tSwing };
-          if (this.active) { this.active = null; this.walkTo = null; if (this.s.camHold && !this.s.runHold) this.s.camHold = null; }
-        }
-        const p = hop(letGo, land, t, hFly), ground = t < 0.25 ? v.riverY : terrainHeight(p.x, p.z) + 0.14;
-        return { ...p, fx: { yaw, groundY: Math.min(p.y, ground), arms: [-2.6 + t * 1.2, -2.6 + t * 1.2], legs: [0.7 * (1 - t), -0.6 * (1 - t)], tilt: -0.35 * (1 - t) } };
-      }],
+      [tRun, (t) => { if (rope0.th == null) rope0.th = this.ropeTheta; this.ropeFree = null; this.swinging = true; this.ropeTheta = rope0.th + (-A - rope0.th) * ease(t); return run(t); }],
+      [VINE.hang, (t) => { this.swinging = true; this.ropeTheta = -A; return { ...hop(v.near, grab, ease(t), 1.2), fx: { yaw, groundY: v.riverY, clip: 'pm405_01', clipF: t * VINE.hang * 60 } }; }],
+      [VINE.swing - VINE.hang, (t) => { this.swinging = true; this.ropeTheta = -A; return { ...grab, fx: { yaw, groundY: v.riverY, clip: 'pm001_13', clipF: Math.min(9, t * 19) } }; }],
+      [jp.ms / 1000, jp.pose],
     ];
-    const total = tRun + tHop + tSwing + tFly, flyStart = (tRun + tHop + tSwing) / total;
-    return {
-      ms: total * 1000,
-      pose: sequence(parts),
-      stepAt: (l, k) => (l <= flyStart ? 0 : l >= 1 ? k : Math.min(k, Math.floor(((l - flyStart) / (1 - flyStart)) * k + 1e-9))), // the counter ticks down through the flight
-    };
+    return { ms: (tRun + VINE.swing) * 1000 + jp.ms, yaw: jp.yaw, pose: sequence(parts) };
   }
 
   /**
-   * The vine roll when the player has been swinging on the vine while the die rolled: the swing simply carries on
-   * (same rhythm, a little higher each time) until the next forward swing, they let go on the way up and fly the
-   * rolled spaces. Nothing restarts or jumps: the first frame is exactly the hanging pose of the frame before.
+   * The vine roll when the player has been swinging on the vine while the die rolled: the swing simply carries on, in
+   * the real game's rhythm (a second each way, a little higher each time) until it is near the bottom of a forward
+   * swing, where they let go (pm405_02) and fly over to the far side (`land`), touching down (pm001_09). Nothing
+   * restarts or jumps: the first frame is exactly the hanging pose of the frame before. Returns { ms, pose, yaw }.
    */
   vineJumpFromSwing(land, hanging) {
-    const v = this.sp.swing, A = SWING_AMP, W = VINE_W, REL = 0.8, yaw = Math.atan2(v.u.x, v.u.z);
+    const v = this.sp.swing, A = SWING_AMP, W = VINE_W, yaw = Math.atan2(v.u.x, v.u.z);
+    const REL = 0.55; // let go just past the bottom of the swing, on the way forward (the real game: 4.69 s, VINE)
     const ph0 = W * hanging.t, rel = Math.PI * REL;
-    let phEnd = rel + 2 * Math.PI * Math.ceil((ph0 + 0.5 - rel) / (2 * Math.PI)); // the next let-go point at least a moment away
+    const phEnd = rel + 2 * Math.PI * Math.ceil((ph0 + 0.5 - rel) / (2 * Math.PI)); // the next let-go point at least a moment away
     const tSwing = (phEnd - ph0) / W, amp = (t) => A * (0.8 + 0.2 * ease(t));        // swings a bit higher towards the end
     const thRel = -amp(1) * Math.cos(phEnd), letGo = v.hang(thRel);
-    const d = flat(letGo, land), tFly = 0.7 + d * 0.03, hFly = 3 + d * 0.3; // a real leap, well clear of the ground
+    const d = flat(letGo, land), tFly = 0.45 + d * 0.01, hFly = 2.5 + d * 0.12; // (the real game: 0.6 s from letting go to touching down)
+    const tTumble = Math.min(0.45, tFly * 0.45); // the last of the flight: tumbling down onto the far side (pm001_09)
     const parts = [
       [tSwing, (t) => {
         const ph = ph0 + (phEnd - ph0) * t, th = -amp(t) * Math.cos(ph); this.ropeFree = null; this.swinging = true; this.ropeTheta = th;
-        return { ...v.hang(th), fx: { yaw, groundY: v.riverY, arms: [-3.0, -3.0], legs: [0.35 * Math.sin(ph), -0.2], tilt: -th * 0.4 } };
+        return { ...v.hang(th), fx: { yaw, groundY: v.riverY, ...swingClip(ph) } };
       }],
       [tFly, (t) => {
         if (this.swinging) {
           this.swinging = false; this.ropeFree = { t: 0, phase: phEnd, w: W, amp: amp(1) };
           if (this.active) { this.active = null; this.walkTo = null; if (this.s.camHold && !this.s.runHold) this.s.camHold = null; }
         }
-        const p = hop(letGo, land, t, hFly), ground = t < 0.25 ? v.riverY : terrainHeight(p.x, p.z) + 0.14;
-        return { ...p, fx: { yaw, groundY: Math.min(p.y, ground), arms: [-2.6 + t * 1.2, -2.6 + t * 1.2], legs: [0.7 * (1 - t), -0.6 * (1 - t)], tilt: -0.35 * (1 - t) } };
+        const p = hop(letGo, land, t, hFly), ground = t < 0.25 ? v.riverY : terrainHeight(p.x, p.z) + 0.14, left = (1 - t) * tFly;
+        const c = left > tTumble ? { clip: 'pm405_02', clipF: 1 } : { clip: 'pm001_09', clipF: Math.min(29, (tTumble - left) * 60) };
+        return { ...p, fx: { yaw, groundY: Math.min(p.y, ground), ...c } };
       }],
     ];
-    const total = tSwing + tFly, flyStart = tSwing / total;
-    return {
-      ms: total * 1000,
-      pose: sequence(parts),
-      stepAt: (l, k) => (l <= flyStart ? 0 : l >= 1 ? k : Math.min(k, Math.floor(((l - flyStart) / (1 - flyStart)) * k + 1e-9))),
-    };
+    return { ms: (tSwing + tFly) * 1000, yaw, pose: sequence(parts) };
   }
 
-  /** Across the gorge on the vine: run to the edge, leap for the vine, ride it over, let go, land, walk on. */
-  swingPose(chain, fwd, hanging) {
+  /**
+   * Across the gorge on the vine, as the real game (VINE, from a trace of it): run to the edge, leap for the vine
+   * (pm405_01), hang on (pm001_13), two swings each way (pm434_01 / pm434_02, the vine going with them), let go near the
+   * bottom of a forward swing (pm405_02), land on the far side (pm001_09), cheer (pm001_10), and run on. `ms`: the time
+   * the leg has; the run up and the run on take what the vine leaves. Returns { ms, pose }.
+   */
+  swingPose(chain, fwd, hanging, ms = 0) {
     const v = this.sp.swing, A = SWING_AMP, sgn = fwd ? 1 : -1;
     const edgeIn = fwd ? v.near : v.far, edgeOut = fwd ? v.far : v.near, P0 = chain[0], P1 = chain[chain.length - 1];
-    const yaw = Math.atan2(v.u.x * sgn, v.u.z * sgn), th0 = -A * sgn, th1 = A * sgn;
-    const air = (p, extra) => ({ ...p, fx: { yaw, groundY: v.riverY, ...extra } });
-    const start = hanging ? null : chainPose([P0, edgeIn]);
-    const grab = v.hang(th0), let_go = v.hang(th1);
+    const yaw = Math.atan2(v.u.x * sgn, v.u.z * sgn);
+    const th = (tau) => -sgn * A * Math.cos(Math.PI * (tau - VINE.back)); // the vine through the crossing (a second each way)
+    const tLand = VINE.cheer - 0.1; // touching down on the far side
+    const air = (p, tau, extra = {}) => ({ ...p, fx: { yaw, groundY: v.riverY, ...vineClip(tau), ...extra } });
+    const runIn = hanging ? 0 : flat(P0, edgeIn), runOut = flat(edgeOut, P1);
+    const fixed = (hanging ? VINE.end - VINE.swing + 0.4 : VINE.end);
+    const spare = Math.max(0.3, (ms ? ms / 1000 : fixed + (runIn + runOut) / 9 + 0.1) - fixed);
+    const tIn = hanging ? 0 : Math.max(0.12, spare * runIn / Math.max(0.01, runIn + runOut)), tOut = Math.max(0.15, spare - tIn);
+    const start = chainPose([P0, edgeIn]), walkOut = chainPose([edgeOut, P1]);
+    const leave = th(VINE.letGo), letGo = v.hang(leave);
     const parts = [];
-    if (hanging) parts.push([0.5, (t) => { const th = this.ropeTheta + (th0 - this.ropeTheta) * ease(t); this.swinging = true; this.ropeTheta = th; return air(v.hang(th), { arms: [-3.0, -3.0], legs: [0.3, -0.2] }); }]);
-    else {
-      parts.push([flat(P0, edgeIn) / 9 + 0.05, (t) => { this.swinging = true; this.ropeTheta += (th0 - this.ropeTheta) * 0.2; return start(t); }]);
-      parts.push([0.7, (t) => { this.swinging = true; this.ropeTheta = th0; return air(hop(edgeIn, grab, t, 2.5), { arms: [-2.8, -2.8] }); }]);
+    if (hanging) { // already on the vine (it was swinging while the die rolled): ease into the real swing, then on as below
+      parts.push([0.4, (t) => { const a = this.ropeTheta + (th(VINE.swing) - this.ropeTheta) * ease(t); this.swinging = true; this.ropeTheta = a; return air(v.hang(a), VINE.hang + t * 0.3); }]);
+    } else {
+      parts.push([tIn, (t) => { this.ropeFree = null; this.swinging = true; this.ropeTheta += (th(0) - this.ropeTheta) * 0.2; return start(t); }]);
+      const reach = flat(edgeIn, v.hang(th(0))); // (the vine hangs nearer one bank: from the far side it is a longer leap)
+      parts.push([Math.max(VINE.hang, reach / 20), (t) => { const tau = t * VINE.hang; this.swinging = true; this.ropeTheta = th(tau); return air(hop(edgeIn, v.hang(th(tau)), ease(t), 0.8 + reach * 0.1), tau); }]);
+      parts.push([VINE.swing - VINE.hang, (t) => { const tau = VINE.hang + t * (VINE.swing - VINE.hang); this.swinging = true; this.ropeTheta = th(tau); return air(v.hang(th(tau)), tau); }]);
     }
-    parts.push([1.3, (t) => { const th = th0 + (th1 - th0) * ease(t); this.swinging = true; this.ropeTheta = th; return air(v.hang(th), { arms: [-3.0, -3.0], legs: [0.5 * sgn * Math.cos(t * 3), -0.3], tilt: -th * sgn * 0.5 }); }]);
-    parts.push([0.9, (t) => { this.swinging = false; return air(hop(let_go, edgeOut, t, 3.5), { arms: [-2.4, -2.4], legs: [0.6, -0.5] }); }]);
-    const walkOut = chainPose([edgeOut, P1]);
-    parts.push([flat(edgeOut, P1) / 9 + 0.05, (t) => { this.swinging = false; return walkOut(t); }]);
-    return sequence(parts);
+    parts.push([VINE.letGo - VINE.swing, (t) => { const tau = VINE.swing + t * (VINE.letGo - VINE.swing); this.swinging = true; this.ropeTheta = th(tau); return air(v.hang(th(tau)), tau); }]);
+    parts.push([tLand - VINE.letGo, (t) => {
+      if (this.swinging) { this.swinging = false; this.ropeFree = { t: 0, phase: Math.PI * (VINE.letGo - VINE.back), w: Math.PI, amp: A * sgn }; } // the vine swings on by itself
+      const tau = VINE.letGo + t * (tLand - VINE.letGo), d = flat(letGo, edgeOut);
+      return air(hop(letGo, edgeOut, t, 2.5 + d * 0.12), tau, { groundY: t < 0.5 ? v.riverY : edgeOut.y });
+    }]);
+    parts.push([VINE.end - tLand, (t) => { this.swinging = false; const tau = tLand + t * (VINE.end - tLand); return { ...edgeOut, fx: { yaw, ...vineClip(tau) } }; }]);
+    parts.push([tOut, (t) => { this.swinging = false; return walkOut(t); }]);
+    const total = parts.reduce((a, q) => a + q[0], 0);
+    return { ms: total * 1000, pose: sequence(parts) };
   }
 
-  /** Across the pool: hop from one floating crate (or barrel) to the next. If the wrong lane was picked, one breaks and it is a swim. */
+  /**
+   * Across the pool: hop from one floating crate (or barrel) to the next, as the real game: a hop (pm405_02, in the
+   * air) and a moment standing on each (pm011_08), about 0.7 s a crate. If the wrong lane was picked, one breaks under
+   * them and it is a swim (pm001_01, as the real game) to the far side. Returns { ms, pose }.
+   */
   poolPose(chain, fwd, pending) {
     const c = this.sp.crates, li = pending ? pending.picked : 0, lane = c.lanes[li], P0 = chain[0], P1 = chain[chain.length - 1];
     const order = lane.spots.map((p, k) => ({ p: { x: p.x, y: c.top, z: p.z }, k })); if (!fwd) order.reverse();
     const inB = fwd ? lane.a : lane.b, outB = fwd ? lane.b : lane.a;
-    const yaw = Math.atan2(outB.x - inB.x, outB.z - inB.z), air = (p) => ({ ...p, fx: { yaw, groundY: c.water } });
-    const parts = [[flat(P0, inB) / 9 + 0.05, chainPose([P0, inB])]];
+    const yaw = Math.atan2(outB.x - inB.x, outB.z - inB.z);
+    const jump = (from, to, h) => (t) => ({ ...hop(from, to, t, h), fx: { yaw, groundY: c.water, clip: 'pm405_02', clipF: 1 } });
+    const stand = (at, gy) => () => ({ ...at, fx: { yaw, groundY: gy, clip: 'pm011_08' } });
+    const parts = [[flat(P0, inB) / 12 + 0.1, chainPose([P0, inB])]];
     const bad = pending && !pending.safe ? Math.min(order.length - 1, pending.hit) : -1;
     let at = inB;
     for (let i = 0; i < order.length; i++) {
       const from = at, to = order[i].p, k = order[i].k;
-      parts.push([0.55, (t) => air(hop(from, to, t, 2.2))]);
+      parts.push([0.4, jump(from, to, 2.2)]);
       at = to;
       if (i === bad) { // crack: this one gives way under the player
         const swimY = c.water - 2.9, sunk = { x: to.x, y: swimY, z: to.z }, shore = { x: outB.x, y: swimY, z: outB.z };
-        parts.push([0.35, (t) => { this.breakFloater(li, k); return air(lerp3(to, sunk, t)); }]);
-        parts.push([flat(sunk, shore) / 7, (t) => { const p = lerp3(sunk, shore, t); p.y += Math.sin(t * 40) * 0.12; return { ...p, fx: { yaw, tilt: 0.9, clip: 'swim', arms: [-2.4 + Math.sin(t * 50) * 0.8, -2.4 - Math.sin(t * 50) * 0.8], groundY: swimY } }; }]);
-        parts.push([0.4, (t) => air(hop(shore, outB, t, 1.5))]);
+        parts.push([0.2, stand(to, to.y)]);
+        parts.push([0.35, (t) => { this.breakFloater(li, k); return { ...lerp3(to, sunk, t), fx: { yaw, groundY: c.water, clip: 'pm001_01', clipF: t * 20 } }; }]);
+        parts.push([flat(sunk, shore) / 7, (t) => { const p = lerp3(sunk, shore, t); p.y += Math.sin(t * 40) * 0.12; return { ...p, fx: { yaw, tilt: 0.3, clip: 'pm001_01', groundY: swimY } }; }]);
+        parts.push([0.4, jump(shore, outB, 1.5)]);
         at = null; break;
       }
+      parts.push([0.3, stand(to, to.y)]);
     }
-    if (at) { const from = at; parts.push([0.55, (t) => air(hop(from, outB, t, 2.2))]); }
-    parts.push([flat(outB, P1) / 9 + 0.05, chainPose([outB, P1])]);
-    return sequence(parts);
+    if (at) parts.push([0.4, jump(at, outB, 2.2)], [0.2, stand(outB, outB.y)]);
+    parts.push([flat(outB, P1) / 12 + 0.1, chainPose([outB, P1])]);
+    return { ms: parts.reduce((x, q) => x + q[0], 0) * 1000, pose: sequence(parts) };
   }
 
   breakFloater(li, k) {
@@ -1367,8 +1385,10 @@ export class ChallengeFX {
       const th = -SWING_AMP * 0.8 * Math.cos(this.vine.t * VINE_W);
       this.ropeTheta = th; this.swinging = true;
       if (pawn) {
-        const h = v.hang(th), k = ease(clamp01(this.vine.t / 0.7)), p = k < 1 ? hop(this.vine.from, h, k, 2.5) : h;
-        pawn.fx = { x: p.x, y: p.y, z: p.z, yaw: Math.atan2(v.u.x, v.u.z), arms: [-3.0, -3.0], legs: [0.35 * Math.sin(this.vine.t * VINE_W), -0.2], tilt: -th * 0.4, groundY: v.riverY };
+        const t = this.vine.t, h = v.hang(th), k = ease(clamp01(t / (VINE.hang + 0.1))), p = k < 1 ? hop(this.vine.from, h, k, 1.6) : h;
+        // the real game's clips: the leap (pm405_01), hanging on (pm001_13), then the swings in time with the vine
+        const c = t < VINE.hang ? { clip: 'pm405_01', clipF: t * 60 } : t < VINE.swing ? { clip: 'pm001_13', clipF: Math.min(9, (t - VINE.hang) * 60) } : swingClip(t * VINE_W);
+        pawn.fx = { x: p.x, y: p.y, z: p.z, yaw: Math.atan2(v.u.x, v.u.z), ...c, groundY: v.riverY };
         pawn.x = p.x; pawn.y = p.y; pawn.z = p.z; // the move that follows starts from the vine
       }
     } else if (!this.swinging && this.ropeFree) { // let go of: it swings on by itself and dies down

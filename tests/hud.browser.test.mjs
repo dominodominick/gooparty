@@ -112,7 +112,7 @@ async function openGame(viewport) {
 }
 
 /** Wait (in the page) until fn() is truthy; CPUs play on by themselves meanwhile. */
-const until = (page, fn, what, arg) => page.waitForFunction(fn, arg, { timeout: 30000, polling: 30 }).catch(() => { throw new Error(`timed out waiting for ${what}`); });
+const until = (page, fn, what, arg) => page.waitForFunction(fn, arg, { timeout: 60000, polling: 30 }).catch(() => { throw new Error(`timed out waiting for ${what}`); }); // (60 s: the real game's timings are slow: a vine crossing alone takes 7 s)
 const myDice = () => { const a = window.__PARTY_TEST.app; return a.scene.devReady && a.scene.devReady(); };
 /** How much of the pointer layer is painted near a stage point (0..1 coordinates): the custom pointer's arrow and badge. */
 const paintedAt = (page, p) => page.evaluate(({ x, y }) => {

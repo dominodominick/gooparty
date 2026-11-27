@@ -53,11 +53,19 @@ export const DRAGON_SMASH = { punches: SMASH.punches * SMASH.swing, stance: SMAS
 export const GATE_SMASH = { kicks: SMASH.kicks * SMASH.swing, watch: (SMASH.kicks - 1) * SMASH.swing + SMASH.impact + SMASH.breakUp - SMASH.kicks * SMASH.swing, beat: SMASH.beat, cheer: SMASH.cheer };
 const sum = (o) => Object.values(o).reduce((a, b) => a + b, 0);
 
+// The vine, as the real game plays it (a trace of Board Game Island; seconds from the leap for the vine): the leap
+// (pm405_01), hanging on (pm001_13), the swings (pm434_01 forward, from `swing`; pm434_02 back, from each turn of the
+// swing), letting go near the bottom of a forward swing (pm405_02), landing (pm001_09), a cheer (pm001_10), on at a run.
+// `back`: when the vine is at the back of its swing (its swings take a second each way).
+export const VINE = { hang: 0.2, swing: 0.52, turns: [1.16, 2.16, 3.16, 4.16], letGo: 4.69, land: 4.97, cheer: 5.4, end: 6.7, back: 0.16 };
+
 export const DUR = {
-  diceStop: 3600, wonder: 2000, walkStep: 185, fastStep: 140, moveTail: 350, fly: 2600, drop: 0, banner: 1100, round: 2600, turnIntro: 2000, flyover: 7000, eruption: 10000, meteorHit: 2200, minigame: 2200,
+  diceStop: 3600, wonder: 2000, walkStep: 270, fastStep: 140, moveTail: 350, fly: 2600, drop: 0, banner: 1100, round: 2600, turnIntro: 2000, flyover: 7000, eruption: 10000, meteorHit: 2200, minigame: 2200,
   cross: 1500,   // extra time for a step that crosses a gap (a jump over the pit, over the creek...)
-  swing: 2400,   // the vine swing
-  vinePause: 1000, // standing on the landing spot after the vine, before walking the rest
+  swing: 3200,   // the vine roll: swinging on until the let-go (up to two seconds), and the flight to the far side
+  vinePause: 1300, // landed from the vine roll: the cheer (pm001_10), before walking the rest
+  vineCross: 6900, // crossing the gorge on the vine without stopping, as the real game does (see VINE)
+  cratesCross: 3200, // hopping across the pool on the crates or barrels (a hop and a landing on each, then the far side)
   wall: F(sum(DRAGON_SMASH)), // punching the dragon wall to pieces, then a cheer (see DRAGON_SMASH)
   gate: F(sum(GATE_SMASH)),     // kicking the summit gate to pieces, then a cheer (see GATE_SMASH)
   finalFail: F(SMASH.beat + SMASH.letdown + SMASH.beat), // the gate stays shut: they turn to the camera, let down
@@ -139,14 +147,16 @@ export function spacesToGo(pos, returnTo = null) {
 }
 
 // count = { total, dir }: the number shown at the top while the player travels ("9", then 8, 7...).
-const crossings = (start, path) => { // how many steps cross a gap (they are long: a bridge, a gorge, a tunnel, stairs)
+/** The extra time a step across a gap takes (ms): the vine, the pool, or a plain gap (a bridge, a gorge, a tunnel, stairs). */
+export const crossMs = (kind) => (kind === 'swing' ? DUR.vineCross : kind === 'crates' ? DUR.cratesCross : DUR.cross);
+const crossings = (start, path) => { // the extra time of the steps that cross a gap
   let n = 0, prev = start && start.across ? null : start; // (from a spot past a challenge the gap is already crossed)
-  for (const p of path) { if (prev && prev.track === 'island' && p.track === 'island') { const g = gapBetween(prev.idx, p.idx); if (g) n++; } prev = p; }
+  for (const p of path) { if (prev && prev.track === 'island' && p.track === 'island') { const g = gapBetween(prev.idx, p.idx); if (g) n += crossMs(g.kind); } prev = p; }
   return n;
 };
 const move = (slot, mode, path, count, follow = false, start = null) => {
-  const dur = mode === 'walk' ? path.length * DUR.walkStep + DUR.moveTail + crossings(start, path) * DUR.cross
-    : mode === 'fast' ? path.length * DUR.fastStep + DUR.moveTail + crossings(start, path) * DUR.cross
+  const dur = mode === 'walk' ? path.length * DUR.walkStep + DUR.moveTail + crossings(start, path)
+    : mode === 'fast' ? path.length * DUR.fastStep + DUR.moveTail + crossings(start, path)
     : mode === 'fly' ? DUR.fly : mode === 'spring' ? DUR.spring : mode === 'knock' ? DUR.knock : DUR.drop;
   const ev = { t: 'move', slot, mode, path, dur };
   if (count && mode !== 'drop') ev.count = count;
@@ -202,7 +212,7 @@ export class BoardGame {
     });
     this.phase = 'waiting';
     this.readyAt = now + DUR.round + TIMING.gap;
-    return [{ t: 'roundStart', round: this.round, order: [...order], curves: { ...this.curves }, tiers: { ...this.tiers }, dur: DUR.round }];
+    return [{ t: 'roundStart', round: this.round, order: [...order], curves: { ...this.curves }, tiers: { ...this.tiers }, dur: DUR.round, ...(this.round === 1 ? { moment: 'game.start' } : {}) }]; // (the first: everyone cheers at the start, as the real game)
   }
 
   // ---- what to show the player right now ----
@@ -504,8 +514,8 @@ export class BoardGame {
     this.rigNext = null;
     events.push({ t: 'diceStop', slot, dice: [{ v: d, kind: 'base' }], total: d, doubles: false, dur: DUR.diceStop });
     const pos = this.positions[slot];
-    const pass = (text, wall = null) => {
-      events.push(note(slot, text));
+    const pass = (text, wall = null, extra = {}) => {
+      events.push(note(slot, text, extra));
       if (wall) { // the wall is gone for everyone from now on
         this.broken[wall] = true;
         events.push({ t: 'broken', slot, challenge: wall, dur: DUR.wall }); // slot: who smashes it (the scene plays them doing it)
@@ -521,10 +531,9 @@ export class BoardGame {
       case 'vine': // wiki: no penalty; the roll is extra spaces
         events.push(note(slot, `Vine swing! +${d} spaces`));
         { const from = events.length, r = this._pass(slot, step.remaining + d, events), mv = events.slice(from).find((e) => e.t === 'move');
-          if (mv) { // the first d spaces are flown on the vine: they take the swing's time, not walking time (and the gorge is flown over)
+          if (mv) { // swinging on until the let-go, the flight to the far side and a cheer take the gorge's place; then a run
             mv.swing = Math.min(d, mv.path.length);
-            mv.dur += DUR.swing + (mv.path.length > mv.swing ? DUR.vinePause : 0) - mv.swing * DUR.walkStep - DUR.cross;
-            mv.dur = Math.max(mv.dur, DUR.swing);
+            mv.dur += DUR.swing + DUR.vinePause - DUR.vineCross;
           }
           return r; }
       case 'dragon':
@@ -533,13 +542,13 @@ export class BoardGame {
         this._moveTo(slot, walkBack(pos, 1), 'knock', events, BACK(1));
         return true;
       case 'volcanoOrNot':
-        if (d >= VOLCANO_NEEDS) return pass('You dodge the volcano!');
+        if (d >= VOLCANO_NEEDS) return pass('You dodge the volcano!', null, { moment: 'pass.volcanoOrNot' });
         events.push(note(slot, 'Into the volcano!'));
         this._intoVolcano(slot, { track: 'island', idx: VOLCANO_CHALLENGE_IDX, across: true }, events); // they come back out past the pit, short of the next space (not a space)
         return true;
       case 'spike': {
         if (d >= this.spikeNeeds) { // they go on at once; the statue breaks once everything this turn has played out
-          events.push(note(slot, 'You get past the spike ball!'));
+          events.push(note(slot, 'You get past the spike ball!', { moment: 'pass.spike' }));
           this.broken.spike = true; this.pendingBreak = { challenge: 'spike', slot };
           return this._pass(slot, step.remaining, events);
         }
@@ -736,8 +745,8 @@ export class BoardGame {
       case 'mgRest': { // placeholder minigame: the solo player wins with probability 1 / players
         say('1 vs Rest! {' + slot + '} plays alone against everyone else');
         events.push({ t: 'minigame', kind: 'rest', slot, dur: DUR.minigame });
-        if (this.rng() < 1 / this.players.length) { say(`{${slot}} wins! +${REST_WIN_MOVE}`); this._spring(slot, walkForward(pos, REST_WIN_MOVE), 'green', events, FWD(REST_WIN_MOVE)); }
-        else say('The rest win. Nothing happens.');
+        if (this.rng() < 1 / this.players.length) { events.push(note(slot, `{${slot}} wins! +${REST_WIN_MOVE}`, { moment: 'rest.win' })); this._spring(slot, walkForward(pos, REST_WIN_MOVE), 'green', events, FWD(REST_WIN_MOVE)); }
+        else events.push(note(slot, 'The rest win. Nothing happens.', { moment: 'rest.lose' }));
         break;
       }
       case 'mg11': { // the roller picks an opponent who is not in the volcano

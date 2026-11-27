@@ -1,4 +1,5 @@
 import { direct, setPawnFace } from './director.js';
+import { presetAt, shotAround, placeOnPath } from '../game/boardCamera.js';
 import { app } from '../app.js';
 import { PLAYER_COLORS, VIRTUAL, BUILD } from '../config.js';
 import { ISLAND, VOLCANO, LABELS, TILE_COLORS, isChallenge, EXIT_POS } from '../game/boardData.js';
@@ -873,6 +874,8 @@ export class BoardScene {
       });
       if (!a.shown && u > 0.6) {
         a.shown = true;
+        const roller = this.pawns && this.pawns[ev.slot];
+        if (ev.partial && roller) roller.after = { clip: 'pm000_07', face: 1, left: 1.05 }; // doubles: a fist pump and a smile (pm000_07, as the real game)
         if (ev.wheel) this.setBanner(`${esc(this.nameOf(ev.wheel.target))}<small>${ev.total ? `Back ${ev.total} spaces!` : 'is picked!'}</small>`);
         else this.setBanner(ev.partial
           ? `${esc(this.nameOf(ev.slot))} rolled ${ev.total}<small>Doubles! One more die to stop.</small>`
@@ -957,7 +960,7 @@ export class BoardScene {
     if (ev.follow) { this.camSlot = ev.slot; a.fast = true; } // someone else's pawn is flying: the camera pans over to it
 
     if (ev.mode === 'walk' || ev.mode === 'fast') {
-      const n = pts.length - 1, stepMs = ev.mode === 'walk' ? 340 : 190;
+      const n = pts.length - 1, stepMs = ev.mode === 'walk' ? 270 : 190; // (walk: the real game runs about a space every 0.27 s)
       // cum[k] = how many of the first k steps count as spaces (challenge spaces are free)
       const cum = [0];
       ev.path.forEach((nd, k) => {
@@ -969,7 +972,9 @@ export class BoardScene {
       const legs = this.fx.buildLegs(ev, pts, stepMs, pawn);
       const hideLeg = this.fx.hideLegFor(ev, B); // running from the spike ball: the run ends ducked into the tunnel mouth
       if (hideLeg) legs.push(hideLeg);
-      const total = legs.reduce((x, l) => x + l.ms, 0), moveFrac = Math.min(1, total / Math.max(1, ev.dur));
+      const total = legs.reduce((x, l) => x + l.ms, 0);
+      if (total > a.dur && total < a.dur * 1.5) a.dur = total; // (a little over the host's estimate: the real game's timings are kept, the next event waits; far over, it is hurried)
+      const moveFrac = Math.min(1, total / Math.max(1, a.dur));
       if (count) this.setCounter(count, count.total);
       if (count && count.dir === 'back' && !this.camHold && !ev.side) { // running backwards: cut to a camera in front of the pawn and let it run towards it; nothing spins
         const dx = B.x - A.x, dz = B.z - A.z, dl = Math.hypot(dx, dz) || 1, ux = dx / dl, uz = dz / dl;
@@ -1579,6 +1584,13 @@ export class BoardScene {
       pw.fleeing = true;
       const end = anim.end; anim.end = () => { if (end) end(); pw.fleeing = false; pw.after = { clip: 'sad', face: 3, left: 4.5 }; };
     }
+    const last = ev.path[ev.path.length - 1];
+    if (pw && (ev.mode === 'walk' || ev.mode === 'fast') && !ev.stopShort && last && last.track === 'island' && !last.across) { // stopped by a challenge: how the real game has them take it in
+      const type = ISLAND[last.idx] && ISLAND[last.idx].type;
+      const end = anim.end;
+      if (type === 'volcanoOrNot') anim.end = () => { if (end) end(); pw.after = { clip: 'pm001_14', face: 4, left: 1.0 }; }; // startled at the edge of the volcano (then the nervous wait, pm001_18)
+      else if (type === 'final' && !(this.fx && this.fx.broken.final)) anim.end = () => { if (end) end(); pw.after = { clip: 'pm011_08', left: 0.4 }; }; // a breath, then the fighting stance (pm301_01) in front of the gate
+    }
     if (pw && pw.track === 'volcano' && ev.path.some((n) => n.track === 'island') && this.exitGlow) { // the way out lights up as the player leaves
       for (const m of this.exitGlow) m.visible = true;
       const end = anim.end; anim.end = () => { if (end) end(); for (const m of this.exitGlow) m.visible = false; };
@@ -1653,6 +1665,7 @@ export class BoardScene {
     const vView = vn && onV && !this.camHold && (this.rolling || this.pushing);
     if (vView) { const st = vn.star, d = vn.dir; want = { x: st.x + d.x * 11, y: st.y + 5.2, z: st.z + d.z * 11, tx: st.x - d.x * 0.6, ty: st.y + 2.2, tz: st.z - d.z * 0.6 }; }
     if (this.camHold) want = { ...this.camHold };
+    if (!volcano && !this.camHold && !vView && !this.oldCamera) { this.realCamera(dt, pawn); return; } // the real game's board camera (boardCamera.js)
     if (!volcano && !this.camHold && !vView) want = this.fitCamera(want, pawn);
     if (!this.cam || this.camTrack !== pawn.track || this.snapCamera || this.camHold) { // cuts only happen behind a black screen
       this.cam = want; this.camTrack = pawn.track; this.snapCamera = false;
@@ -1661,6 +1674,32 @@ export class BoardScene {
       for (const key of Object.keys(want)) this.cam[key] += (want[key] - this.cam[key]) * k;
     }
     const sh = this.shake > 0 ? 0.35 : 0; // a little rumble while the volcano erupts
+    this.camera.position.set(this.cam.x + Math.sin(this.t * 53) * sh, this.cam.y + Math.sin(this.t * 61) * sh, this.cam.z + Math.cos(this.t * 47) * sh);
+    this.camera.lookAt(this.cam.tx, this.cam.ty, this.cam.tz);
+  }
+
+  /**
+   * The real Board Game Island's board camera (measured from a trace of the real game: js15/game/boardCamera.js): each
+   * space's own shot, eased between as the Mii runs, looking 160 above them (in the air too); the turn shot while the
+   * die spins; the close-up on their face when a sequence asks for it (camPreset: { name, slot }).
+   */
+  realCamera(dt, pawn) {
+    const pre = this.camPreset, who = (pre && pre.slot != null && this.pawns[pre.slot]) || pawn;
+    const q = who.fx && who.fx.x != null ? who.fx : who, P = this.pos.island;
+    const at = placeOnPath(P, q.x, q.z, who.track === 'island' ? who.idx : null);
+    const name = pre ? pre.name : this.rolling || this.staged ? 'turn' : 'follow';
+    const s = presetAt(name, at.i, at.u);
+    const cut = !this.rc || this.snapCamera || this.camTrack !== 'island' || (name === 'react' && this.rcName !== 'react'); // (the close-up is a cut, as in the game)
+    if (cut) this.rc = { d: s.d, p: s.p, yaw: s.yaw, x: q.x, y: q.y, z: q.z };
+    else {
+      const k = 1 - Math.exp(-dt * 2.6), kt = 1 - Math.exp(-dt * 12); // (the shot eases over about a second; the aim stays on the Mii)
+      const r = this.rc;
+      r.d += (s.d - r.d) * k; r.p += (s.p - r.p) * k; r.yaw += ((((s.yaw - r.yaw) % 360) + 540) % 360 - 180) * k;
+      r.x += (q.x - r.x) * kt; r.y += (q.y - r.y) * kt; r.z += (q.z - r.z) * kt;
+    }
+    this.rcName = name; this.camTrack = 'island'; this.snapCamera = false;
+    this.cam = shotAround(this.rc.x, this.rc.y, this.rc.z, this.rc);
+    const sh = this.shake > 0 ? 0.35 : 0;
     this.camera.position.set(this.cam.x + Math.sin(this.t * 53) * sh, this.cam.y + Math.sin(this.t * 61) * sh, this.cam.z + Math.cos(this.t * 47) * sh);
     this.camera.lookAt(this.cam.tx, this.cam.ty, this.cam.tz);
   }
@@ -1806,6 +1845,10 @@ export class BoardScene {
    * pm000_16, pm000_17) every few seconds, each on their own (from a trace of the real Board Game Island).
    */
   boardIdle(pawn, dt) {
+    // waiting at a challenge, as the real game: nervous at the volcano's edge (pm001_18), the fighting stance at the summit gate (pm301_01)
+    const at = pawn.track === 'island' && !pawn.across && ISLAND[pawn.idx] ? ISLAND[pawn.idx].type : null;
+    if (at === 'volcanoOrNot') return 'pm001_18';
+    if (at === 'final' && !(this.fx && this.fx.broken.final)) return 'pm301_01';
     const I = pawn.idleCycle || (pawn.idleCycle = { clip: 'pm011_08', left: 2 + Math.random() * 6 });
     I.left -= dt;
     if (I.left <= 0) { const o = BOARD_IDLES.filter((c) => c !== I.clip); I.clip = o[Math.floor(Math.random() * o.length)]; I.left = 3 + Math.random() * 6; }

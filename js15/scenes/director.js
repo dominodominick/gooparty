@@ -10,7 +10,8 @@
 //            moment starts on (and the way the path goes there) so it fits every space of that kind, or to a Mii
 //            (follow). Between two shot keys the camera moves smoothly (or at an even speed, or cuts at the second).
 //            An 'own' key hands the camera back to the set piece's own cameras; a 'normal' key to the board's camera.
-//            Before the first key, the set piece's own.
+//            A 'board' key: the real game's board camera in one of its shots (follow, turn, react: boardCamera.js), on
+//            a Mii (follow: which). Before the first key, the set piece's own.
 //   fx       things that happen: a glint, the screen shaking, a caption, a fade to black, a wall's jolt, stone chips,
 //            close-up (no number badges).
 // A block recorded from the game (rec) is only shown: it is what the game does there now, to edit from.
@@ -106,7 +107,7 @@ export function cameraAt(keys, T, where) {
   let i = -1; for (let j = 0; j < ks.length; j++) if (ks[j].at <= T) i = j;
   if (i < 0) return { kind: 'none' };
   const k = ks[i];
-  if (k.kind === 'own' || k.kind === 'normal') return { kind: k.kind, key: k };
+  if (k.kind === 'own' || k.kind === 'normal' || k.kind === 'board') return { kind: k.kind, key: k };
   const pose = (q) => shotToWorld(where(q), q.shot);
   const P1 = pose(k), next = ks[i + 1];
   if (!next || next.kind !== 'shot' || next.ease === 'cut' || next.at <= k.at) return { kind: 'shot', pose: P1, key: k };
@@ -186,10 +187,15 @@ export function direct(scene, anim, ev) {
       if (cam.kind === 'shot') {
         if (st.lastKey !== cam.key && !cam.between) scene.snapCamera = true; // (a cut)
         scene.camHold = cam.pose; st.lastPose = cam.pose; st.ours = true; scene.snapCamera = true; st.lastKey = cam.key;
+      } else if (cam.kind === 'board') { // the real game's board camera, in one of its shots (boardCamera.js: follow, turn, react), on a Mii
+        if (scene.camHold === st.lastPose || st.lastKey !== cam.key) scene.camHold = null;
+        scene.camPreset = { name: cam.key.preset || 'follow', slot: cast[cam.key.follow == null ? 0 : cam.key.follow] };
+        st.ours = true; st.preset = true; st.lastKey = cam.key;
       } else if (cam.kind === 'normal') {
         if (!st.ours || st.lastKey !== cam.key) scene.snapCamera = true;
         scene.camHold = null; st.ours = true; st.lastKey = cam.key;
       } else if (st.ours) { st.ours = false; st.lastKey = null; scene.snapCamera = true; } // back to the set piece's own
+      if (cam.kind !== 'board' && st.preset) { scene.camPreset = null; st.preset = false; }
       // things that happen
       applyFx(scene, S.fx || [], T, st, cast, A);
       st.prevT = T;
@@ -200,6 +206,7 @@ export function direct(scene, anim, ev) {
       if (st.ours && (scene.camHold === st.lastPose || scene.camHold === null)) { scene.camHold = null; scene.snapCamera = true; }
       for (const p of st.touched) if (p && p.fx && p.fx.__dir) { p.fx = null; } // (bodies the sequence moved, back to the game's)
       for (const p of st.faced) setPawnFace(p, 0);
+      if (st.preset) { scene.camPreset = null; st.preset = false; }
       if (st.shake) scene.shake = 0;
       if (st.banner && scene.clearBanner) scene.clearBanner();
       if (st.closeUp) scene.closeUp = false;

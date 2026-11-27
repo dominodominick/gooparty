@@ -351,6 +351,34 @@ The hand-built island is gone. The game now runs on the converted Wii Party map 
   sinks away. The game's "broken" message did not say who broke it, so the scene had no player to animate and
   only waited, then hid the wall.
 
+## Build 101: the real board camera, and the rest of the trace's animations
+
+**The real board camera** (`js15/game/boardCamera.js`, measured from the trace's camera matrix): every island space has
+the designers' own shot (distance, pitch, angle), aimed 160 game units above the Mii (in the air too), easing from
+one space's shot to the next over about a second. While the die spins it is the turn shot (500 away at 35°); when a
+Mii lands and reacts (pm001_06 with a smile, pm001_07 with sorrow) it cuts to a close-up of their face for ~1.4 s.
+Sequences can use these shots ("A board shot" in the studio); the springs and the 1 vs 1 / 1 vs Rest results do.
+The Island Viewer has a "Game camera" switch to watch the set pieces through it.
+
+**Movement at the real speed:** about 0.27 s a space (was 0.19 / 0.34).
+
+**The vine, as the real game:** leap for it (pm405_01), hang on (pm001_13), swing in time with the vine
+(pm434_01 forward, pm434_02 back, a second each way) while the die rolls, let go near the bottom of a forward swing
+(pm405_02), land on the far side (pm001_09), cheer (pm001_10), then run the spaces. (Before, the roll was flown
+through the air.) Crossing without stopping plays the trace's whole 6.7 s timeline.
+
+**The crates:** a hop (pm405_02) and a moment standing on each crate (pm011_08); a broken one is a swim (pm001_01).
+
+**More of the trace:**
+- Doubles: a fist pump with a smile (pm000_07).
+- Volcano or not: startled on arriving (pm001_14 with Surprise), a nervous wait (pm001_18) until the roll; dodging
+  it is a smile, then pm001_14 again, then off at a run.
+- The summit: the fighting stance (pm301_01) while waiting in front of the gate.
+- Getting past the spike ball: a fist pump and a smile (pm001_06).
+- The game's start: everyone cheers at the start (pm000_40, pm000_41, with smiles), with the real camera.
+- After a 1 vs Rest minigame: the solo player pumps a fist and smiles, or hangs their head.
+- New studio moments for all of these. A move that runs a little over the host's estimate is no longer hurried.
+
 ## Build 100: the real Board Game Island's own animations, faces and cameras
 
 From a trace of the real game: a hook in the owner's Wii Party recomp logged a whole game of Board Game Island (51

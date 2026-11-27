@@ -335,10 +335,13 @@ const fakeCam = () => ({ position: { x: 0, y: 0, z: 0, set(x, y, z) { this.x = x
   const pawn = sc.pawns[0];
   const dWide = Math.hypot(wide.x - pawn.x, wide.z - pawn.z, wide.y - pawn.y);
   const dNear = Math.hypot(sc.cam.x - pawn.x, sc.cam.z - pawn.z, sc.cam.y - pawn.y);
-  assert.ok(dNear > 12 && dNear < dWide * 1.1, `well back while rolling (${dNear.toFixed(1)})`);
+  // (build 101: the real game's turn shot, 500 game units from a point 160 above the Mii, at 35 degrees)
+  const tgt = Math.hypot(sc.cam.x - sc.cam.tx, sc.cam.y - sc.cam.ty, sc.cam.z - sc.cam.tz);
+  assert.ok(Math.abs(tgt - 500 * 0.016) < 0.05, `the real turn shot while rolling (${tgt.toFixed(2)})`);
+  assert.ok(Math.abs(Math.asin((sc.cam.y - sc.cam.ty) / tgt) * 180 / Math.PI - 35) < 0.5, 'at 35 degrees');
+  assert.ok(Math.hypot(sc.cam.tx - pawn.x, sc.cam.tz - pawn.z) < 0.5 && dNear < dWide * 1.1, 'on the roller, closer than the follow shot');
   const dir = sc.pathDir(pawn);
   assert.ok(Math.abs(Math.hypot(dir.x, dir.z) - 1) < 1e-6, 'path direction is a unit vector');
-  assert.ok((sc.cam.tx - pawn.x) * dir.x + (sc.cam.tz - pawn.z) * dir.z > 0, 'looks toward where the player will go');
   for (let i = 0; i < 120; i++) sc.updatePawnPose(0.016);
   assert.ok(pawn.pitch < -0.3, 'head tips up toward the camera');
   sc.exit();
@@ -816,7 +819,7 @@ assert.ok(DUR.fly >= 2400 && DUR.drop >= 1800);
   const strideLen = dist / (pawn.phase / (2 * Math.PI));
   assert.ok(strideLen > 5.3 && strideLen < 6.1, `one stride covers ${strideLen.toFixed(2)} units`);
   assert.ok(pawn.amp > 0.95, 'walking pace gives the full leg swing');
-  assert.ok(stepMs <= 200, `a space takes ${stepMs} ms`);
+  assert.ok(stepMs === 270, `a space takes ${stepMs} ms (the real game: about 0.27 s)`);
   sc.exit();
 }
 
