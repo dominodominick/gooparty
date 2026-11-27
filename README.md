@@ -351,6 +351,23 @@ The hand-built island is gone. The game now runs on the converted Wii Party map 
   sinks away. The game's "broken" message did not say who broke it, so the scene had no player to animate and
   only waited, then hid the wall.
 
+## Build 102: the trace's animations replace the old ones everywhere
+
+- **Sequences saved in a browser's studio before the trace** (your own edits and recordings) no longer play over the
+  traced ones: for every moment the trace covers, the real game's sequence wins. They stay in storage, unused.
+  Anything you save in the studio from now on is stamped with the build and plays as before.
+- **Every set piece's own animation now uses the trace's clips** (they show where no sequence covers them):
+  - Springs: pm001_15 rising, pm001_08 winding up, then pm001_09 flying forward or pm001_11 flying back.
+  - Blown back (the fireball): pm001_11 in the air, pm001_12 landing, pm001_05 dazed, pm206_03 up (was pm001_04).
+  - Statues: blue waits eager (pm011_09), hops on (pm405_02), stands on the hands (pm011_08), is flung (pm405_09),
+    lands (pm001_09) and cheers (pm001_10); red is startled (pm001_03), carried (pm001_02), thrown (pm001_01).
+  - UFO: pm001_01 going up, pm001_11 coming down.
+  - Standing in any set piece: the board idle pm011_08 (pm000_01 never appears in the real game). A fright: pm001_03.
+  - Smashing the spike statue: the dragon wall's real punch and kick (pm301_03 / pm301_05), then the stance.
+  - The win: afterwards the winner keeps pm000_11 and smiles; the others keep pm000_15 with Sorrow.
+- **Not in the trace, so the nearest traced clip:** the meteor (pm001_03, pm001_11, pm001_12), the tornado
+  (pm001_11), the skull drop into the volcano (pm001_11).
+
 ## Build 101: the real board camera, and the rest of the trace's animations
 
 **The real board camera** (`js15/game/boardCamera.js`, measured from the trace's camera matrix): every island space has

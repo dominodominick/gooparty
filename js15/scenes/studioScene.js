@@ -13,6 +13,7 @@ import { app } from '../app.js';
 import { ViewerScene, FACES } from './viewerScene.js';
 import { allMoments, castOf, sequenceFrames, upgradeSequence } from '../game/moments.js';
 import { SEQUENCES } from '../game/sequences.js';
+import { BUILD } from '../config.js';
 import { localSequences, saveLocalSequences, shotFromWorld, shotToWorld, cameraAt } from './director.js';
 import { CLIP_TABLE, clipLength, loadMoreClips, nameOfCode } from '../world/clipTable.js';
 import { PLAYER_COLORS, VIRTUAL } from '../config.js';
@@ -523,7 +524,7 @@ export class StudioScene extends ViewerScene {
   /** Call after changing it: saved, drawn, and the picture shows it. */
   changed({ redraw = true, inspect = true } = {}) {
     const all = localSequences();
-    if (hasAnything(this.seq)) all[this.key] = clone(this.seq); else delete all[this.key];
+    if (hasAnything(this.seq)) all[this.key] = { ...clone(this.seq), build: Number(BUILD) }; else delete all[this.key];
     const ok = saveLocalSequences(all);
     this.savedState(ok);
     if (redraw) this.draw();

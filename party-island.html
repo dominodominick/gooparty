@@ -352,7 +352,7 @@ __mods["js15/config.js"] = (() => {
 
 const GAME_TITLE = 'Party Island'; // placeholder name: pick your own
 
-const BUILD = '101'; // shown in the menu and in games; every player must have the same build
+const BUILD = '102'; // shown in the menu and in games; every player must have the same build
 
 const MAX_PLAYERS = 6;
 
@@ -2804,11 +2804,22 @@ const LOCAL = 'party-island-sequences';
 const FPS = 60;
 
 /** Sequences saved in this browser (the studio's), over the game's own. */
+// Sequences saved in a browser before the game shipped the real game's own (traced, build 101: `TRACED`) for that
+// moment are old: the traced one replaces them. (They stay in storage, unused; saving in the studio now stamps the build.)
+const TRACED = 101;
 function localSequences() {
-  try { return JSON.parse((typeof localStorage !== 'undefined' && localStorage.getItem(LOCAL)) || '{}') || {}; } catch (e) { return {}; }
+  let all = {};
+  try { all = JSON.parse((typeof localStorage !== 'undefined' && localStorage.getItem(LOCAL)) || '{}') || {}; } catch (e) { return {}; }
+  const out = {};
+  for (const [k, q] of Object.entries(all)) if (q && !(SEQUENCES[k] && SEQUENCES[k].from === 'trace' && !((q.build | 0) >= TRACED))) out[k] = q;
+  return out;
 }
 function saveLocalSequences(all) {
-  try { localStorage.setItem(LOCAL, JSON.stringify(all)); return true; } catch (e) { return false; }
+  try {
+    const old = JSON.parse(localStorage.getItem(LOCAL) || '{}') || {}, keep = {};
+    for (const [k, q] of Object.entries(old)) if (!(k in all) && q && SEQUENCES[k] && SEQUENCES[k].from === 'trace' && !((q.build | 0) >= TRACED)) keep[k] = q; // (the old, unused ones stay as they were)
+    localStorage.setItem(LOCAL, JSON.stringify({ ...keep, ...all })); return true;
+  } catch (e) { return false; }
 }
 /** The sequence a moment plays: this browser's (the studio's) if there is one, else the game's, else none. */
 function sequenceFor(key) {
@@ -3080,7 +3091,7 @@ function recordedSequence(key, rec) {
   return out;
 }
 
-return { localSequences, saveLocalSequences, sequenceFor, spotOf, anchorOf, fromAnchor, toAnchor, shotToWorld, shotFromWorld, builtinFrame, activeBlock, castSlots, cameraAt, setPawnFace, direct, recordedSequence };
+return { TRACED, localSequences, saveLocalSequences, sequenceFor, spotOf, anchorOf, fromAnchor, toAnchor, shotToWorld, shotFromWorld, builtinFrame, activeBlock, castSlots, cameraAt, setPawnFace, direct, recordedSequence };
 })();
 __mods["js15/game/boardCamera.js"] = (() => {
 // The real Board Game Island's board camera, measured from a trace of the real game (the owner's Wii Party recomp:
@@ -4772,7 +4783,7 @@ class ChallengeFX {
       else if (u < 0.62) { // three hits: lunge, the wall shakes
         const k = (u - 0.2) / 0.42 * 3, f = k - Math.floor(k), lunge = Math.sin(Math.min(1, f * 1.6) * Math.PI);
         pawn.x = reach.x + ux * lunge * 1.3; pawn.z = reach.z + uz * lunge * 1.3; pawn.y = reach.y + lunge * 0.5;
-        pawn.fx = { x: pawn.x, y: pawn.y, z: pawn.z, yaw, arms: [-1.6 - lunge * 1.2, -1.6 - lunge * 1.2], tilt: lunge * 0.25 };
+        pawn.fx = { x: pawn.x, y: pawn.y, z: pawn.z, yaw, arms: [-1.6 - lunge * 1.2, -1.6 - lunge * 1.2], tilt: lunge * 0.25, clip: Math.floor(k) % 2 ? 'pm301_05' : 'pm301_03', clipF: f * 24 }; // (the real game's punch and kick)
         const sh = f > 0.3 && f < 0.75 ? Math.sin(f * 60) * 0.35 : 0;
         if (obj && base) obj.position.set(base.x + sh, base.y, base.z + sh * 0.6);
       } else {
@@ -4906,7 +4917,7 @@ class ChallengeFX {
       // the player
       pawn.faceYaw = a.cut && cam ? Math.atan2(cam.x - here.x, cam.z - here.z) : yaw; // (the scene turns each pawn to its heading)
       if (f < blows) { const k = Math.floor(f / S.swing); pawn.fx = { ...here, yaw, clip, clipF: f - k * S.swing }; }
-      else if (f < cutAt) pawn.fx = dragon ? { ...here, yaw, clip: 'stance', clipF: f - blows } : { ...here, yaw, clip: 'idle' };
+      else if (f < cutAt) pawn.fx = dragon ? { ...here, yaw, clip: 'stance', clipF: f - blows } : { ...here, yaw, clip: 'pm011_08' };
       else {
         if (!a.cut) { // the cut: the wall is gone, the player turns to the camera on the way on
           a.cut = true;
@@ -4916,7 +4927,7 @@ class ChallengeFX {
           if (!dragon) this.s.openSummit && this.s.openSummit();
         }
         const face = cam ? Math.atan2(cam.x - here.x, cam.z - here.z) : yaw;
-        pawn.fx = f < cheerAt ? { ...here, yaw: face, clip: 'idle' } : { ...here, yaw: face, clip: 'pumped', clipF: f - cheerAt };
+        pawn.fx = f < cheerAt ? { ...here, yaw: face, clip: 'pm011_08' } : { ...here, yaw: face, clip: 'pumped', clipF: f - cheerAt };
       }
       // a glint on each blow
       while (a.shown < n && f >= impact(a.shown)) {
@@ -4943,7 +4954,7 @@ class ChallengeFX {
     a.step = (u) => {
       const f = u * total;
       if (cam && !a.cut) { a.cut = true; this.s.camHold = cam; this.s.snapCamera = true; this.s.closeUp = true; }
-      pawn.faceYaw = face; pawn.fx = f < S.beat ? { ...here, yaw: face, clip: 'idle' } : { ...here, yaw: face, clip: 'letdown', clipF: f - S.beat };
+      pawn.faceYaw = face; pawn.fx = f < S.beat ? { ...here, yaw: face, clip: 'pm011_08' } : { ...here, yaw: face, clip: 'letdown', clipF: f - S.beat };
       this.s.place(pawn);
     };
     a.end = () => { pawn.fx = null; this.s.closeUp = false; this.release(); };
@@ -4972,7 +4983,7 @@ class ChallengeFX {
     a.step = (u) => {
       const f = u * total;
       if (!a.cut) { a.cut = true; if (cam) { this.s.camHold = cam; this.s.snapCamera = true; } }
-      pawns.forEach((p, i) => { p.fx = f < S.beat ? { ...at[i], clip: 'idle' } : { ...at[i], clip: 'shock', clipF: f - S.beat }; this.s.place(p); });
+      pawns.forEach((p, i) => { p.fx = f < S.beat ? { ...at[i], clip: 'pm011_08' } : { ...at[i], clip: 'shock', clipF: f - S.beat }; this.s.place(p); });
     };
     a.end = () => {
       for (const p of pawns) p.fx = null;
@@ -5099,15 +5110,15 @@ class ChallengeFX {
     let shattered = false;
     const a = { t: 0, dur: ev.dur };
     a.step = (u) => {
-      if (u < 0.2) { const p = lerp3(from, reach, ease(u / 0.2)); pawn.x = p.x; pawn.y = p.y; pawn.z = p.z; pawn.fx = { x: p.x, y: p.y, z: p.z, yaw }; } // run up to it
+      if (u < 0.2) { const p = lerp3(from, reach, ease(u / 0.2)); pawn.x = p.x; pawn.y = p.y; pawn.z = p.z; pawn.fx = { x: p.x, y: p.y, z: p.z, yaw, clip: 'run' }; } // run up to it
       else if (u < 0.62) { // three hits: a lunge at it each time, and it shakes
         const k = (u - 0.2) / 0.42 * 3, f = k - Math.floor(k), lunge = Math.sin(Math.min(1, f * 1.6) * Math.PI);
         pawn.x = reach.x - dx * lunge * 0.7; pawn.z = reach.z - dz * lunge * 0.7; pawn.y = reach.y + lunge * 0.5;
-        pawn.fx = { x: pawn.x, y: pawn.y, z: pawn.z, yaw, arms: [-1.6 - lunge * 1.2, -1.6 - lunge * 1.2], tilt: lunge * 0.25 };
+        pawn.fx = { x: pawn.x, y: pawn.y, z: pawn.z, yaw, arms: [-1.6 - lunge * 1.2, -1.6 - lunge * 1.2], tilt: lunge * 0.25, clip: Math.floor(k) % 2 ? 'pm301_05' : 'pm301_03', clipF: f * 24 }; // (the real game's punch and kick)
         shake(f > 0.3 && f < 0.75 ? Math.sin(f * 60) * 0.2 : 0);
       } else {
         if (!shattered) {
-          shattered = true; shake(0); pawn.fx = { x: reach.x, y: reach.y, z: reach.z, yaw }; pawn.x = reach.x; pawn.y = reach.y; pawn.z = reach.z;
+          shattered = true; shake(0); pawn.fx = { x: reach.x, y: reach.y, z: reach.z, yaw, clip: 'pm301_01' }; pawn.x = reach.x; pawn.y = reach.y; pawn.z = reach.z;
           const ground = box ? box.min.y : c.y; this.burst({ x: c.x, y: ground, z: c.z }); // (the chips fly up from the ground and land on it)
           if (P) P.head.visible = false;
         }
@@ -5188,7 +5199,7 @@ class ChallengeFX {
         else if (t < OPEN + SPIT + BOUNCE) q = hop(out, out, (t - OPEN - SPIT) / BOUNCE, 0.7);                                              // one bounce
         else q = { ...out };
         o.ball.set(q);
-        if (t > OPEN + SPIT * 0.6) { const j = Math.abs(Math.sin((t - OPEN) * 14)) * 0.9; pawn.fx = { x: pawn.x, y: pawn.y + j, z: pawn.z, arms: [-2.8, -2.8] }; } // the player jumps in fright
+        if (t > OPEN + SPIT * 0.6) { const j = Math.abs(Math.sin((t - OPEN) * 14)) * 0.9; pawn.fx = { x: pawn.x, y: pawn.y + j * 0.3, z: pawn.z, arms: [-2.8, -2.8], clip: 'pm001_03' }; } // the player jumps in fright (pm001_03, as the real game)
       };
       a.end = () => {
         pawn.fx = null;
@@ -5306,7 +5317,7 @@ class ChallengeFX {
     const hp = (this.hideSpots && this.hideSpots.get(pawn.slot)) || this.hidePose(this.hidden.size + (this.hideSpots ? this.hideSpots.size : 0));
     if (this.hideSpots) this.hideSpots.delete(pawn.slot);
     this.hidden.set(pawn, hp);
-    pawn.fx = { x: hp.at.x, y: hp.at.y, z: hp.at.z, yaw: hp.yaw, arms: [0, 0] };
+    pawn.fx = { x: hp.at.x, y: hp.at.y, z: hp.at.z, yaw: hp.yaw, arms: [0, 0], clip: 'pm011_08' };
   }
 
   /** Back onto the space, without being seen: only once the ball is gone and the camera is not on them. */
@@ -5392,7 +5403,7 @@ class ChallengeFX {
       const near = Math.hypot(pawn.x - q.x, pawn.z - q.z), side = c.s < r.sEdge ? clamp01(1 - (near - 2) / 4) : 0;
       if (side > 0.01) {
         const a2 = r.at(c.s + 1), dx = a2.x - q.x, dz = a2.z - q.z, l = Math.hypot(dx, dz) || 1;
-        pawn.fx = { x: pawn.x - dz / l * side * 2.6, y: pawn.y + side * 0.6, z: pawn.z + dx / l * side * 2.6, arms: [-2.4, -2.4] }; c.dodgers.set(pawn, true);
+        pawn.fx = { x: pawn.x - dz / l * side * 2.6, y: pawn.y + side * 0.6, z: pawn.z + dx / l * side * 2.6, arms: [-2.4, -2.4], clip: 'pm001_03' }; c.dodgers.set(pawn, true);
       } else if (c.dodgers.has(pawn)) { pawn.fx = null; c.dodgers.delete(pawn); }
     }
     if (c.s > r.total || (c.fall || 0) > 1.6) { // long gone: the ball back in the statue's mouth, which shuts (the hiders stay put until the camera has left them)
@@ -5436,7 +5447,7 @@ class ChallengeFX {
       let k = clamp01((u - 0.36) / 0.36); if (!up) k = 1 - k;          // 0 on the ground, 1 inside the UFO
       const e = ease(k);
       pawn.scale = 1 - 0.85 * e;
-      pawn.fx = { x: ground.x, y: ground.y + (HOVER - 1.2) * e, z: ground.z, yaw: (pawn.yaw || 0) + e * 6, arms: [-2.8 * Math.min(1, e * 3), -2.8 * Math.min(1, e * 3)], groundY: ground.y };
+      pawn.fx = { x: ground.x, y: ground.y + (HOVER - 1.2) * e, z: ground.z, yaw: (pawn.yaw || 0) + e * 6, arms: [-2.8 * Math.min(1, e * 3), -2.8 * Math.min(1, e * 3)], groundY: ground.y, clip: up ? 'pm001_01' : 'pm001_11' }; // (the real game: pm001_01 beamed up, pm001_11 coming down)
       if (up ? u > 0.72 : u < 0.36) { pawn.scale = 0; } // inside the UFO: not to be seen
       this.s.place(pawn);
     };
@@ -5458,7 +5469,7 @@ class ChallengeFX {
     if (o && o.block) o.block.position.set(V.dir.x * slide * 3.2 / S, 0, V.dir.z * slide * 3.2 / S);
     const shove = ease(clamp01((u - 0.18) / 0.25)), fall = clamp01((u - 0.4) / 0.35);
     const p = lerp3(A, V.pit, shove); p.y = A.y + Math.sin(shove * Math.PI) * 0.8 - fall * fall * 26;
-    pawn.fx = { x: p.x, y: p.y, z: p.z, tilt: fall * 1.4, clip: 'tumble', arms: [-2.8, -2.8], groundY: A.y - 30 };
+    pawn.fx = { x: p.x, y: p.y, z: p.z, tilt: fall * 1.4, clip: 'pm001_11', arms: [-2.8, -2.8], groundY: A.y - 30 };
     return p;
   }
 
@@ -6699,7 +6710,8 @@ class BoardScene {
       }
       case 'win': {
         this.camSlot = ev.slot;
-        const wp = this.pawns[ev.slot]; if (wp) wp.cheer = 'win'; // (they celebrate, arms up, from now on)
+        const wp = this.pawns[ev.slot]; if (wp) wp.cheer = 'pm000_11'; // (they celebrate from now on: the real game's pm000_11)
+        for (const [k, o] of Object.entries(this.pawns || {})) if (o && Number(k) !== ev.slot) { o.cheer = 'pm000_15'; setPawnFace(o, 3); } // (the others: heads hung, Sorrow, as the real game)
         this.openSummit();
         this.setBanner(`${esc(this.nameOf(ev.slot))} wins!`);
         this.anim = { t: 0, dur: ev.dur };
@@ -7106,13 +7118,13 @@ class BoardScene {
         else ext = 1 - ease01((u - T3) / (1 - T3));
         sp.set(Math.max(0.001, ext));
         const top = A.y + H * Math.max(0, ext); // the player stands on the spring's top until it fires
-        if (u < T2) { yOff = top - A.y; pawn.x = A.x; pawn.z = A.z; pawn.y = A.y + yOff; pawn.fx = { x: A.x, y: A.y + yOff, z: A.z, yaw: faceYaw, arms: [-0.4, -0.4], groundY: A.y, clip: 'springWind', clipF: (u / T2) * (WIND_FRAMES - 1) }; } // (bracing as it winds up: Wii Party's pm001_08, ending as it fires)
+        if (u < T2) { yOff = top - A.y; pawn.x = A.x; pawn.z = A.z; pawn.y = A.y + yOff; pawn.fx = { x: A.x, y: A.y + yOff, z: A.z, yaw: faceYaw, arms: [-0.4, -0.4], groundY: A.y, ...(back || u < T1 ? { clip: 'pm001_15' } : { clip: 'springWind', clipF: ((u - T1) / (T2 - T1)) * (WIND_FRAMES - 1) }) }; } // (bracing as it winds up: Wii Party's pm001_08, ending as it fires)
         else {
           const f = clamp01((u - T2) / (T3 - 0.06 - T2)), y0 = A.y + H;
           const x = A.x + (B.x - A.x) * f, z = A.z + (B.z - A.z) * f, y = y0 + (B.y - y0) * f + Math.sin(f * Math.PI) * lift;
           const q = nearestPath(x, z), gy = q && q.d < 2.4 ? q.y + 0.08 : terrainHeight(x, z) + 0.14;
           pawn.x = x; pawn.y = y; pawn.z = z;
-          pawn.fx = f < 1 ? { x, y, z, yaw: faceYaw, arms: [-2.8, -2.8], legs: [back ? -0.5 : 0.5, back ? 0.4 : -0.4], tilt: (back ? 0.35 : -0.35) * Math.sin(f * Math.PI), groundY: ev.path[0] && ev.path[0].track === 'volcano' ? Math.min(A.y, B.y) - 0.28 : gy } : null;
+          pawn.fx = f < 1 ? { x, y, z, yaw: faceYaw, clip: back ? 'pm001_11' : 'pm001_09', clipF: back ? null : Math.min(29, f * 29), arms: [-2.8, -2.8], legs: [back ? -0.5 : 0.5, back ? 0.4 : -0.4], tilt: (back ? 0.35 : -0.35) * Math.sin(f * Math.PI), groundY: ev.path[0] && ev.path[0].track === 'volcano' ? Math.min(A.y, B.y) - 0.28 : gy } : null;
           if (count) this.setCounter(count, Math.round(count.total * (1 - f)));
         }
         this.place(pawn);
@@ -7120,7 +7132,8 @@ class BoardScene {
       a.cleanup = () => { sp.group.visible = false; sp.set(0.001); };
     } else if (ev.mode === 'knock') {
       // Blown back by the dragon's fireball, as in Wii Party: knocked off their feet in one low arc backwards onto the
-      // space behind (pm001_04, which ends sitting), sat there dazed (pm001_05), then back up (pm206_03). Facing the dragon.
+      // space behind (pm001_11 in the air, landing pm001_12: the trace of the real game), sat there dazed (pm001_05), then
+      // back up (pm206_03). Facing the dragon.
       const faceYaw = Math.atan2(A.x - B.x, A.z - B.z), lift = 1.6, D = ev.dur || 2200;
       const T1 = Math.min(0.45, 600 / D), T3 = Math.max(T1, 1 - GETUP_MS / D); // in the air until T1; getting up from T3
       // once they land: a cut, from the wall's side, back down the path at them (no number badge in the close-up)
@@ -7132,7 +7145,7 @@ class BoardScene {
         const f = clamp01(u / T1), e = 1 - (1 - f) * (1 - f); // fast off the ground, slowing into the landing
         const x = A.x + (B.x - A.x) * e, z = A.z + (B.z - A.z) * e, y = A.y + (B.y - A.y) * e + Math.sin(f * Math.PI) * lift;
         pawn.x = x; pawn.y = y; pawn.z = z; pawn.yaw = pawn.faceYaw = faceYaw;
-        pawn.fx = u >= 1 ? null : this.downAndUp({ x, y, z, yaw: faceYaw }, u * D, T1 * D, T3 * D, f < 1 ? Math.min(A.y, B.y) : null);
+        pawn.fx = u >= 1 ? null : this.downAndUp({ x, y, z, yaw: faceYaw }, u * D, T1 * D, T3 * D, f < 1 ? Math.min(A.y, B.y) : null, 520);
         if (count) this.setCounter(count, f < 1 ? count.total : 0);
         this.place(pawn);
       };
@@ -7437,18 +7450,18 @@ class BoardScene {
       if (u < T1) { // standing there, looking up as it comes in
         const w = clamp01(u / T1);
         pawn.x = A.x; pawn.y = A.y; pawn.z = A.z;
-        pawn.fx = { x: A.x, y: A.y, z: A.z, yaw: upYaw, clip: 'scared', arms: [-1.6 * w, -1.6 * w], tilt: -0.25 * w, groundY: A.y };
+        pawn.fx = { x: A.x, y: A.y, z: A.z, yaw: upYaw, clip: 'pm001_03', arms: [-1.6 * w, -1.6 * w], tilt: -0.25 * w, groundY: A.y };
       } else if (u < T2) { // blown back, tumbling over
         const g = clamp01((u - T1) / (T2 - T1)), e = 1 - (1 - g) * (1 - g);
         const x = A.x + (B.x - A.x) * e, z = A.z + (B.z - A.z) * e, y = A.y + (B.y - A.y) * e + Math.sin(g * Math.PI) * lift;
         const q = nearestPath(x, z), gy = q && q.d < 2.4 ? q.y + 0.08 : terrainHeight(x, z) + 0.14;
         pawn.x = x; pawn.y = y; pawn.z = z;
-        pawn.fx = { x, y, z, yaw: faceYaw, clip: 'tumble', tilt: 0.5 + 1.6 * Math.sin(g * Math.PI * 0.9), arms: [-2.8, -2.2], legs: [0.6, -0.5], groundY: gy };
+        pawn.fx = { x, y, z, yaw: faceYaw, clip: 'pm001_11', tilt: 0.5 + 1.6 * Math.sin(g * Math.PI * 0.9), arms: [-2.8, -2.2], legs: [0.6, -0.5], groundY: gy };
         if (count) this.setCounter(count, Math.round(count.total * (1 - e)));
       } else { // down with a bump, and back up
         const l = clamp01((u - T2) / (1 - T2));
         pawn.x = B.x; pawn.y = B.y; pawn.z = B.z;
-        pawn.fx = l < 1 ? { x: B.x, y: B.y, z: B.z, yaw: faceYaw, clip: 'land', clipF: l * 30, tilt: 0.45 * (1 - l), arms: [-1.4 * (1 - l), -1.4 * (1 - l)] } : null;
+        pawn.fx = l < 1 ? { x: B.x, y: B.y, z: B.z, yaw: faceYaw, clip: 'pm001_12', clipF: l * 30, tilt: 0.45 * (1 - l), arms: [-1.4 * (1 - l), -1.4 * (1 - l)] } : null;
         if (count) this.setCounter(count, 0);
       }
       this.place(pawn);
@@ -7496,7 +7509,7 @@ class BoardScene {
       if (t >= t3) { const d = clamp01((t - t3) / tDrop); x = B.x; z = B.z; y = lastY + (B.y - lastY) * d * d; }
       else lastY = y;
       pawn.x = x; pawn.y = y; pawn.z = z;
-      pawn.fx = t >= t3 && y <= B.y + 0.01 ? null : { x, y, z, yaw: spinYaw, clip: t < t3 ? 'tumble' : 'fly', arms: [-2.6, -2.6], legs: [0.5, -0.4], tilt: t < t3 ? 0.25 : 0, groundY: at.y };
+      pawn.fx = t >= t3 && y <= B.y + 0.01 ? null : { x, y, z, yaw: spinYaw, clip: 'pm001_11', arms: [-2.6, -2.6], legs: [0.5, -0.4], tilt: t < t3 ? 0.25 : 0, groundY: at.y };
       this.place(pawn);
     };
     out.cleanup = () => { g.visible = false; };
@@ -7529,11 +7542,13 @@ class BoardScene {
 
   /**
    * Knocked down, sat there dazed, back up: a set piece's pose `p` (where they are, facing) `t` ms in, knocked down until
-   * `down` ms (pm001_04: from standing onto their bottom), dazed until `up` (pm001_05), then getting up (pm206_03).
+   * `down` ms (pm001_12: landing, as the trace of the real game), dazed until `up` (pm001_05), then getting up (pm206_03).
+   * In the air (`groundY` set): flying back (pm001_11).
    * `groundY`: in the air (still flying back) or null.
    */
-  downAndUp(p, t, down, up, groundY = null) {
-    if (t < down) return { ...p, clip: 'knock', clipF: Math.min(KNOCK_FRAMES - 1, t / down * (KNOCK_FRAMES - 1)), groundY };
+  downAndUp(p, t, down, up, groundY = null, land = 0) {
+    if (groundY != null) return { ...p, clip: 'pm001_11', groundY }; // (still flying back)
+    if (t < down + land) return { ...p, clip: 'pm001_12', clipF: Math.max(0, t - down) * 0.06 }; // (landing: `land` ms of pm001_12)
     if (t < up) return { ...p, clip: 'sitStunned', clipF: (t - down) / 1000 * 60 };
     return { ...p, clip: 'getUp', clipF: Math.min(GETUP_FRAMES - 1, (t - up) / GETUP_MS * (GETUP_FRAMES - 1)) };
   }
@@ -7596,30 +7611,30 @@ class BoardScene {
         if (red) {
           if (t < TL.grab) { // waiting on the space (or walking up to where the hands will close)
             const k = walkUp ? clamp01((t - ms(150)) / ms(90)) : 0;
-            stand(lerp3v(A, getOn, k), { arms: ready });
-          } else if (t < TL.lift) stand(getOn, { arms: [-2.9, -2.9], legs: [0.2, -0.2] }); // grabbed
-          else { const c = carried('throw', TL.at(t).f); stand(c.p, { quat: c.q, arms: [-2.9, -2.9], legs: [0.5, -0.5], groundY: A.y }); }
-        } else if (t < TL.hop[0]) stand(A, { arms: ready });
+            stand(lerp3v(A, getOn, k), { arms: ready, clip: k > 0 && k < 1 ? 'walk' : 'pm011_08' });
+          } else if (t < TL.lift) stand(getOn, { arms: [-2.9, -2.9], legs: [0.2, -0.2], clip: 'pm001_03' }); // grabbed (startled, as the real game)
+          else { const c = carried('throw', TL.at(t).f); stand(c.p, { quat: c.q, arms: [-2.9, -2.9], legs: [0.5, -0.5], groundY: A.y, clip: 'pm001_02' }); }
+        } else if (t < TL.hop[0]) stand(A, { arms: ready, clip: 'pm011_09' });
         else if (t < TL.hop[1]) { // a hop from the space onto the flat hands
           const k = (t - TL.hop[0]) / (TL.hop[1] - TL.hop[0]);
-          stand(hop(A, getOn, ease01(k), 1.3), { arms: [-2.4, -2.4], legs: [0.5 * Math.sin(Math.PI * k), -0.4 * Math.sin(Math.PI * k)], groundY: k < 0.5 ? A.y : getOn.y });
-        } else if (t < TL.lift) stand(getOn, { arms: [-0.5, -0.5], groundY: getOn.y });
+          stand(hop(A, getOn, ease01(k), 1.3), { arms: [-2.4, -2.4], legs: [0.5 * Math.sin(Math.PI * k), -0.4 * Math.sin(Math.PI * k)], groundY: k < 0.5 ? A.y : getOn.y, clip: 'pm405_02' });
+        } else if (t < TL.lift) stand(getOn, { arms: [-0.5, -0.5], groundY: getOn.y, clip: 'pm011_08' });
         else { // riding the hands: down, then flung up
           const f = TL.at(t).f, c = carried('launch', f);
-          stand(c.p, { quat: c.q, arms: f < 58 ? [-0.5, -0.5] : [-2.8, -2.8], legs: f < 58 ? [0.35, -0.35] : [0.6, -0.5], groundY: f < 58 ? c.p.y : A.y });
+          stand(c.p, { quat: c.q, arms: f < 58 ? [-0.5, -0.5] : [-2.8, -2.8], legs: f < 58 ? [0.35, -0.35] : [0.6, -0.5], groundY: f < 58 ? c.p.y : A.y, clip: f < 58 ? 'pm011_08' : 'pm405_09' });
         }
       } else if (t < TL.land) { // high over the island
         const f = (t - TL.release) / (TL.land - TL.release), s0 = flyFrom;
         const x = s0.x + (P.x - s0.x) * f, z = s0.z + (P.z - s0.z) * f, y = s0.y + (P.y - s0.y) * f + Math.sin(f * Math.PI) * lift;
         const q = nearestPath(x, z), gy = q && q.d < 2.4 ? q.y + 0.08 : terrainHeight(x, z) + 0.14;
         pawn.x = x; pawn.y = y; pawn.z = z;
-        pawn.fx = { x, y, z, yaw: faceStatue + f * Math.PI * 6, arms: [-2.8, -2.8], legs: [0.6, -0.5], tilt: -0.6 * Math.sin(f * Math.PI), groundY: gy };
+        pawn.fx = { x, y, z, yaw: faceStatue + f * Math.PI * 6, arms: [-2.8, -2.8], legs: [0.6, -0.5], tilt: -0.6 * Math.sin(f * Math.PI), groundY: gy, clip: red ? 'pm001_01' : 'pm405_09' }; // (as the real game: red, pm001_01; blue, pm405_09)
         if (count) this.setCounter(count, Math.round(count.total * (1 - f)));
       } else if (t < TL.walk) { // a thump on the platform, then a moment standing there (red: down on their bottom, dazed, and back up)
         const k = clamp01((t - TL.land) / (dur * 0.03));
         pawn.x = P.x; pawn.y = P.y; pawn.z = P.z;
         pawn.fx = red ? this.downAndUp({ x: P.x, y: P.y, z: P.z, yaw: walkYaw }, t - TL.land, 0, Math.max(0, TL.walk - TL.land - GETUP_MS))
-          : { x: P.x, y: P.y - Math.sin(k * Math.PI) * 0.3, z: P.z, yaw: walkYaw, arms: [-0.7 * (1 - k), -0.7 * (1 - k)], legs: [0.5 * (1 - k), -0.5 * (1 - k)] };
+          : { x: P.x, y: P.y - Math.sin(k * Math.PI) * 0.3, z: P.z, yaw: walkYaw, arms: [-0.7 * (1 - k), -0.7 * (1 - k)], legs: [0.5 * (1 - k), -0.5 * (1 - k)], ...(t - TL.land < Math.min(1100, (TL.walk - TL.land) * 0.45) ? { clip: 'pm001_09', clipF: Math.min(29, (t - TL.land) * 0.06) } : { clip: 'pm001_10', clipF: (t - TL.land - Math.min(1100, (TL.walk - TL.land) * 0.45)) * 0.06 }) }; // (blue: touching down, pm001_09, then the cheer, pm001_10: the trace)
         if (count) this.setCounter(count, 0);
       } else { // walk to the edge, step down, walk onto the space
         const k = (t - TL.walk) / (dur - TL.walk), s1 = { x: edge.x + (B.x - edge.x) * 0.35, y: B.y, z: edge.z + (B.z - edge.z) * 0.35 };
@@ -7905,7 +7920,7 @@ class BoardScene {
    * The Mii body's animation, from Wii Party's own clips (world/wpMii.js): what the pawn is doing picks the clip.
    *  - a set piece can name one (fx.clip, at fx.clipF frames or from when it started);
    *  - hanging from the vine (arms straight up): 'hang'; in the air: 'fly' (arms and legs flailing);
-   *  - a set piece holding the pawn on the ground with its arms up high (a fright): 'scared'; otherwise standing: 'idle';
+   *  - a set piece holding the pawn on the ground with its arms up high (a fright): pm001_03; otherwise standing: pm011_08 (the real game's);
    *  - walking or running along the path: 'walk' / 'run', in step with how far the pawn has gone.
    * A change of clip blends over a fifth of a second.
    */
@@ -7914,12 +7929,13 @@ class BoardScene {
     if (F && F.clip) { clip = F.clip; if (F.clipF != null) frame = F.clipF; }
     else if (F && F.arms && F.arms[0] <= -2.95) clip = 'hang';
     else if (flying) clip = 'fly';
-    else if (F && F.arms && F.arms[0] <= -2.5) clip = 'scared';
-    else if (F) clip = 'idle';
+    else if (F && F.arms && F.arms[0] <= -2.5) clip = 'pm001_03'; // (startled: the real game's pm001_03)
+    else if (F) clip = 'pm011_08'; // (standing in a set piece: the real game's board idle, pm011_08)
     else if (pawn.wonder) clip = 'wonder'; // ("what is about to happen?": before the UFO, a blue spring, the fireball, the skull, the ! space, a tornado)
     else if (pawn.amp > 0.2) clip = pawn.fleeing ? 'pm405_04' : speed > 6 ? 'run' : 'walk'; // (the real board runs everywhere, walking only as they come to a stop)
     else if (pawn.after && pawn.after.left > 0) { clip = pawn.after.clip; pawn.after.left -= dt; if (pawn.after.face != null) setPawnFace(pawn, pawn.after.left > 0 ? pawn.after.face : 0); } // (a moment that lingers: sad after the spike ball)
-    else clip = pawn.rollClip || pawn.cheer || this.boardIdle(pawn, dt); // (rollClip: waiting on the die: puzzled, or eager at the dragon wall and the summit)
+    else clip = pawn.rollClip || pawn.cheer || this.boardIdle(pawn, dt);
+    if (clip === pawn.cheer && (clip === 'pm000_11' || clip === 'pm000_15')) setPawnFace(pawn, clip === 'pm000_11' ? 1 : 3); // (after the win: the winner smiling, the others sad) // (rollClip: waiting on the die: puzzled, or eager at the dragon wall and the summit)
     const W = pawn.wp || (pawn.wp = { clip: null, t: 0, prev: null, prevF: 0, blend: 1, dist: 0 });
     if (clip !== W.clip) { W.prev = W.clip; W.prevF = W.f || 0; W.clip = clip; W.t = 0; W.blend = W.prev ? 0 : 1; }
     W.t += dt; W.blend = Math.min(1, W.blend + dt / 0.2);
@@ -7929,7 +7945,7 @@ class BoardScene {
     if (W.blend < 1 && W.prev) { wp.pose(W.prev, W.prevF); wp.pose(clip, f, W.blend); } else wp.pose(clip, f);
     // the body stays where the game puts the pawn: the clip's own travel (its root bone moving off) is left out
     const root = wp.bones.ske_root;
-    if (root) { root.position.x = 0; root.position.z = 0; if ((flying && clip !== 'knock') || clip === 'hang' || clip === 'fly' || clip === 'tumble') root.position.y = 60; } // (knock: falling onto their bottom as they land, not held up)
+    if (root) { root.position.x = 0; root.position.z = 0; if ((flying && clip !== 'knock' && clip !== 'pm001_12') || clip === 'hang' || clip === 'fly' || clip === 'tumble' || clip === 'pm001_13' || clip === 'pm001_11' || clip === 'pm001_09') root.position.y = 60; } // (knock: falling onto their bottom as they land, not held up)
   }
 
   /**
@@ -9185,6 +9201,7 @@ const { app } = __mods["js15/app.js"];
 const { ViewerScene, FACES } = __mods["js15/scenes/viewerScene.js"];
 const { allMoments, castOf, sequenceFrames, upgradeSequence } = __mods["js15/game/moments.js"];
 const { SEQUENCES } = __mods["js15/game/sequences.js"];
+const { BUILD } = __mods["js15/config.js"];
 const { localSequences, saveLocalSequences, shotFromWorld, shotToWorld, cameraAt } = __mods["js15/scenes/director.js"];
 const { CLIP_TABLE, clipLength, loadMoreClips, nameOfCode } = __mods["js15/world/clipTable.js"];
 const { PLAYER_COLORS, VIRTUAL } = __mods["js15/config.js"];
@@ -9695,7 +9712,7 @@ class StudioScene extends ViewerScene {
   /** Call after changing it: saved, drawn, and the picture shows it. */
   changed({ redraw = true, inspect = true } = {}) {
     const all = localSequences();
-    if (hasAnything(this.seq)) all[this.key] = clone(this.seq); else delete all[this.key];
+    if (hasAnything(this.seq)) all[this.key] = { ...clone(this.seq), build: Number(BUILD) }; else delete all[this.key];
     const ok = saveLocalSequences(all);
     this.savedState(ok);
     if (redraw) this.draw();

@@ -26,11 +26,22 @@ const LOCAL = 'party-island-sequences';
 const FPS = 60;
 
 /** Sequences saved in this browser (the studio's), over the game's own. */
+// Sequences saved in a browser before the game shipped the real game's own (traced, build 101: `TRACED`) for that
+// moment are old: the traced one replaces them. (They stay in storage, unused; saving in the studio now stamps the build.)
+export const TRACED = 101;
 export function localSequences() {
-  try { return JSON.parse((typeof localStorage !== 'undefined' && localStorage.getItem(LOCAL)) || '{}') || {}; } catch (e) { return {}; }
+  let all = {};
+  try { all = JSON.parse((typeof localStorage !== 'undefined' && localStorage.getItem(LOCAL)) || '{}') || {}; } catch (e) { return {}; }
+  const out = {};
+  for (const [k, q] of Object.entries(all)) if (q && !(SEQUENCES[k] && SEQUENCES[k].from === 'trace' && !((q.build | 0) >= TRACED))) out[k] = q;
+  return out;
 }
 export function saveLocalSequences(all) {
-  try { localStorage.setItem(LOCAL, JSON.stringify(all)); return true; } catch (e) { return false; }
+  try {
+    const old = JSON.parse(localStorage.getItem(LOCAL) || '{}') || {}, keep = {};
+    for (const [k, q] of Object.entries(old)) if (!(k in all) && q && SEQUENCES[k] && SEQUENCES[k].from === 'trace' && !((q.build | 0) >= TRACED)) keep[k] = q; // (the old, unused ones stay as they were)
+    localStorage.setItem(LOCAL, JSON.stringify({ ...keep, ...all })); return true;
+  } catch (e) { return false; }
 }
 /** The sequence a moment plays: this browser's (the studio's) if there is one, else the game's, else none. */
 export function sequenceFor(key) {

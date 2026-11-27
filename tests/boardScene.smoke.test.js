@@ -693,7 +693,7 @@ assert.ok(DUR.fly >= 2400 && DUR.drop >= 1800);
     assert.equal(peaks, 1, 'a single arc, no hopping about'); assert.ok(back, 'always moving away from the dragon');
     assert.ok(Math.hypot(pw.x - B.x, pw.z - B.z) < 1e-6, 'lands on the space behind');
     assert.equal(pw.fx, null, 'on their feet at the end');
-    assert.deepEqual(clips, ['knock', 'sitStunned', 'getUp'], 'v93: knocked down, dazed, back up (pm001_04, pm001_05, pm206_03)');
+    assert.deepEqual(clips, ['pm001_11', 'pm001_12', 'sitStunned', 'getUp'], 'v101: flung back, landing, dazed, back up (pm001_11, pm001_12, pm001_05, pm206_03: the trace)');
     mv.end && mv.end();
   }
   // everyone below the spike ball runs at the same time: a move marked "with" plays alongside the one before it
@@ -1072,7 +1072,7 @@ for (const type of ['plus5', 'minus4', 'ufo', 'tornado', 'skull', 'volcano', 'mg
     { // v93: red: down on their bottom on the platform (pm001_05), then back up (pm206_03) before walking off; blue lands on its feet
       const sit = at_(TL.land + 300), rise = at_(TL.walk - 200), walk = at_(TL.walk + 200);
       if (color === 'red') { assert.equal(sit.fx.clip, 'sitStunned', 'red: sat dazed on the platform'); assert.equal(rise.fx.clip, 'getUp', 'red: then gets up'); }
-      else assert.ok(!sit.fx.clip && !rise.fx.clip, 'blue: as it was');
+      else { assert.equal(sit.fx.clip, 'pm001_09', 'blue: lands (pm001_09), as the real game'); assert.equal(rise.fx.clip, 'pm001_10', 'blue: then cheers (pm001_10)'); }
       assert.equal(walk.fx, null, `${color}: walking off`);
     }
     const end = at_(13000); assert.ok(d2(end, B) < 0.01 && pawn.fx === null, `${color}: walks off onto the space`);

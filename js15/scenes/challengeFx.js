@@ -494,7 +494,7 @@ export class ChallengeFX {
       else if (u < 0.62) { // three hits: lunge, the wall shakes
         const k = (u - 0.2) / 0.42 * 3, f = k - Math.floor(k), lunge = Math.sin(Math.min(1, f * 1.6) * Math.PI);
         pawn.x = reach.x + ux * lunge * 1.3; pawn.z = reach.z + uz * lunge * 1.3; pawn.y = reach.y + lunge * 0.5;
-        pawn.fx = { x: pawn.x, y: pawn.y, z: pawn.z, yaw, arms: [-1.6 - lunge * 1.2, -1.6 - lunge * 1.2], tilt: lunge * 0.25 };
+        pawn.fx = { x: pawn.x, y: pawn.y, z: pawn.z, yaw, arms: [-1.6 - lunge * 1.2, -1.6 - lunge * 1.2], tilt: lunge * 0.25, clip: Math.floor(k) % 2 ? 'pm301_05' : 'pm301_03', clipF: f * 24 }; // (the real game's punch and kick)
         const sh = f > 0.3 && f < 0.75 ? Math.sin(f * 60) * 0.35 : 0;
         if (obj && base) obj.position.set(base.x + sh, base.y, base.z + sh * 0.6);
       } else {
@@ -628,7 +628,7 @@ export class ChallengeFX {
       // the player
       pawn.faceYaw = a.cut && cam ? Math.atan2(cam.x - here.x, cam.z - here.z) : yaw; // (the scene turns each pawn to its heading)
       if (f < blows) { const k = Math.floor(f / S.swing); pawn.fx = { ...here, yaw, clip, clipF: f - k * S.swing }; }
-      else if (f < cutAt) pawn.fx = dragon ? { ...here, yaw, clip: 'stance', clipF: f - blows } : { ...here, yaw, clip: 'idle' };
+      else if (f < cutAt) pawn.fx = dragon ? { ...here, yaw, clip: 'stance', clipF: f - blows } : { ...here, yaw, clip: 'pm011_08' };
       else {
         if (!a.cut) { // the cut: the wall is gone, the player turns to the camera on the way on
           a.cut = true;
@@ -638,7 +638,7 @@ export class ChallengeFX {
           if (!dragon) this.s.openSummit && this.s.openSummit();
         }
         const face = cam ? Math.atan2(cam.x - here.x, cam.z - here.z) : yaw;
-        pawn.fx = f < cheerAt ? { ...here, yaw: face, clip: 'idle' } : { ...here, yaw: face, clip: 'pumped', clipF: f - cheerAt };
+        pawn.fx = f < cheerAt ? { ...here, yaw: face, clip: 'pm011_08' } : { ...here, yaw: face, clip: 'pumped', clipF: f - cheerAt };
       }
       // a glint on each blow
       while (a.shown < n && f >= impact(a.shown)) {
@@ -665,7 +665,7 @@ export class ChallengeFX {
     a.step = (u) => {
       const f = u * total;
       if (cam && !a.cut) { a.cut = true; this.s.camHold = cam; this.s.snapCamera = true; this.s.closeUp = true; }
-      pawn.faceYaw = face; pawn.fx = f < S.beat ? { ...here, yaw: face, clip: 'idle' } : { ...here, yaw: face, clip: 'letdown', clipF: f - S.beat };
+      pawn.faceYaw = face; pawn.fx = f < S.beat ? { ...here, yaw: face, clip: 'pm011_08' } : { ...here, yaw: face, clip: 'letdown', clipF: f - S.beat };
       this.s.place(pawn);
     };
     a.end = () => { pawn.fx = null; this.s.closeUp = false; this.release(); };
@@ -694,7 +694,7 @@ export class ChallengeFX {
     a.step = (u) => {
       const f = u * total;
       if (!a.cut) { a.cut = true; if (cam) { this.s.camHold = cam; this.s.snapCamera = true; } }
-      pawns.forEach((p, i) => { p.fx = f < S.beat ? { ...at[i], clip: 'idle' } : { ...at[i], clip: 'shock', clipF: f - S.beat }; this.s.place(p); });
+      pawns.forEach((p, i) => { p.fx = f < S.beat ? { ...at[i], clip: 'pm011_08' } : { ...at[i], clip: 'shock', clipF: f - S.beat }; this.s.place(p); });
     };
     a.end = () => {
       for (const p of pawns) p.fx = null;
@@ -821,15 +821,15 @@ export class ChallengeFX {
     let shattered = false;
     const a = { t: 0, dur: ev.dur };
     a.step = (u) => {
-      if (u < 0.2) { const p = lerp3(from, reach, ease(u / 0.2)); pawn.x = p.x; pawn.y = p.y; pawn.z = p.z; pawn.fx = { x: p.x, y: p.y, z: p.z, yaw }; } // run up to it
+      if (u < 0.2) { const p = lerp3(from, reach, ease(u / 0.2)); pawn.x = p.x; pawn.y = p.y; pawn.z = p.z; pawn.fx = { x: p.x, y: p.y, z: p.z, yaw, clip: 'run' }; } // run up to it
       else if (u < 0.62) { // three hits: a lunge at it each time, and it shakes
         const k = (u - 0.2) / 0.42 * 3, f = k - Math.floor(k), lunge = Math.sin(Math.min(1, f * 1.6) * Math.PI);
         pawn.x = reach.x - dx * lunge * 0.7; pawn.z = reach.z - dz * lunge * 0.7; pawn.y = reach.y + lunge * 0.5;
-        pawn.fx = { x: pawn.x, y: pawn.y, z: pawn.z, yaw, arms: [-1.6 - lunge * 1.2, -1.6 - lunge * 1.2], tilt: lunge * 0.25 };
+        pawn.fx = { x: pawn.x, y: pawn.y, z: pawn.z, yaw, arms: [-1.6 - lunge * 1.2, -1.6 - lunge * 1.2], tilt: lunge * 0.25, clip: Math.floor(k) % 2 ? 'pm301_05' : 'pm301_03', clipF: f * 24 }; // (the real game's punch and kick)
         shake(f > 0.3 && f < 0.75 ? Math.sin(f * 60) * 0.2 : 0);
       } else {
         if (!shattered) {
-          shattered = true; shake(0); pawn.fx = { x: reach.x, y: reach.y, z: reach.z, yaw }; pawn.x = reach.x; pawn.y = reach.y; pawn.z = reach.z;
+          shattered = true; shake(0); pawn.fx = { x: reach.x, y: reach.y, z: reach.z, yaw, clip: 'pm301_01' }; pawn.x = reach.x; pawn.y = reach.y; pawn.z = reach.z;
           const ground = box ? box.min.y : c.y; this.burst({ x: c.x, y: ground, z: c.z }); // (the chips fly up from the ground and land on it)
           if (P) P.head.visible = false;
         }
@@ -910,7 +910,7 @@ export class ChallengeFX {
         else if (t < OPEN + SPIT + BOUNCE) q = hop(out, out, (t - OPEN - SPIT) / BOUNCE, 0.7);                                              // one bounce
         else q = { ...out };
         o.ball.set(q);
-        if (t > OPEN + SPIT * 0.6) { const j = Math.abs(Math.sin((t - OPEN) * 14)) * 0.9; pawn.fx = { x: pawn.x, y: pawn.y + j, z: pawn.z, arms: [-2.8, -2.8] }; } // the player jumps in fright
+        if (t > OPEN + SPIT * 0.6) { const j = Math.abs(Math.sin((t - OPEN) * 14)) * 0.9; pawn.fx = { x: pawn.x, y: pawn.y + j * 0.3, z: pawn.z, arms: [-2.8, -2.8], clip: 'pm001_03' }; } // the player jumps in fright (pm001_03, as the real game)
       };
       a.end = () => {
         pawn.fx = null;
@@ -1028,7 +1028,7 @@ export class ChallengeFX {
     const hp = (this.hideSpots && this.hideSpots.get(pawn.slot)) || this.hidePose(this.hidden.size + (this.hideSpots ? this.hideSpots.size : 0));
     if (this.hideSpots) this.hideSpots.delete(pawn.slot);
     this.hidden.set(pawn, hp);
-    pawn.fx = { x: hp.at.x, y: hp.at.y, z: hp.at.z, yaw: hp.yaw, arms: [0, 0] };
+    pawn.fx = { x: hp.at.x, y: hp.at.y, z: hp.at.z, yaw: hp.yaw, arms: [0, 0], clip: 'pm011_08' };
   }
 
   /** Back onto the space, without being seen: only once the ball is gone and the camera is not on them. */
@@ -1114,7 +1114,7 @@ export class ChallengeFX {
       const near = Math.hypot(pawn.x - q.x, pawn.z - q.z), side = c.s < r.sEdge ? clamp01(1 - (near - 2) / 4) : 0;
       if (side > 0.01) {
         const a2 = r.at(c.s + 1), dx = a2.x - q.x, dz = a2.z - q.z, l = Math.hypot(dx, dz) || 1;
-        pawn.fx = { x: pawn.x - dz / l * side * 2.6, y: pawn.y + side * 0.6, z: pawn.z + dx / l * side * 2.6, arms: [-2.4, -2.4] }; c.dodgers.set(pawn, true);
+        pawn.fx = { x: pawn.x - dz / l * side * 2.6, y: pawn.y + side * 0.6, z: pawn.z + dx / l * side * 2.6, arms: [-2.4, -2.4], clip: 'pm001_03' }; c.dodgers.set(pawn, true);
       } else if (c.dodgers.has(pawn)) { pawn.fx = null; c.dodgers.delete(pawn); }
     }
     if (c.s > r.total || (c.fall || 0) > 1.6) { // long gone: the ball back in the statue's mouth, which shuts (the hiders stay put until the camera has left them)
@@ -1158,7 +1158,7 @@ export class ChallengeFX {
       let k = clamp01((u - 0.36) / 0.36); if (!up) k = 1 - k;          // 0 on the ground, 1 inside the UFO
       const e = ease(k);
       pawn.scale = 1 - 0.85 * e;
-      pawn.fx = { x: ground.x, y: ground.y + (HOVER - 1.2) * e, z: ground.z, yaw: (pawn.yaw || 0) + e * 6, arms: [-2.8 * Math.min(1, e * 3), -2.8 * Math.min(1, e * 3)], groundY: ground.y };
+      pawn.fx = { x: ground.x, y: ground.y + (HOVER - 1.2) * e, z: ground.z, yaw: (pawn.yaw || 0) + e * 6, arms: [-2.8 * Math.min(1, e * 3), -2.8 * Math.min(1, e * 3)], groundY: ground.y, clip: up ? 'pm001_01' : 'pm001_11' }; // (the real game: pm001_01 beamed up, pm001_11 coming down)
       if (up ? u > 0.72 : u < 0.36) { pawn.scale = 0; } // inside the UFO: not to be seen
       this.s.place(pawn);
     };
@@ -1180,7 +1180,7 @@ export class ChallengeFX {
     if (o && o.block) o.block.position.set(V.dir.x * slide * 3.2 / S, 0, V.dir.z * slide * 3.2 / S);
     const shove = ease(clamp01((u - 0.18) / 0.25)), fall = clamp01((u - 0.4) / 0.35);
     const p = lerp3(A, V.pit, shove); p.y = A.y + Math.sin(shove * Math.PI) * 0.8 - fall * fall * 26;
-    pawn.fx = { x: p.x, y: p.y, z: p.z, tilt: fall * 1.4, clip: 'tumble', arms: [-2.8, -2.8], groundY: A.y - 30 };
+    pawn.fx = { x: p.x, y: p.y, z: p.z, tilt: fall * 1.4, clip: 'pm001_11', arms: [-2.8, -2.8], groundY: A.y - 30 };
     return p;
   }
 
