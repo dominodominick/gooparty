@@ -4,7 +4,7 @@ import { presetAt, shotAround, placeOnPath } from '../game/boardCamera.js';
 import { app } from '../app.js';
 import { PLAYER_COLORS, VIRTUAL, BUILD } from '../config.js';
 import { ISLAND, VOLCANO, LABELS, TILE_COLORS, isChallenge, EXIT_POS } from '../game/boardData.js';
-import { islandPositions, volcanoPositions, legVia, islandWorld, VOLCANO_CENTER, VOLCANO_OFFSET, BRIDGE_PLANKS, SPACE_IDS, stopOfSpace, terrainHeight, nearestPath } from '../game/boardLayout.js';
+import { islandPositions, volcanoPositions, legVia, islandWorld, VOLCANO_CENTER, VOLCANO_OFFSET, BRIDGE_PLANKS, SPACE_IDS, stopOfSpace, terrainHeight, nearestPath, MAP_SCALE } from '../game/boardLayout.js';
 import { builderMesh } from '../world/worldBuild.js';
 import { PAWN_SCALE, HAIR, SKINS } from '../world/miis.js';
 import { makeFigure, fitFFLHead } from '../world/miiPawn.js';
@@ -24,6 +24,7 @@ import { rigStatue, statueTimeline, STATUE_DUR } from '../world/statueRig.js';
 import { STATUES } from '../world/statueData.js';
 import { makeTornado, TORNADO_FPS } from '../world/tornado.js';
 import { TORNADO } from '../world/tornadoData.js';
+import { makeSpring, springFrame, springHoldFor, SPRING_LAUNCH } from '../world/spring.js';
 
 // The 3D board. Everything the host decides arrives as "events" (roll, move, space, win...)
 // and this scene just plays them back. It never decides anything itself.
@@ -89,7 +90,6 @@ const hop = (a, b, t, h) => ({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * 
 const lerp3v = (a, b, t) => ({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t, z: a.z + (b.z - a.z) * t });
 const KNOCK_FRAMES = 26, GETUP_FRAMES = 36, GETUP_MS = 600; // pm001_04 (knocked down), pm206_03 (getting up): frames, and how long getting up takes
 const WIND_FRAMES = 41; // pm001_08, standing on the spring as it winds up (frames)
-const SPRING_H = 2.4; // how tall the spring stands when fully out
 const TORNADO_SIZE = 2; // the game's tornado, twice the map's own scale: a funnel well taller than the player riding its top
 const ease01 = (t) => { t = Math.min(1, Math.max(0, t)); return t * t * (3 - 2 * t); };
 const CRATES_IDX = ISLAND.findIndex((n) => n.type === 'crates'); // the crates and barrels stop
@@ -925,24 +925,20 @@ export class BoardScene {
     return anim || { t: 0, dur: ev.dur };
   }
 
-  /** The big spring (one per colour, made once): a coil with a plate on top, standing on a ring in the ground. */
+  /**
+   * The big spring (one per colour, made once): the game's own model and animation (world/spring.js): the blue one
+   * (op001_jump1) for every bounce but the -4 spaces', which have the red one (op001_jump2). The trace of the real game:
+   * the blue one for the springs after a minigame too, forward and back.
+   */
   springFor(color) {
+    const model = color === 'red' ? 'red' : 'blue';
     this.springs ||= {};
-    if (this.springs[color]) return this.springs[color];
-    const T = this.T, hex = { blue: 0x2f6fed, red: 0xe5383b, green: 0x2fb344 }[color] || 0x2f6fed;
-    const mat = new T.MeshLambertMaterial({ color: hex }), dark = new T.MeshLambertMaterial({ color: 0x3a3f46 });
-    const group = new T.Group(), coilBox = new T.Group();
-    const turns = 5, r = 0.95, pts = [];
-    for (let i = 0; i <= turns * 24; i++) { const t = i / (turns * 24), a = t * turns * Math.PI * 2; pts.push(new T.Vector3(Math.cos(a) * r, t, Math.sin(a) * r)); }
-    const coil = new T.Mesh(new T.TubeGeometry(new T.CatmullRomCurve3(pts), turns * 48, 0.17, 8, false), mat);
-    coilBox.add(coil);
-    const plate = new T.Mesh(new T.CylinderGeometry(1.25, 1.25, 0.28, 24), mat);
-    const ring = new T.Mesh(new T.CylinderGeometry(1.45, 1.45, 0.12, 24), dark); ring.position.y = 0.04;
-    group.add(coilBox, plate, ring); group.visible = false;
-    this.scene3d.add(group);
-    const sp = { group, set: (ext) => { coilBox.scale.set(1, SPRING_H * ext, 1); plate.position.y = SPRING_H * ext + 0.14; plate.visible = ext > 0.02; coil.visible = ext > 0.02; } };
-    sp.set(0.001);
-    return (this.springs[color] = sp);
+    if (this.springs[model]) return this.springs[model];
+    const sp = makeSpring(this.T, model);
+    sp.scale = (this.board && this.board.scale) || MAP_SCALE; // (the game's units: the map's own scale)
+    sp.group.visible = false; sp.group.scale.setScalar(sp.scale);
+    this.scene3d.add(sp.group);
+    return (this.springs[model] = sp);
   }
 
   beginMove(ev) {
@@ -999,36 +995,41 @@ export class BoardScene {
         else if (count) this.setCounter(count, count.total - cum[reached]); // ticks down on each step
       };
     } else if (ev.mode === 'spring') {
-      // A big spring pops out of the ground under the player and bounces them the whole way in one jump (blue: + spaces,
-      // red: - spaces, green: a minigame won or lost), then sinks back into the ground. Every phase, clip and face is the
-      // real game's, at its real time (realTimings.js SPRING, from the trace), and the board camera cuts to the close-up
-      // of their reaction 0.23 s into it, for 2.42 s, as the real one does.
-      const sp = this.springFor(ev.spring || 'blue'), H = SPRING_H, back = count && count.dir === 'back';
-      const kind = ev.spring === 'red' ? 'red' : back ? 'back' : 'fwd', S = SPRING[kind], n = Math.max(1, ev.path.length);
+      // A big spring bounces the player the whole way in one jump: the game's own spring (blue: + spaces and the minigame
+      // springs; red: -4) and its own animation, timed as the trace of the real game: it is there under them as they hop
+      // up onto it (pm001_15) and land on its plate; 0.3 s in its animation starts, pushing the plate down as they wind up
+      // (pm001_08); it is held there, pushed right down, until it fires and throws them (pm001_09 forward, pm001_11
+      // back); it wobbles back to rest and stands there until the bounce is over. Every clip and face is the real game's,
+      // at its real time (realTimings.js SPRING), and the board camera cuts to the close-up of their reaction 0.23 s
+      // into it, for 2.42 s, as the real one does.
+      const sp = this.springFor(ev.spring || 'blue'), back = count && count.dir === 'back';
+      const kind = back ? 'back' : 'fwd', S = SPRING[kind], n = Math.max(1, ev.path.length); // (the -4 spring is timed as the others' back: the trace)
       const tFly0 = S.rise + S.wind, tFly = n * S.perSpace, tLand = tFly0 + tFly;
       const tReact = kind === 'fwd' ? tLand + S.cheer : tLand + S.land + S.getUp; // the fist pump, or the head hung
-      const total = springSecs(kind, n);
-      const lift = 4 + Math.hypot(B.x - A.x, B.z - A.z) * 0.16, fwd = this.pathDir(pawn);
-      const faceYaw = Math.atan2(fwd.x, fwd.z); // facing along the path, so a backward bounce goes over their back
-      sp.group.position.set(A.x, A.y, A.z); sp.group.visible = true; sp.group.rotation.y = faceYaw;
+      const total = springSecs(kind, n), hold = springHoldFor(S.wind), sc = sp.scale;
+      const fwd = this.pathDir(pawn), faceYaw = Math.atan2(fwd.x, fwd.z); // facing along the path, so a backward bounce goes over their back
+      const cy = Math.cos(faceYaw), sy = Math.sin(faceYaw);
+      const onHook = (f) => { const h = sp.hook(f); return { x: A.x + (h.x * cy + h.z * sy) * sc, y: A.y + h.y * sc, z: A.z + (-h.x * sy + h.z * cy) * sc }; };
+      const L = onHook(SPRING_LAUNCH); // where they leave it
+      const lift = 4 + Math.hypot(B.x - L.x, B.z - L.z) * 0.16;
+      const frameAt = (t) => (t < S.rise ? 0 : springFrame(t - S.rise, hold));
+      // the hop up onto it (the trace: up 197 map units at 0.22 s, down onto the plate, 139 up, at 0.35 s)
+      const hopY = (t) => Math.max(0, 197 - 3891 * (t - 0.225) * (t - 0.225)) * sc;
+      sp.group.position.set(A.x, A.y, A.z); sp.group.rotation.y = faceYaw; sp.pose(0); sp.group.visible = true;
       a.fast = true; a.dur = total * 1000; // (the real game's length for this many spaces: the host's is the same)
       if (count) this.setCounter(count, count.total);
       a.step = (u) => {
         const t = u * a.dur / 1000;
-        // the spring: out of the ground, squashed as they wind up on it, stretched as it fires, then away into the ground
-        let ext;
-        if (t < Math.min(0.25, S.rise)) ext = ease01(t / Math.min(0.25, S.rise));
-        else if (t < tFly0) ext = 1 - 0.3 * Math.sin(Math.PI * clamp01((t - S.rise) / Math.max(0.01, S.wind || S.rise)));
-        else if (t < tFly0 + 0.12) ext = 1 + 0.25 * Math.sin(Math.PI * (t - tFly0) / 0.12);
-        else ext = 1 - ease01(clamp01((t - tFly0 - 0.12) / 0.6));
-        sp.set(Math.max(0.001, ext));
-        if (t < tFly0) { // standing on the spring: popped up (pm001_15), then winding up (pm001_08)
-          const yOff = H * Math.max(0, ext); pawn.x = A.x; pawn.z = A.z; pawn.y = A.y + yOff;
-          const c = t < S.rise ? { clip: 'pm001_15', clipF: t * 60, face: kind === 'red' ? 4 : null } : { clip: 'pm001_08', clipF: (t - S.rise) * 60 };
-          pawn.fx = { x: A.x, y: A.y + yOff, z: A.z, yaw: faceYaw, groundY: A.y, ...c };
+        sp.pose(frameAt(t));
+        if (t < tFly0) { // up onto the spring (pm001_15), then winding up on it as it is pushed down (pm001_08)
+          const P = onHook(frameAt(t)), y = t < 0.225 ? A.y + hopY(t) : Math.max(P.y, A.y + hopY(t));
+          const onPlate = t >= 0.225 && y <= P.y + 1e-6;
+          pawn.x = onPlate ? P.x : A.x; pawn.z = onPlate ? P.z : A.z; pawn.y = y;
+          const c = t < S.rise ? { clip: 'pm001_15', clipF: t * 60 } : { clip: 'pm001_08', clipF: (t - S.rise) * 60 };
+          pawn.fx = { x: pawn.x, y, z: pawn.z, yaw: faceYaw, groundY: A.y, ...c };
         } else if (t < tLand) { // the flight: pm001_09 forward, pm001_11 back
-          const f = clamp01((t - tFly0) / tFly), y0 = A.y + H;
-          const x = A.x + (B.x - A.x) * f, z = A.z + (B.z - A.z) * f, y = y0 + (B.y - y0) * f + Math.sin(f * Math.PI) * lift;
+          const f = clamp01((t - tFly0) / tFly);
+          const x = L.x + (B.x - L.x) * f, z = L.z + (B.z - L.z) * f, y = L.y + (B.y - L.y) * f + Math.sin(f * Math.PI) * lift;
           const q = nearestPath(x, z), gy = q && q.d < 2.4 ? q.y + 0.08 : terrainHeight(x, z) + 0.14;
           pawn.x = x; pawn.y = y; pawn.z = z;
           pawn.fx = { x, y, z, yaw: faceYaw, clip: kind === 'fwd' ? 'pm001_09' : 'pm001_11', clipF: (t - tFly0) * 60, groundY: ev.path[0] && ev.path[0].track === 'volcano' ? Math.min(A.y, B.y) - 0.28 : gy };
@@ -1050,7 +1051,7 @@ export class BoardScene {
         else if (mine) this.camPreset = null;
         this.place(pawn);
       };
-      a.cleanup = () => { sp.group.visible = false; sp.set(0.001); if (this.camPreset && this.camPreset.by === a) this.camPreset = null; };
+      a.cleanup = () => { sp.group.visible = false; sp.pose(0); if (this.camPreset && this.camPreset.by === a) this.camPreset = null; };
     } else if (ev.mode === 'knock') {
       // Blown back by the dragon's fireball, as in Wii Party: knocked off their feet in one low arc backwards onto the
       // space behind (pm001_11 in the air, landing pm001_12: the trace of the real game), sat there dazed (pm001_05), then

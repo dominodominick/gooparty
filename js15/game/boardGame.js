@@ -665,14 +665,14 @@ export class BoardGame {
     if (ev) { ev.statue = color; ev.dur = Math.min(DUR.statueThrow, Math.round(STATUE[color].end * 1000)); } // (the real game's length: realTimings.js)
   }
 
-  /** A move made by a big spring that pops out of the ground (blue: + space, red: - space, green: minigame). */
+  /** A move made by a big spring (blue: + space, red: - space, green: after a minigame, drawn as the blue one, as the real game's). */
   _spring(slot, w, color, events, count, follow = false) {
     const from = events.length;
     this._moveTo(slot, w, 'spring', events, count, follow);
     const ev = events.slice(from).find((e) => e.t === 'move' && e.slot === slot && e.mode === 'spring');
     if (ev) { // its length is the real game's, for this many spaces (realTimings.js)
       ev.spring = color;
-      const kind = color === 'red' ? 'red' : count && count.dir === 'back' ? 'back' : 'fwd';
+      const kind = count && count.dir === 'back' ? 'back' : 'fwd'; // (the -4 spring is timed as the other back ones: the trace)
       ev.dur = Math.min(DUR.spring, Math.round(springSecs(kind, ev.path.length) * 1000));
     }
   }

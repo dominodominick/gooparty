@@ -3,16 +3,18 @@
 // the start of each set piece. The set pieces (boardScene.js, challengeFx.js) and the host's durations (boardGame.js)
 // are built from these, so a Mii's clips, the models and the camera happen when they do in the real game.
 
-/** The springs. Flight time goes with the distance: about 0.18 s a space forward, 0.2 s back. */
+/** The springs. Flight time goes with the distance: about 0.18 s a space forward, 0.2 s back. The spring itself is the
+ * game's own model and animation (world/spring.js): it fires `wind` s after its animation starts. */
 export const SPRING = {
   // +4/+5/+6 (blue) and the green one after winning a minigame: the spring pops up (pm001_15), they wind up on it
   // (pm001_08), fly (pm001_09), land and cheer (pm001_10), pump a fist with a smile (pm001_06), stand (pm011_08)
   fwd: { rise: 0.30, wind: 1.10, perSpace: 0.179, cheer: 1.19, pump: 1.40, rest: 1.18 },
-  // the green one back, after losing a 1 vs 1: up (pm001_15), wind up (pm001_08), flung back (pm001_11), land (pm001_12),
-  // get up (pm206_03), hang their head with sorrow (pm001_07), stand
+  // back: the -4 spring (the red one) and the one after losing a 1 vs 1: up (pm001_15), wind up (pm001_08), flung back
+  // (pm001_11), land (pm001_12), get up (pm206_03), hang their head with sorrow (pm001_07), stand
   back: { rise: 0.33, wind: 1.21, perSpace: 0.203, land: 0.57, getUp: 0.62, letdown: 1.48, rest: 1.19 },
-  // -4 (red): the spring pops up under them and they are startled (pm001_15 with Surprise) while it winds itself up, then
-  // flung back (pm001_11), land (pm001_12), get up (pm206_03), and the rest as the green one back
+  // the skull space's red spring (the map's own m001_81, not the -4 one): it pops up under them and they are startled
+  // (pm001_15 with Surprise) while it winds itself up, then flung (pm001_11), land (pm001_12), get up (pm206_03), and the
+  // rest as the one back. (Not used yet: the skull drops them into the volcano its own way.)
   red: { rise: 1.90, wind: 0, perSpace: 0.200, land: 0.70, getUp: 0.67, letdown: 1.55, rest: 1.20 },
 };
 /** A spring's whole length (s) for a flight of n spaces. */

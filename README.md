@@ -351,6 +351,25 @@ The hand-built island is gone. The game now runs on the converted Wii Party map 
   sinks away. The game's "broken" message did not say who broke it, so the scene had no player to animate and
   only waited, then hid the wall.
 
+## Build 104: the game's own springs
+
+The spring was a homemade coil. It is now the game's own spring, from `files/mr001/option/` on the disc
+(`tools/extract_spring.py` writes `js15/world/springData.js`; `js15/world/spring.js` builds and plays it):
+- **Two models:** `op001_jump1`, blue, and `op001_jump2`, red. Their colours are the materials' own (TEV colour 1:
+  blue 90,186,231, red 236,91,99); the coil has its own texture.
+- **Which is used where (from the trace of the real game):** the blue one for every forward bounce, for the springs after
+  a 1 vs 1 or a 1 vs Rest (forward and back: there is no green one in the files), and for +4 in the volcano. The red
+  one for the -4 spaces only; it is the same spring turned round, so it leans back and throws them over their head.
+- **Its own animation (91 frames), timed as the trace:**
+  - It is there under the Mii as they hop up onto it (`pm001_15`). They land on its plate, 139 map units up.
+  - 0.3 s in, its animation starts and pushes the plate down as they wind up (`pm001_08`); they sink with it.
+  - The game holds it pushed down for about 0.27 s, then it fires: they leave it at frame 50, where it throws them.
+  - It wobbles back to rest and stands there until the bounce is over, then goes.
+  - The spring always faces the way the Mii faces (along the path), as in the real game.
+- **The -4 spring is now timed like the other back bounces** (pop up, wind up, flung back, land, get up, head hung): the
+  trace shows exactly that. The old -4 timings (a 1.9 s startle, no wind-up) were the skull space's red spring, which
+  is a different one (the map's `m001_81`).
+
 ## Build 103: the set pieces run on the real game's clock
 
 Build 101/102 laid the trace's clips over our own set pieces, stretched to fit, so the motion, the clips and the

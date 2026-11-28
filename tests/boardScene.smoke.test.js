@@ -31,6 +31,7 @@ const { BoardScene, diceBounce } = await import('../js15/scenes/boardScene.js');
 const { BoardGame, DUR } = await import('../js15/game/boardGame.js');
 const { mulberry32 } = await import('../js15/util/rng.js');
 const { ISLAND } = await import('../js15/game/boardData.js');
+const { SPRING } = await import('../js15/game/realTimings.js');
 
 const els = {
   '#counter': { hidden: true, className: '', textContent: '' },
@@ -770,14 +771,26 @@ assert.ok(DUR.fly >= 2400 && DUR.drop >= 1800);
     sc.placeShadow(pw, sh, false); assert.ok(Math.abs(sh.position.v[1] - 10.21) < 1e-6, 'nothing found: just under their feet');
     sc.groundHit = real;
   }
-  // a spring jump: up out of the ground, over in one bounce, and the spring goes away again
-  for (const [color, dir, path] of [['blue', 'fwd', [11, 12, 13, 14, 15]], ['red', 'back', [9, 8, 7, 6]]]) {
+  // a spring jump: the game's own spring (blue, or red for -4; the minigame springs are the blue one too), up onto
+  // its plate, pushed down with it, thrown over in one bounce, and the spring goes away again when it is over
+  for (const [color, dir, path] of [['blue', 'fwd', [11, 12, 13, 14, 15]], ['red', 'back', [9, 8, 7, 6]], ['green', 'back', [9, 8, 7]]]) {
     at(sc.pawns[0], 'island', 10);
+    const A = { x: sc.pawns[0].x, y: sc.pawns[0].y };
     const mv = sc.beginMove({ t: 'move', slot: 0, mode: 'spring', spring: color, path: path.map((idx) => ({ track: 'island', idx })), count: { total: path.length, dir }, dur: 2400 });
+    const model = color === 'red' ? 'red' : 'blue', sp = sc.springs[model];
+    assert.ok(sp && typeof sp.hook === 'function', `${color}: the game's ${model} spring`);
+    const S = SPRING[dir], at_ = (secs) => { mv.step(secs * 1000 / mv.dur); return sc.pawns[0]; };
+    assert.ok(Math.abs(at_(0.1).y - A.y) > 0.5, 'hops up onto it');
+    const sc_ = sp.scale;
+    assert.ok(Math.abs(at_(S.rise + 0.1).y - (A.y + 139 * sc_)) < 0.3, 'standing on its plate, 139 map units up');
+    assert.ok(at_(S.rise + 0.68).y < A.y + 90 * sc_, 'pushed right down with it as they wind up');
+    assert.equal(sp.group.visible, true);
+    assert.equal(at_(S.rise + S.wind + 0.05).fx.clip, dir === 'fwd' ? 'pm001_09' : 'pm001_11', 'and thrown when it fires');
     for (let u = 0; u <= 1; u += 0.05) mv.step(u);
+    assert.equal(sp.group.visible, true, 'it stands there till the bounce is over');
     mv.step(1); mv.end();
     assert.equal(sc.pawns[0].idx, path[path.length - 1], `${color} spring lands on the right space`);
-    assert.equal(sc.springs[color].group.visible, false, 'the spring is gone again');
+    assert.equal(sp.group.visible, false, 'the spring is gone again');
   }
   // pause: offline the game really stops
   sc.setPaused(true);
