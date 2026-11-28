@@ -378,7 +378,7 @@ for (let i = 1; i < V.length; i++) {
     const e = stop(bg, 0);
     const ds = e.find((x) => x.t === 'diceStop'), mv = e.find((x) => x.t === 'move');
     assert.ok(ds && ds.wheel && ds.wheel.target === 1 && ds.total >= 4 && ds.total <= 6 && ds.dice[0].kind === 'tornado', 'wheel and die land together');
-    assert.ok(mv && mv.mode === 'fly' && mv.slot === ds.wheel.target && mv.tornado === true && mv.dur === DUR.tornado, 'the chosen player is carried back by the tornado');
+    assert.ok(mv && mv.mode === 'fly' && mv.slot === ds.wheel.target && mv.tornado === true && mv.dur >= 6000 && mv.dur <= 10000, 'the chosen player is carried back by the tornado (as long as the real one: its recording)');
     assert.equal(bg.positions[2].track, 'volcano'); assert.deepEqual(bg.positions[3], I(0));
     const before = t - 2; assert.deepEqual(bg.positions[0], I(t), 'the roller stays put');
     assert.equal(before - bg.positions[mv.slot].idx, ds.total, 'moves back exactly the number on the die');
@@ -407,7 +407,7 @@ for (let i = 1; i < V.length; i++) {
     assert.deepEqual(bg.positions[1], I(u)); assert.equal(bg.positions[2].track, 'volcano');
     const ufo = e.filter((x) => x.t === 'ufo');
     assert.deepEqual(ufo.map((x) => [x.phase, x.slot]), [['up', 0], ['up', 3], ['down', 3], ['down', 0]], 'beam up the roller, then the other player, drop the other player, then the roller');
-    assert.deepEqual(ufo[2].to, I(u)); assert.deepEqual(ufo[3].to, I(u + 5)); assert.ok(ufo.every((x) => x.dur > 0));
+    assert.deepEqual(ufo[2].to, I(u)); assert.deepEqual(ufo[3].to, I(u + 5)); assert.ok([0, 2, 3].every((i) => ufo[i].dur > 1000) && ufo[1].dur === 0, 'each as long as its stretch of the real recording (the other is never seen going up)');
     assert.equal(e.some((x) => x.t === 'move'), false);
   }
   { const bg = make(3, 2), u = at('ufo'); bg.positions[0] = I(u); bg.positions[1] = I(u); bg.positions[2] = { track: 'volcano', idx: 2 };

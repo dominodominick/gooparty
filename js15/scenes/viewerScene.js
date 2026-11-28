@@ -1,5 +1,6 @@
 // Island viewer: the board exactly as the game draws it (same scene, same props, same tiles), with no game running.
 // Drag to turn, scroll to zoom, right-drag (or shift-drag) to slide. Buttons jump to each place and play the set pieces.
+import { replay } from './replay.js';
 import { direct } from './director.js';
 import { app } from '../app.js';
 import { BoardScene } from './boardScene.js';
@@ -219,6 +220,7 @@ export class ViewerScene extends BoardScene {
     const spring = (slot, from, n, color) => { const path = []; const st = n > 0 ? 1 : -1; for (let i = 1; i <= Math.abs(n); i++) path.push({ track: 'island', idx: from + i * st }); return { t: 'move', slot, mode: 'spring', spring: color, path, count: { total: Math.abs(n), dir: n > 0 ? 'fwd' : 'back' }, dur: DUR.spring }; };
     const look = (...slots) => () => { for (const s of slots) if (this.pawns[s]) this.pawns[s].wonder = true; return { t: 0, dur: DUR.wonder, ev: { t: 'space', slot: slots[0], wonder: slots, dur: DUR.wonder } }; }; // ("what is about to happen?" while the banner shows, as in a game)
     const rolling = (slot, ms = 1800) => () => { this.fx.begin(slot); return { t: 0, dur: ms, end: () => { if (this.pawns[slot]) this.pawns[slot].rollClip = null; } }; }; // (eager, or puzzled at the spike ball)
+    const tag = (a, ev) => { if (a) a.ev = ev; return a; }; // (which moment a set piece is: its recording plays over it)
     const done = () => () => { this.fx.release(); this.camHold = null; return { t: 0, dur: 0 }; };
     const put = (slot, idx) => { const p = this.pawns[slot], q = this.pos.island[idx]; Object.assign(p, { track: 'island', idx, x: q.x, y: q.y + 0.05, z: q.z, scale: 1, fx: null }); p.group.visible = true; this.place(p); return p; };
     const list = [
@@ -226,11 +228,13 @@ export class ViewerScene extends BoardScene {
       ['Vine crossing (the real timeline)', () => { const v = stopOf('vine'); at(v - 1); this.demo.push(move({ ...walk(v - 1, 3, 'walk'), dur: 3 * DUR.walkStep + 350 + DUR.vineCross })); }], // (leap, hang, two swings each way, let go, land, cheer, run on)
       ['Crates: hop across', () => { const s = stopOf('crates'), p = at(s); this.fx.begin(0);
         this.demo.push(() => { this.fx.playNote({ fx: 'crates', picked: 0, safe: true }, p); return { t: 0, dur: 700 }; }, move({ ...walk(s, 2, 'walk'), dur: 2 * DUR.walkStep + 350 + DUR.cratesCross })); }], // rolled 4 on the vine, 2 spaces left to walk
-      ['Dragon fireball', () => { const s = stopOf('dragon'), p = at(s); this.demo.push(rolling(0), look(0), () => this.fx.playNote({ fx: 'fireball', dur: DUR.fire }, p), move({ t: 'move', slot: 0, mode: 'knock', path: [{ track: 'island', idx: s - 1 }], count: { total: 1, dir: 'back' }, dur: DUR.knock }), done()); }],
-      ['Smash dragon wall', () => { const s = stopOf('dragon'), p = at(s); this.demo.push(rolling(0), () => this.fx.brokenAnim({ challenge: 'dragon', slot: 0, dur: DUR.wall }, p), move(walk(s, 3, 'walk')), done()); }], // rolled 4 or more: punches, cheer, walks on
+      ['Dragon fireball', () => { const s = stopOf('dragon'), p = at(s); this.demo.push(rolling(0), look(0), () => tag(this.fx.playNote({ fx: 'fireball', dur: DUR.fire }, p), { t: 'space', slot: 0, fx: 'fireball', dur: DUR.fire }), move({ t: 'move', slot: 0, mode: 'knock', path: [{ track: 'island', idx: s - 1 }], count: { total: 1, dir: 'back' }, dur: DUR.knock }), done()); }],
+      ['Smash dragon wall', () => { const s = stopOf('dragon'), p = at(s); this.demo.push(rolling(0), () => tag(this.fx.brokenAnim({ challenge: 'dragon', slot: 0, dur: DUR.wall }, p), { t: 'broken', challenge: 'dragon', slot: 0, dur: DUR.wall }), move(walk(s, 3, 'walk')), done()); }], // rolled 4 or more: punches, cheer, walks on
       ['Blue statue throw', () => { const s = stopOf('statueBlue'); at(s); this.demo.push(move(throwBy(s, 'blue'))); }],
       ['Red statue throw', () => { const s = stopOf('statueRed'); at(s); this.demo.push(move(throwBy(s, 'red'))); }],
       ['Tornado (back 5)', () => { const s = stopOf('tornado') + 3; at(s); const w = walkBack({ track: 'island', idx: s }, 5); this.demo.push(look(0), move({ t: 'move', slot: 0, mode: 'fly', tornado: true, follow: true, path: w.path, count: { total: 5, dir: 'back' }, dur: DUR.tornado })); }], // a player a little past the tornado space is blown back 5
+      ['T-Rex (space 33)', () => { const s = stopOf('dino'); at(s); const w = walkBack({ track: 'island', idx: s }, ISLAND[s].arg); this.demo.push(look(0), move({ t: 'move', slot: 0, mode: 'fly', dino: 'trex', path: w.path, count: { total: ISLAND[s].arg, dir: 'back' }, dur: 8000 })); }],
+      ['Pterodactyl (space 33)', () => { const s = stopOf('dino'); at(s); const w = walkForward({ track: 'island', idx: s }, 10); this.demo.push(look(0), move({ t: 'move', slot: 0, mode: 'fly', dino: 'ptero', path: w.path, count: { total: 10, dir: 'fwd' }, dur: 8500 })); }],
       ['Crates: wrong pick', () => { const s = stopOf('crates'), p = at(s); this.fx.begin(0); // a crate breaks, they swim to the far bank and stand there
         this.demo.push(() => { this.fx.playNote({ fx: 'crates', picked: Math.floor(Math.random() * 2), safe: false, hit: Math.floor(Math.random() * 3) }, p); return { t: 0, dur: 700 }; },
           move({ t: 'move', slot: 0, mode: 'fast', path: [{ track: 'island', idx: s + 1 }], swim: true, stopShort: true, to: { track: 'island', idx: s, across: true }, dur: DUR.swim })); }],
@@ -248,7 +252,7 @@ export class ViewerScene extends BoardScene {
         if (next !== n) this.demo.push(() => this.fx.playNote({ fx: 'spikeCount', from: n, to: next, dur: DUR.spikeCount }, p));
       }],
       ['Spike statue passed', () => { const s = stopOf('spike'), p = at(s); this.demo.push(rolling(0), move(walk(s, 3, 'walk')), () => ({ t: 0, dur: 900 }), () => this.fx.brokenAnim({ challenge: 'spike', slot: 0, later: true, dur: DUR.spikeBreak }, p), done()); }], // rolled high enough: on at once; the statue breaks once the turn is over
-      ['Summit: gate kicked open (win)', () => { const s = stopOf('final'), p = at(s); this.demo.push(rolling(0), () => this.fx.brokenAnim({ challenge: 'final', slot: 0, dur: DUR.gate }, p), move(walk(s, 1, 'walk')), () => { p.cheer = 'win'; return { t: 0, dur: 2200, end: () => { p.cheer = null; } }; }, done()); }],
+      ['Summit: gate kicked open (win)', () => { const s = stopOf('final'), p = at(s); this.demo.push(rolling(0), () => tag(this.fx.brokenAnim({ challenge: 'final', slot: 0, dur: DUR.gate }, p), { t: 'broken', challenge: 'final', slot: 0, dur: DUR.gate }), move(walk(s, 1, 'walk')), () => { p.cheer = 'win'; return { t: 0, dur: 2200, end: () => { p.cheer = null; } }; }, done()); }],
       ['Summit: missed', () => { const s = stopOf('final'), p = at(s); this.demo.push(rolling(0), () => this.fx.playNote({ fx: 'finalFail', dur: DUR.finalFail }, p), done()); }],
       ['Blue spring (+5)', () => { const s = stopOf('plus5'); at(s); this.demo.push(look(0), move(spring(0, s, 5, 'blue'))); }],
       ['Red spring (-4)', () => { const s = stopOf('minus4'); at(s); this.demo.push(move(spring(0, s, -4, 'red'))); }],
@@ -256,7 +260,7 @@ export class ViewerScene extends BoardScene {
       ['1 vs Rest won: green spring', () => { const s = stopOf('mgRest'); at(s); this.demo.push(move(spring(0, s, 10, 'green'))); }],
       ['UFO swap', () => { const s = stopOf('ufo'), o = s + 6; at(s); put(1, o);
         const ufo = (ev) => () => { const e = { t: 'ufo', dur: DUR.ufo, ...ev }, a = this.beginUfo(e); if (a) a.ev = e; return a; };
-        this.demo.push(look(0, 1), ufo({ phase: 'up', slot: 0, with: 1 }), ufo({ phase: 'up', slot: 1, with: 0 }), ufo({ phase: 'down', slot: 1, with: 0, to: { track: 'island', idx: s } }), ufo({ phase: 'down', slot: 0, with: 1, to: { track: 'island', idx: o } })); }],
+        this.demo.push(look(0, 1), ufo({ phase: 'up', slot: 0, with: 1, ufoFirst: true }), ufo({ phase: 'up', slot: 1, with: 0 }), ufo({ phase: 'down', slot: 1, with: 0, to: { track: 'island', idx: s } }), ufo({ phase: 'down', slot: 0, with: 1, to: { track: 'island', idx: o } })); }],
       ['Volcano erupts', () => { // the cutscene: the stretch past the volcano-or-not pit and two others (picked at random, as the host does)
         const others = [1, 2, 3, 4, 5].sort(() => Math.random() - 0.5); this.setEruption(0);
         const v = stopOf('volcano'); at(v); put(1, v - 4); put(2, v + 5); put(3, v - 9); // (who landed on the volcano space, and the others about)
@@ -288,7 +292,11 @@ export class ViewerScene extends BoardScene {
     }
     if (!this.anim && this.demo.length) {
       this.anim = this.demo.shift()() || { t: 0, dur: 1 }; this.idle = false;
-      if (this.anim.ev && !this.anim.moment && this.anim.dur > 0) this.anim = direct(this, this.anim, this.anim.ev); // the moment's sequence (director.js)
+      if (this.anim.ev) { // the real game's recording of the moment (replay.js), else its sequence (director.js)
+        const r = replay(this, this.anim, this.anim.ev);
+        if (r !== this.anim) this.anim = r;
+        else if (!this.anim.moment && this.anim.dur > 0) this.anim = direct(this, this.anim, this.anim.ev);
+      }
     }
     if (this.onTick) this.onTick(dt); // (the studio watches the playhead)
     if (!this.anim) return;

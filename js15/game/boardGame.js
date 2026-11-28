@@ -6,6 +6,8 @@
 // One turn can contain several rolls: the main roll, then e.g. a challenge roll, then a final-challenge roll.
 import { momentKey, sequenceFrames } from './moments.js';
 import { springSecs, STATUE, FIREBALL, SMASH_REAL } from './realTimings.js';
+import { recordingMs, pickRecording } from './recPick.js';
+import { REC_INDEX } from './recIndex.js';
 import { SEQUENCES } from './sequences.js';
 import {
   ISLAND, VOLCANO, FINAL_IDX, FINISH_IDX, VOLCANO_SPACE_IDX, VOLCANO_CHALLENGE_IDX, SPIKE_IDX,
@@ -108,6 +110,9 @@ export function rollDie(rng, curve = 0) {
 // Challenge spaces never count as a step. With stopAtChallenges (dice-driven movement) a walk
 // stops ON the first challenge it reaches while steps remain; otherwise they are passed freely.
 // Nobody can pass the final challenge.
+/** A space as the recordings name it: 'I12' (the island), 'V3' (in the volcano). */
+export const spaceName = (p) => (p && p.idx != null ? `${p.track === 'volcano' ? 'V' : 'I'}${p.idx}` : null);
+
 export function walkForward(pos, n, { stopAtChallenges = false, broken = null } = {}) {
   const nodes = trackNodes(pos.track);
   let idx = pos.idx, counted = 0, exited = false, challenge = null;
@@ -494,16 +499,19 @@ export class BoardGame {
       const vp = this.positions[victim], eff = Math.min(n, vp.idx), from = events.length;
       this._moveTo(victim, walkBack(vp, n), 'fly', events, BACK(eff), true);
       const ev = events.slice(from).find((e) => e.t === 'move' && e.slot === victim && e.mode === 'fly');
-      if (ev) { ev.tornado = true; ev.dur = DUR.tornado; } // the game's tornado carries them back along the path
+      if (ev) { ev.tornado = true; ev.dur = recordingMs('move.fly.tornado', spaceName(vp), spaceName(ev.path[ev.path.length - 1]), DUR.tornado); } // the game's tornado carries them back along the path (as long as the real one: its recording)
     } else {
       events.push({ t: 'diceStop', slot, dice: [], total: 0, doubles: false, wheel: { target: victim }, dur: DUR.diceStop });
       const a = { ...this.positions[slot] }, b = { ...this.positions[victim] };
       events.push(note(slot, `UFO! You swap places with {${victim}}!`, { wonder: [slot, victim], cast: [victim] }));
       // the UFO beams up the roller, then the other player, drops the other player on the roller's spot, then the roller
-      events.push({ t: 'ufo', phase: 'up', slot, with: victim, dur: DUR.ufo });
-      events.push({ t: 'ufo', phase: 'up', slot: victim, with: slot, dur: DUR.ufo });
-      events.push({ t: 'ufo', phase: 'down', slot: victim, with: slot, to: a, dur: DUR.ufo });
-      events.push({ t: 'ufo', phase: 'down', slot, with: victim, to: b, dur: DUR.ufo });
+      // (each as long as its stretch of the real game's recording, if there is one: in it the other is never seen going up)
+      const ri = pickRecording('ufo', spaceName(a), spaceName(b), spaceName(b)), ph = ri >= 0 ? REC_INDEX.ufo[ri][4] : null;
+      const len = (n) => (ph ? Math.round((ph[n + 1] - ph[n]) * 1000) : DUR.ufo);
+      events.push({ t: 'ufo', phase: 'up', slot, with: victim, dur: len(0) });
+      events.push({ t: 'ufo', phase: 'up', slot: victim, with: slot, dur: len(1) });
+      events.push({ t: 'ufo', phase: 'down', slot: victim, with: slot, to: a, dur: len(2) });
+      events.push({ t: 'ufo', phase: 'down', slot, with: victim, to: b, dur: len(3) });
       this.positions[slot] = b; this.positions[victim] = a;
     }
     return this._afterEffects(slot);
@@ -665,15 +673,24 @@ export class BoardGame {
     if (ev) { ev.statue = color; ev.dur = Math.min(DUR.statueThrow, Math.round(STATUE[color].end * 1000)); } // (the real game's length: realTimings.js)
   }
 
+  /** The dinosaur's move just made: which one it was, and as long as the real game's recording of it. */
+  _dino(slot, pos, events, which) {
+    const mv = events[events.length - 1];
+    if (!mv || mv.t !== 'move' || mv.slot !== slot) return;
+    mv.dino = which;
+    mv.dur = recordingMs(`move.fly.${which}`, spaceName(pos), spaceName(mv.path[mv.path.length - 1]), mv.dur);
+  }
+
   /** A move made by a big spring (blue: + space, red: - space, green: after a minigame, drawn as the blue one, as the real game's). */
   _spring(slot, w, color, events, count, follow = false) {
-    const from = events.length;
+    const from = events.length, at = { ...this.positions[slot] };
     this._moveTo(slot, w, 'spring', events, count, follow);
     const ev = events.slice(from).find((e) => e.t === 'move' && e.slot === slot && e.mode === 'spring');
     if (ev) { // its length is the real game's, for this many spaces (realTimings.js)
       ev.spring = color;
       const kind = count && count.dir === 'back' ? 'back' : 'fwd'; // (the -4 spring is timed as the other back ones: the trace)
-      ev.dur = Math.min(DUR.spring, Math.round(springSecs(kind, ev.path.length) * 1000));
+      const key = `move.spring.${color}${color === 'green' && kind === 'back' ? '.back' : ''}`; // (the real game's recording of it, if there is one: its length)
+      ev.dur = Math.min(DUR.spring, recordingMs(key, spaceName(at), spaceName(ev.path[ev.path.length - 1]), Math.round(springSecs(kind, ev.path.length) * 1000)));
     }
   }
 
@@ -721,8 +738,8 @@ export class BoardGame {
       case 'statueRed': say('The red statue throws you back!'); this._statueThrow(slot, walkBack(pos, node.arg), 'red', events, BACK(node.arg)); break;
       case 'dino':
         // Assumption: the dino die is 50/50 pterodactyl (+10) or T-Rex (back).
-        if (this.rng() < 0.5) { say('Pterodactyl! +10'); fwd(10, 'fly'); }
-        else { say(`T-Rex! Back ${node.arg}`); back(node.arg, 'fly'); }
+        if (this.rng() < 0.5) { say('Pterodactyl! +10'); fwd(10, 'fly'); this._dino(slot, pos, events, 'ptero'); }
+        else { say(`T-Rex! Back ${node.arg}`); back(node.arg, 'fly'); this._dino(slot, pos, events, 'trex'); }
         break;
       case 'skull': events.push(note(slot, 'Skull! Down into the volcano...', { wonder: [slot] })); this._intoVolcano(slot, pos, events); break; // they come back out on this skull
       case 'shout': events.push(note(slot, 'Shout! Back to the island!', { wonder: [slot] })); this._outOfVolcano(slot, events); break;

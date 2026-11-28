@@ -351,6 +351,34 @@ The hand-built island is gone. The game now runs on the converted Wii Party map 
   sinks away. The game's "broken" message did not say who broke it, so the scene had no player to animate and
   only waited, then hid the wall.
 
+## Build 105: the real game's recordings play the set pieces
+
+Every set piece below now plays straight from the traces of the real game (both captures), instead of our own
+animation of it: every Mii in it (where they are, how they are turned, which animation, at which frame, their face),
+the camera (where it is, where it looks, which way is up, frame by frame) and the moving models (the UFO, the tornado).
+The board's spaces are exactly where the real game's are (checked: all 80 island and 10 volcano spaces, zero
+difference), so a recording made on the same spaces plays exactly where it was made.
+- **How:** `tools/trace_parse.py` and `tools/trace_load.py` read a trace; `tools/extract_recordings.py` picks out every
+  moment and writes `mii/clips/recordings.json` (2 MB, fetched the first time; the game plays its own set pieces until
+  it is in) and `js15/game/recIndex.js` (bundled: the host times each moment by its recording).
+  `js15/scenes/replay.js` plays them over the game's own set piece (which still moves the models we have).
+- **Which recording:** the one made on the same spaces (same start and end) if there is one; otherwise the nearest,
+  turned and moved onto our start and eased onto our end, the camera with it.
+- **Covered (and how many recordings of each):**
+  - Springs: blue +4/+5/+6 (81, from every + space but 44 and inside space 1), the -4 (19), the springs after a
+    1 vs 1 or a 1 vs Rest (19 forward, 7 back).
+  - Statues: blue (23, from 28 and 30), red (5).
+  - Dragon wall: the fireball and being knocked back (20 each), smashing it (14). The summit gate kicked open (6).
+  - The tornado (17): the real tornado (now the real size: the Mii rides 190 units over its foot), where it goes.
+  - The UFO swap (28): the UFO where the real one is; the lander taken up; the other dropped onto the lander's space
+    straight after (in the real game you never see them go up); then the lander dropped onto theirs.
+  - The dinosaurs: the T-Rex (4, from 33 and 46) and the pterodactyl (3, from 33; the Mii hangs where the real bird
+    flew, as we have no pterodactyl model yet).
+- The island viewer has T-Rex and pterodactyl entries.
+- **Not yet from recordings (next):** the vine, crates and barrels, volcano-or-not, the spike ball, the skull, the
+  volcano (erupting, the falling rocks, inside, leaving it), 1 vs 1 and 1 vs Rest, the summit miss and the win, the dice
+  and every-turn moments.
+
 ## Build 104: the game's own springs
 
 The spring was a homemade coil. It is now the game's own spring, from `files/mr001/option/` on the disc

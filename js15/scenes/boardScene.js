@@ -25,6 +25,7 @@ import { STATUES } from '../world/statueData.js';
 import { makeTornado, TORNADO_FPS } from '../world/tornado.js';
 import { TORNADO } from '../world/tornadoData.js';
 import { makeSpring, springFrame, springHoldFor, SPRING_LAUNCH } from '../world/spring.js';
+import { replay, loadRecordings } from './replay.js';
 
 // The 3D board. Everything the host decides arrives as "events" (roll, move, space, win...)
 // and this scene just plays them back. It never decides anything itself.
@@ -197,6 +198,7 @@ export class BoardScene {
     this.buildHud();
     this.buildRenderer();
     this.fx = new ChallengeFX(this);
+    loadRecordings(); // (the real game's set pieces, recorded: they play once they are in)
     this.buildWorld();
     this.buildPawns();
 
@@ -636,7 +638,11 @@ export class BoardScene {
       }
       default: break;
     }
-    if (this.anim && this.anim.dur > 0 && !this.anim.moment) this.anim = direct(this, this.anim, ev); // the moment's sequence, if it has one (director.js)
+    if (this.anim) { // the real game's recording of this moment, if there is one (replay.js); otherwise its sequence (director.js)
+      const r = replay(this, this.anim, ev);
+      if (r !== this.anim) this.anim = r;
+      else if (this.anim.dur > 0 && !this.anim.moment) this.anim = direct(this, this.anim, ev);
+    }
   }
 
   /** Stop looking around (something is happening to them now). */
@@ -923,6 +929,24 @@ export class BoardScene {
     this.camSlot = ev.slot;
     const anim = this.fx.ufoAnim(ev.phase, pawn, ev.dur);
     return anim || { t: 0, dur: ev.dur };
+  }
+
+  /**
+   * A model of a recorded moment (replay.js), placed where the real game had it: the UFO and its beam, the tornado (and
+   * which of its clips plays, at which frame). `at` null: the moment is over (the set piece's own end hides them).
+   */
+  recModel(name, at, clip = null) {
+    const o = this.fx && this.fx.o;
+    if (name === 'm001_82' && o && o.ufo) { if (at) { o.ufo.visible = true; o.ufo.position.set(at.x, at.y, at.z); o.ufo.rotation.y = at.ry; } }
+    else if (name === 'm001_83' && o && o.beam) { if (at) o.beam.position.set(at.x, at.y, at.z); }
+    else if (name === 'op001_tornado') {
+      if (!at) return;
+      if (!this.tornado) { this.tornado = makeTornado(this.T, TORNADO); this.scene3d.add(this.tornado.group); }
+      const g = this.tornado.group, S = (this.board && this.board.scale) || MAP_SCALE; // (the real one is the map's own size: the Mii rides 190 units over its foot)
+      g.scale.setScalar(S); g.position.set(at.x, at.y, at.z); g.rotation.y = at.ry; g.visible = true;
+      const cl = clip && /_(\d)$/.exec(clip.clip), which = cl ? ['form', 'spin', 'fade'][Number(cl[1]) - 1] : null;
+      if (which) { const F = TORNADO.clips[which].frames; this.tornado.pose(which, which === 'spin' ? clip.f % (F - 1) : Math.min(F - 1, clip.f)); }
+    }
   }
 
   /**
@@ -1713,6 +1737,8 @@ export class BoardScene {
     }
     const sh = this.shake > 0 ? 0.35 : 0; // a little rumble while the volcano erupts
     this.camera.position.set(this.cam.x + Math.sin(this.t * 53) * sh, this.cam.y + Math.sin(this.t * 61) * sh, this.cam.z + Math.cos(this.t * 47) * sh);
+    const up = this.camHold && this.camHold.up; // (a recorded camera: the real one's own up, so it rolls as it did)
+    if (this.camera.up) { if (up) this.camera.up.set(up[0], up[1], up[2]); else this.camera.up.set(0, 1, 0); }
     this.camera.lookAt(this.cam.tx, this.cam.ty, this.cam.tz);
   }
 
@@ -1746,6 +1772,7 @@ export class BoardScene {
     this.cam = shotAround(q.x, q.y, q.z, this.rc);
     const sh = this.shake > 0 ? 0.35 : 0;
     this.camera.position.set(this.cam.x + Math.sin(this.t * 53) * sh, this.cam.y + Math.sin(this.t * 61) * sh, this.cam.z + Math.cos(this.t * 47) * sh);
+    if (this.camera.up) this.camera.up.set(0, 1, 0);
     this.camera.lookAt(this.cam.tx, this.cam.ty, this.cam.tz);
   }
 
@@ -1822,6 +1849,7 @@ export class BoardScene {
       this.animateLimbs(pawn, dt);
 
       let target = pawn.faceYaw;
+      if (pawn.fx && pawn.fx.raw) { target = pawn.fx.yaw; pawn.yaw = target; inShot = false; } // (played back as the real game recorded it)
       if (inShot) target = Math.atan2(cam.x - (pawn.x + pawn.ox), cam.z - (pawn.z + pawn.oz));
       const diff = Math.atan2(Math.sin(target - pawn.yaw), Math.cos(target - pawn.yaw));
       pawn.yaw += diff * k;
@@ -1870,6 +1898,7 @@ export class BoardScene {
     else if (flying) clip = 'fly';
     else if (F && F.arms && F.arms[0] <= -2.5) clip = 'pm001_03'; // (startled: the real game's pm001_03)
     else if (F) clip = 'pm011_08'; // (standing in a set piece: the real game's board idle, pm011_08)
+    else if (pawn.recClip) { clip = pawn.recClip.clip; frame = pawn.recClip.f; if (pawn.recFace != null) setPawnFace(pawn, pawn.recFace); } // (reacting to a recorded moment where they stand)
     else if (pawn.wonder) clip = 'wonder'; // ("what is about to happen?": before the UFO, a blue spring, the fireball, the skull, the ! space, a tornado)
     else if (pawn.amp > 0.2) clip = pawn.fleeing ? 'pm405_04' : speed > 6 ? 'run' : 'walk'; // (the real board runs everywhere, walking only as they come to a stop)
     else if (pawn.after && pawn.after.left > 0) { // (a moment that lingers: sad after the spike ball; `next`: what comes after it)
@@ -1888,7 +1917,7 @@ export class BoardScene {
     if (W.blend < 1 && W.prev) { wp.pose(W.prev, W.prevF); wp.pose(clip, f, W.blend); } else wp.pose(clip, f);
     // the body stays where the game puts the pawn: the clip's own travel (its root bone moving off) is left out
     const root = wp.bones.ske_root;
-    if (root) { root.position.x = 0; root.position.z = 0; if ((flying && clip !== 'knock' && clip !== 'pm001_12') || clip === 'hang' || clip === 'fly' || clip === 'tumble' || clip === 'pm001_13' || clip === 'pm001_11' || clip === 'pm001_09') root.position.y = 60; } // (knock: falling onto their bottom as they land, not held up)
+    if (root && !(F && F.raw)) { root.position.x = 0; root.position.z = 0; if ((flying && clip !== 'knock' && clip !== 'pm001_12') || clip === 'hang' || clip === 'fly' || clip === 'tumble' || clip === 'pm001_13' || clip === 'pm001_11' || clip === 'pm001_09') root.position.y = 60; } // (knock: falling onto their bottom as they land, not held up)
   }
 
   /**

@@ -1095,5 +1095,76 @@ for (const type of ['plus5', 'minus4', 'ufo', 'tornado', 'skull', 'volcano', 'mg
   }
 }
 
+// ---- the real game's recordings play the set pieces: the Miis and the camera exactly as recorded ----
+{
+  const fs = await import('node:fs');
+  const { setRecordings, replay, recKeyOf } = await import('../js15/scenes/replay.js');
+  const REC = JSON.parse(fs.readFileSync(new URL('../mii/clips/recordings.json', import.meta.url), 'utf8')).rec;
+  setRecordings(REC);
+  const bg = new BoardGame({ slots: [0, 1, 2, 3], rng: mulberry32(7), isNpc: () => true }); bg.start(0);
+  app.session = makeSession(bg, 0, ['A', 'B', 'C', 'D']);
+  const sc = new BoardScene(); sc.enter();
+  const at = (pawn, track, idx) => { const q = sc.nodeXYZ(track, idx, pawn.slot, true); Object.assign(pawn, { track, idx, x: q.x, y: q.y, z: q.z, across: false }); };
+  // a +4 from space 12 (recorded there): the Mii goes exactly where the real one went, and the camera is the real one
+  at(sc.pawns[0], 'island', 12); at(sc.pawns[1], 'island', 3); at(sc.pawns[2], 'island', 4); at(sc.pawns[3], 'island', 5);
+  const ev = { t: 'move', slot: 0, mode: 'spring', spring: 'blue', path: [13, 14, 15, 16].map((idx) => ({ track: 'island', idx })), count: { total: 4, dir: 'fwd' }, dur: 6000 };
+  assert.equal(recKeyOf(ev), 'move.spring.blue');
+  const inner = sc.beginMove(ev), a = replay(sc, inner, ev);
+  assert.ok(a !== inner && a.replayed && a.replayed.key === 'move.spring.blue', 'the spring plays its recording');
+  const R = REC['move.spring.blue'].find((r) => r.src === a.replayed.src);
+  assert.equal(R.who[0].from, 'I12'); assert.equal(R.who[0].to, 'I16');
+  const p = sc.pawns[0], keyAt = (t) => { const K = R.who[0].k; let i = 0; while (i < K.length - 1 && K[i + 1][0] <= t) i++; const A = K[i], B = K[Math.min(K.length - 1, i + 1)], u = B[0] > A[0] ? Math.min(1, (t - A[0]) / (B[0] - A[0])) : 0; return A.map((v, j) => (j ? v + (B[j] - v) * u : v)); };
+  for (const t of [0.5, 1.6, 2.0]) {
+    a.step(t / R.len);
+    const k = keyAt(t);
+    assert.ok(Math.hypot(p.fx.x - k[1], p.fx.z - k[3]) < 0.6 && Math.abs(p.fx.y - k[2]) < 0.6, `at ${t}s the Mii is where the real one was (${[p.fx.x - k[1], p.fx.y - k[2], p.fx.z - k[3]].map((v) => v.toFixed(2))})`);
+    assert.ok(p.fx.raw && typeof p.fx.clip === 'string', 'the recorded animation');
+    assert.ok(sc.camHold && Number.isFinite(sc.camHold.x + sc.camHold.tx) && Array.isArray(sc.camHold.up), 'the recorded camera');
+  }
+  a.step(1); a.end();
+  assert.equal(p.fx, null); assert.equal(sc.camHold, null, 'the camera goes back to the board camera');
+  // from a space without a recording (+4 from 56 in log 2... any): moved onto our start and end
+  at(p, 'island', 66);
+  const ev2 = { t: 'move', slot: 0, mode: 'spring', spring: 'blue', path: [67, 68, 69, 70].map((idx) => ({ track: 'island', idx })), count: { total: 4, dir: 'fwd' }, dur: 6000 };
+  const A2 = { x: p.x, z: p.z }, a2 = replay(sc, sc.beginMove(ev2), ev2);
+  a2.step(0.001); assert.ok(Math.hypot(p.fx.x - A2.x, p.fx.z - A2.z) < 1.2, 'starts where our Mii stands');
+  a2.step(0.999); const B2 = sc.nodeXYZ('island', 70, 0, true); assert.ok(Math.hypot(p.fx.x - B2.x, p.fx.z - B2.z) < 1.2, 'ends on the space it lands on');
+  a2.step(1); a2.end();
+  // the statue, the tornado, the UFO (its four events), the dinosaurs: each finds its recording and plays through
+  const playAll = (an) => { for (let u = 0; u <= 1; u += 0.02) an.step(u); an.step(1); if (an.end) an.end(); };
+  at(p, 'island', 28);
+  const st = { t: 'move', slot: 0, mode: 'fly', statue: 'blue', path: [{ track: 'island', idx: 47 }], count: { total: 19, dir: 'fwd' }, dur: 16116 };
+  const as = replay(sc, sc.beginMove(st), st); assert.ok(as.replayed, 'the statue plays its recording'); playAll(as);
+  at(sc.pawns[1], 'island', 39);
+  const tor = { t: 'move', slot: 1, mode: 'fly', tornado: true, path: [38, 37, 36, 35].map((idx) => ({ track: 'island', idx })), count: { total: 4, dir: 'back' }, dur: 7600 };
+  const at2 = replay(sc, sc.beginMove(tor), tor); assert.ok(at2.replayed, 'the tornado plays its recording'); playAll(at2);
+  for (const d of ['trex', 'ptero']) {
+    at(p, 'island', 33);
+    const dv = { t: 'move', slot: 0, mode: 'fly', dino: d, path: d === 'trex' ? [{ track: 'island', idx: 23 }] : [{ track: 'island', idx: 44 }], count: { total: 10, dir: d === 'trex' ? 'back' : 'fwd' }, dur: 8000 };
+    const ad = replay(sc, sc.beginMove(dv), dv); assert.ok(ad.replayed, `the ${d} plays its recording`); playAll(ad);
+  }
+  at(p, 'island', 16); at(sc.pawns[1], 'island', 6);
+  const ufo = [{ t: 'ufo', phase: 'up', slot: 0, with: 1, dur: 4700 }, { t: 'ufo', phase: 'up', slot: 1, with: 0, dur: 0 }, { t: 'ufo', phase: 'down', slot: 1, with: 0, to: { track: 'island', idx: 16 }, dur: 2100 }, { t: 'ufo', phase: 'down', slot: 0, with: 1, to: { track: 'island', idx: 6 }, dur: 3800 }];
+  sc.queue = ufo.slice(1);
+  let n = 0;
+  for (const e of ufo) { if (sc.queue[0] === e) sc.queue.shift(); const au = replay(sc, sc.beginUfo(e), e); if (au.replayed) n++; playAll(au); }
+  assert.equal(n, 4, 'all four UFO events play their stretch of one recording');
+  assert.equal(sc.pawns[0].idx, 6); assert.equal(sc.pawns[1].idx, 16);
+  sc.exit();
+  // the island viewer's set pieces, with the recordings: each plays its recording through, nothing breaks
+  const { ViewerScene } = await import('../js15/scenes/viewerScene.js');
+  const vs = new ViewerScene(); vs.enter();
+  const seen = new Set();
+  for (const [name, fn] of vs.demos()) {
+    fn();
+    for (let i = 0; i < 60 * 40 && (vs.anim || vs.demo.length); i++) { vs.update(1 / 30); if (vs.anim && vs.anim.replayed) seen.add(vs.anim.replayed.key); }
+    assert.ok(!vs.anim && !vs.demo.length, `${name} plays to the end`);
+  }
+  for (const k of ['move.spring.blue', 'move.spring.red', 'move.fly.statue.blue', 'move.fly.statue.red', 'move.fly.tornado', 'note.fireball', 'move.knock', 'smash.dragon', 'smash.final', 'ufo', 'move.fly.trex', 'move.fly.ptero'])
+    assert.ok(seen.has(k), `the viewer plays the recording of ${k} (${[...seen]})`);
+  vs.exit();
+  setRecordings(null);
+}
+
 console.log('board scene smoke tests passed');
 process.exit(0);
