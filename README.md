@@ -351,6 +351,22 @@ The hand-built island is gone. The game now runs on the converted Wii Party map 
   sinks away. The game's "broken" message did not say who broke it, so the scene had no player to animate and
   only waited, then hid the wall.
 
+## Build 106: more set pieces from the recordings
+
+The second batch now plays straight from the traces of the real game (each Mii, the camera, frame by frame):
+- **Into the volcano:** shoved in by the volcano-or-not block (9 recordings), thrown in by a skull's red spring (9).
+  No more fade to black: the real game shows the fall and cuts to them landing inside, and so does this.
+- **Out of the volcano:** shot back out onto the island (13), landing where the real ones landed.
+- **Crates and barrels, one breaking:** the hops, the break, the swim (11). Which recording plays goes by which crate
+  or barrel gives way (crates 1, 2 and 3, barrels 2 and 3 are recorded).
+- **The spike ball:** the fright (4) and the run back (4).
+- **Lava:** hit by a falling rock while the volcano erupts (1).
+- **The summit:** missing the winning roll (9).
+- The host times each of these by its recording. The island viewer has entries for the skull and for coming out of the
+  volcano.
+- **Still to come:** the vine, the crates and barrels crossed safely, the eruption itself, the 1 vs 1 and 1 vs Rest
+  spaces, winning at the summit, and the every-turn moments (rolling, running, the round starting).
+
 ## Build 105: the real game's recordings play the set pieces
 
 Every set piece below now plays straight from the traces of the real game (both captures), instead of our own

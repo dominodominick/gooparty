@@ -1160,7 +1160,7 @@ for (const type of ['plus5', 'minus4', 'ufo', 'tornado', 'skull', 'volcano', 'mg
     for (let i = 0; i < 60 * 40 && (vs.anim || vs.demo.length); i++) { vs.update(1 / 30); if (vs.anim && vs.anim.replayed) seen.add(vs.anim.replayed.key); }
     assert.ok(!vs.anim && !vs.demo.length, `${name} plays to the end`);
   }
-  for (const k of ['move.spring.blue', 'move.spring.red', 'move.fly.statue.blue', 'move.fly.statue.red', 'move.fly.tornado', 'note.fireball', 'move.knock', 'smash.dragon', 'smash.final', 'ufo', 'move.fly.trex', 'move.fly.ptero'])
+  for (const k of ['move.spring.blue', 'move.spring.red', 'move.fly.statue.blue', 'move.fly.statue.red', 'move.fly.tornado', 'note.fireball', 'move.knock', 'smash.dragon', 'smash.final', 'ufo', 'move.fly.trex', 'move.fly.ptero', 'move.drop.von', 'move.drop.skull', 'move.drop.exit', 'move.swim', 'spike.shock', 'move.fast.spike', 'note.finalFail', 'move.fly.meteor'])
     assert.ok(seen.has(k), `the viewer plays the recording of ${k} (${[...seen]})`);
   vs.exit();
   setRecordings(null);

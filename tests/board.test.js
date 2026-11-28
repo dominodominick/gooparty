@@ -499,7 +499,7 @@ for (let i = 1; i < V.length; i++) {
     assert.equal(bg.positions[1].idx, p5 - 8, 'a +5 is now a -4, and they chain until they land somewhere safe');
     const hits = e.filter((x) => x.t === 'move' && x.slot === 1);
     assert.deepEqual(hits.map((x) => [x.mode, x.meteor, x.path[x.path.length - 1].idx]), [['fly', true, p5 - 4], ['fly', true, p5 - 8]], 'each knock-back is a meteor, not a spring');
-    assert.ok(hits.every((x) => x.dur === DUR.meteorHit));
+    assert.ok(hits.every((x) => x.dur >= DUR.meteorHit), 'each as long as the real one (its recording)');
     bg.positions[1] = I(blank); e = []; bg._landing(1, I(blank), e); assert.equal(bg.positions[1].idx, blank, 'blank spaces are unaffected');
     evs(bg, 0, v); // second eruption stacks
     bg.positions[1] = I(p5); e = []; bg._landing(1, I(p5), e); assert.equal(bg.positions[1].idx, p5 - 8, 'two eruptions: -8');
@@ -591,13 +591,13 @@ for (let i = 1; i < V.length; i++) {
   bg = make(); { const s = at('spike'), safe = at('volcanoOrNot') + 1; bg.positions[0] = I(s); bg.positions[1] = I(s - 3); bg.positions[2] = I(safe - 2); bg.positions[3] = I(s);
     const { e } = single(bg, 0, 'spike', 1); const k = e.findIndex((x) => x.t === 'spikeShock');
     assert.ok(k > e.findIndex((x) => x.fx === 'pit'), 'after the ball is spat out'); assert.ok(k < e.findIndex((x) => x.t === 'move'), 'before anyone runs');
-    assert.deepEqual([...e[k].slots].sort(), [0, 1], 'the roller and whoever is on the stretch (not below it, not beside them on the star)'); assert.equal(e[k].dur, D.shock); }
+    assert.deepEqual([...e[k].slots].sort(), [0, 1], 'the roller and whoever is on the stretch (not below it, not beside them on the star)'); assert.ok(e[k].dur > 500, 'as long as the real fright (its recording)'); }
   // the summit: kicked open before the walk up and the win; a miss is shown
   bg = make(); { bg.positions[0] = I(FINAL_IDX); const { e } = single(bg, 0, 'final', 6); const t = e.map((x) => x.t);
     assert.ok(t.indexOf('broken') >= 0 && t.indexOf('broken') < t.indexOf('move') && t.indexOf('move') < t.indexOf('win'), 'kick, walk up, win');
     assert.equal(e[t.indexOf('broken')].challenge, 'final'); assert.equal(e[t.indexOf('broken')].dur, D.gate); }
   bg = make(); { bg.positions[0] = I(FINAL_IDX); const { e } = single(bg, 0, 'final', 3); const n = e.find((x) => x.t === 'space');
-    assert.equal(n.fx, 'finalFail'); assert.equal(n.dur, D.finalFail); assert.ok(!e.some((x) => x.t === 'broken')); }
+    assert.equal(n.fx, 'finalFail'); assert.ok(n.dur > 1000, 'as long as the real miss (its recording)'); assert.ok(!e.some((x) => x.t === 'broken')); }
 }
 // ---------- v96: a moment the sequence editor made longer: the host waits for it
 {

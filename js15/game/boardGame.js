@@ -392,7 +392,7 @@ export class BoardGame {
       // wiki: leftover spaces become 0. They swim to the far bank and stand there, short of the next space: that spot is
       // not a space and does not count (the next roll's first step is the space after the pool)
       const at = this.positions[slot], next = walkForward(at, 1);
-      events.push({ ...move(slot, 'fast', next.path, null, false, { ...at }), dur: DUR.swim, swim: true, stopShort: true, to: { ...at, across: true } });
+      events.push({ ...move(slot, 'fast', next.path, null, false, { ...at }), dur: recordingMs('move.swim', `${picked ? 'B' : 'C'}${hit + 1}`, null, DUR.swim), swim: true, stopShort: true, to: { ...at, across: true } });
       this.positions[slot] = { ...at, across: true };
       endTurn = true;
     }
@@ -481,7 +481,7 @@ export class BoardGame {
   _useTotal(slot, total, events) {
     if (this._atFinal(slot)) { // already waiting at the final challenge: these dice are the attempt
       if (total >= WIN_ROLL) this._win(slot, events);
-      else events.push(note(slot, `Needs ${WIN_ROLL} or more. Rolled ${total}.`, { fx: 'finalFail', dur: DUR.finalFail }));
+      else events.push(note(slot, `Needs ${WIN_ROLL} or more. Rolled ${total}.`, { fx: 'finalFail', dur: recordingMs('note.finalFail', 'I78', null, DUR.finalFail) }));
       return true;
     }
     return this._after(slot, this._walkMain(slot, total, events), events);
@@ -535,7 +535,7 @@ export class BoardGame {
     switch (step.purpose) {
       case 'final':
         if (d >= WIN_ROLL) this._win(slot, events);
-        else events.push(note(slot, `Needs a ${WIN_ROLL}. Rolled ${d}. Try again next round!`, { fx: 'finalFail', dur: DUR.finalFail }));
+        else events.push(note(slot, `Needs a ${WIN_ROLL}. Rolled ${d}. Try again next round!`, { fx: 'finalFail', dur: recordingMs('note.finalFail', 'I78', null, DUR.finalFail) }));
         return true;
       case 'vine': // wiki: no penalty; the roll is extra spaces
         events.push(note(slot, `Vine swing! +${d} spaces`));
@@ -565,12 +565,13 @@ export class BoardGame {
         this.spikeNeeds = Math.max(SPIKE_MIN, this.spikeNeeds - 1); // easier for the next attempt
         events.push(note(slot, 'The spike ball chases you back!', { fx: 'pit', dur: DUR.pit }));
         { const safe = VOLCANO_CHALLENGE_IDX + 1, on = this.players.filter((o) => o === slot || (this.positions[o].track === 'island' && this.positions[o].idx > safe && this.positions[o].idx < SPIKE_IDX));
-          events.push({ t: 'spikeShock', slot, slots: on, dur: DUR.shock }); } // (all of them at once, in one shot of the whole stretch)
+          events.push({ t: 'spikeShock', slot, slots: on, dur: recordingMs('spike.shock', spaceName(pos), spaceName(pos), DUR.shock) }); } // (all of them at once, in one shot of the whole stretch)
         // everyone who runs from it ends past the space after the volcano challenge, on the spot just short of it (not a
         // space: the way on counts that space first)
         const bank = { track: 'island', idx: VOLCANO_CHALLENGE_IDX, across: true };
         this._moveTo(slot, walkBack(pos, SPIKE_RUNBACK), 'fast', events, BACK(SPIKE_RUNBACK));
-        { const mv = events[events.length - 1]; if (mv.t === 'move' && mv.slot === slot && this.positions[slot].idx === VOLCANO_CHALLENGE_IDX + 1) { mv.stopShort = true; mv.to = { ...bank }; this.positions[slot] = { ...bank }; } }
+        { const mv = events[events.length - 1]; if (mv.t === 'move' && mv.slot === slot && this.positions[slot].idx === VOLCANO_CHALLENGE_IDX + 1) { mv.stopShort = true; mv.to = { ...bank }; this.positions[slot] = { ...bank }; }
+          if (mv.t === 'move' && mv.slot === slot) { mv.spike = true; mv.dur = Math.max(mv.dur, recordingMs('move.fast.spike', spaceName(pos), null, mv.dur)); } } // (the real chase: its recording)
         const safeIdx = VOLCANO_CHALLENGE_IDX + 1; // the space right after the volcano challenge
         for (const other of this.players) { // everyone on the stretch below the spike ball runs from it too, at the same time
           const p = this.positions[other];
@@ -644,7 +645,10 @@ export class BoardGame {
   /** Down into the volcano; `back` is the island spot they will come back out at. */
   _intoVolcano(slot, back, events) {
     this.volcanoReturn[slot] = { track: 'island', idx: back.idx, ...(back.across ? { across: true } : {}) };
+    const from = { ...this.positions[slot] }, type = nodeAt(from).type;
     this._teleport(slot, { track: 'volcano', idx: 0 }, 'drop', events);
+    const key = type === 'skull' ? 'move.drop.skull' : type === 'volcanoOrNot' ? 'move.drop.von' : null; // (as long as the real one: its recording)
+    if (key) events[events.length - 1].dur = recordingMs(key, spaceName(from), null, DUR.drop);
   }
 
   /** Out of the volcano, at the spot they went in (past the pit for the volcano-or-not star). */
@@ -652,6 +656,7 @@ export class BoardGame {
     const back = this.volcanoReturn[slot] || EXIT_POS;
     delete this.volcanoReturn[slot];
     this._teleport(slot, back, 'drop', events);
+    events[events.length - 1].dur = recordingMs('move.drop.exit', null, spaceName(back), DUR.drop); // (shot back out, as long as the real one)
   }
 
   _teleport(slot, dest, mode, events) {
@@ -723,7 +728,7 @@ export class BoardGame {
       for (let k = 0; k < 40; k++) {
         say(k ? `Lava again! -${n}` : `Lava! -${n}`);
         this._moveTo(slot, walkBack(at, n), 'fly', events, BACK(n));
-        const mv = events[events.length - 1]; if (mv && mv.t === 'move' && mv.slot === slot) { mv.meteor = true; mv.dur = DUR.meteorHit; }
+        const mv = events[events.length - 1]; if (mv && mv.t === 'move' && mv.slot === slot) { mv.meteor = true; mv.dur = recordingMs('move.fly.meteor', spaceName(at), null, DUR.meteorHit); }
         at = this.positions[slot];
         const nd = nodeAt(at);
         if (at.track !== 'island' || at.idx === pos.idx || nd.type === 'volcano' || LAVA_SAFE.has(nd.type)) break;

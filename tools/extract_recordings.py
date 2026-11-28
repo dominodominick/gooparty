@@ -378,11 +378,76 @@ def dinos(log):
             pump = first(log, o, {'pm001_06'}, t, t + 10)
             add('move.fly.ptero', instance(log, 'move.fly.ptero', t - 0.2, ((pump + 1.5) if pump else t + 8) - (t - 0.2), [('actor', o)]))
 
+
+def drops(log):
+    """Into the volcano (the volcano-or-not block, a skull's red spring) and back out of it."""
+    for T in clusters(log.mods['m001_36_1'], 20):  # volcano or not: the block shoves them in
+        o, t = find_mii(log, T - 1, T + 4, {'pm001_01'})
+        if not o: continue
+        sad = first(log, o, {'pm001_07'}, t, t + 15)
+        if not sad: continue
+        add('move.drop.von', instance(log, 'drop', T - 0.2, sad + 1.5 - (T - 0.2), [('actor', o)]))
+    for T in clusters(log.mods['m001_81_1'], 20):  # a skull: its red spring throws them in
+        o, t = find_mii(log, T - 1, T + 3, {'pm001_15'})
+        if not o: continue
+        t0 = first(log, o, {'pm001_02'}, T - 3, T + 0.5) or T - 0.5
+        sad = first(log, o, {'pm001_07'}, t, t + 15)
+        if not sad: continue
+        add('move.drop.skull', instance(log, 'drop', t0, sad + 1.5 - t0, [('actor', o)]))
+    for T in clusters(log.mods['m001_84'], 20):  # out of the volcano: shot back out onto the island
+        o, t = find_mii(log, T, T + 4, {'pm001_06'})
+        if not o: continue
+        add('move.drop.exit', instance(log, 'drop', T - 0.4, t + 1.5 - (T - 0.4), [('actor', o)]))
+
+CRATE_Z = (-1216 * S, -850 * S, -470 * S)  # the three crates (and barrels) across the pool, along z
+def crates(log):
+    for nm, lane in (('m001_27', 'C'), ('m001_29', 'B')):
+        for T in clusters(log.mods[nm], 8):
+            o, t = find_mii(log, T - 3, T + 2, {'pm001_01'})
+            if not o: continue
+            hop = first(log, o, {'pm405_02'}, t - 4, t)
+            sad = first(log, o, {'pm001_16'}, t, t + 8)
+            if not hop or not sad: continue
+            z = log.pos(o, t)[2]; k = min(range(3), key=lambda i: abs(CRATE_Z[i] - z))
+            inst = instance(log, 'swim', hop, sad + 2.2 - hop, [('actor', o)])
+            inst['who'][0]['from'] = '%s%d' % (lane, k + 1)  # (which one broke: what the game picks it by)
+            add('move.swim', inst)
+
+def spike(log):
+    for T in clusters(log.mods['m001_51_2'], 20):  # the ball back in the statue's mouth: a chase has just been
+        o, t03 = find_mii(log, T - 14, T, {'pm001_03'})
+        if not o: continue
+        t405 = first(log, o, {'pm405_04'}, t03, t03 + 4); sad = first(log, o, {'pm001_16'}, t03, t03 + 12)
+        if not t405 or not sad: continue
+        add('spike.shock', instance(log, 'shock', t03 - 0.1, t405 - (t03 - 0.1), [('actor', o)]))
+        add('move.fast.spike', instance(log, 'chase', t405, sad + 2.9 - t405, [('actor', o)]))
+
+def meteors(log):
+    erupting = sorted(log.mods['m001_41_2'])
+    for o, L in log.CL.items():
+        if log.kind.get(o) != 'mii': continue
+        for t, nm, k in L:
+            if nm != 'pm001_02': continue
+            i = bisect.bisect_left(erupting, t - 60)
+            if i >= len(erupting) or erupting[i] > t + 60: continue
+            seq = [c for _, c in log.clips(o, t, t + 4)]
+            if 'pm001_01' not in seq or 'pm001_05' not in seq or not log.onboard(o, t): continue
+            sit = first(log, o, {'pm001_05'}, t, t + 5)
+            if REC['move.fly.meteor'] and any(abs(float(x['src'].split('@')[1]) - t) < 3 and x['src'].startswith(log.name) for x in REC['move.fly.meteor']): continue
+            add('move.fly.meteor', instance(log, 'meteor', t, sit + 2.0 - t, [('actor', o)]))
+
+def summit_miss(log):
+    for T in clusters(log.mods['m001_60_1'], 6):
+        if any(T < x < T + 15 for x in log.mods['m001_60_2']): continue  # (that one was opened)
+        o, t = find_mii(log, T, T + 15, {'pm001_07'})
+        if not o or log.space(o, t) != 'I78': continue
+        add('note.finalFail', instance(log, 'fail', t - 0.3, 2.9, [('actor', o)]))
+
 def main():
     out_path = sys.argv[1]
     for k, p in enumerate(sys.argv[2:]):
         log = Log(p, 'L%d' % (k + 1))
-        springs(log); statues(log); dragon(log); gate(log); tornado(log); ufo(log); dinos(log)
+        springs(log); statues(log); dragon(log); gate(log); tornado(log); ufo(log); dinos(log); drops(log); crates(log); spike(log); meteors(log); summit_miss(log)
         print(p, {k: len(v) for k, v in REC.items()})
     data = {'v': 1, 'rec': REC}
     json.dump(data, open(out_path, 'w'), separators=(',', ':'))

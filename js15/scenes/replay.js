@@ -14,6 +14,7 @@ import { REC_INDEX } from '../game/recIndex.js';
 import { pickRecording } from '../game/recPick.js';
 import { momentKey } from '../game/moments.js';
 import { MII_BASE } from '../world/miiHead.js';
+import { ISLAND } from '../game/boardData.js';
 
 let DATA = null, loading = null;
 /** Fetch the recordings (once). The game plays its own set pieces until they are in. */
@@ -35,6 +36,8 @@ export function recKeyOf(ev) {
   if (!ev) return '';
   if (ev.t === 'ufo') return 'ufo';
   if (ev.t === 'move' && ev.mode === 'fly' && ev.dino) return `move.fly.${ev.dino}`;
+  if (ev.t === 'move' && ev.mode === 'fast' && ev.spike) return 'move.fast.spike';
+  if (ev.t === 'move' && ev.mode === 'drop') return 'move.drop'; // (which one: from where they are, in replay())
   const k = momentKey(ev);
   return REC_INDEX[k] ? k : '';
 }
@@ -93,7 +96,8 @@ function placement(E, ourA, ourB, sameSpaces) {
   if (!E || !ourA) return null;
   const rdx = E.b.x - E.a.x, rdz = E.b.z - E.a.z, odx = ourB ? ourB.x - ourA.x : 0, odz = ourB ? ourB.z - ourA.z : 0;
   let rot = 0;
-  if (!sameSpaces && Math.hypot(rdx, rdz) > 1 && Math.hypot(odx, odz) > 1) rot = Math.atan2(odx, odz) - Math.atan2(rdx, rdz);
+  // (turned onto our way only for a move along the board: never into or out of the volcano, far away)
+  if (!sameSpaces && Math.hypot(rdx, rdz) > 1 && Math.hypot(odx, odz) > 1 && Math.hypot(rdx, rdz) < 60 && Math.hypot(odx, odz) < 60) rot = Math.atan2(odx, odz) - Math.atan2(rdx, rdz);
   const c = Math.cos(rot), s = Math.sin(rot);
   const turn = (x, z) => ({ x: E.a.x + (x - E.a.x) * c + (z - E.a.z) * s, z: E.a.z - (x - E.a.x) * s + (z - E.a.z) * c });
   const sh = { x: ourA.x - E.a.x, y: ourA.y - E.a.y, z: ourA.z - E.a.z };
@@ -123,16 +127,21 @@ function choose(key, from, to, otherFrom) {
  */
 export function replay(scene, anim, ev) {
   if (!anim || !ev || !DATA || scene.noReplay) return anim;
-  const key = recKeyOf(ev);
+  let key = recKeyOf(ev);
   if (!key) return anim;
   const pawns = scene.pawns || {};
   const actorSlot = ev.slot, actor = pawns[actorSlot];
   if (!actor) return anim;
+  if (key === 'move.drop') { // into the volcano (from the volcano-or-not star, or a skull), or back out of it
+    const dest = ev.path && ev.path[ev.path.length - 1], here = actor.track === 'island' ? ISLAND[actor.idx] : null;
+    key = dest && dest.track === 'volcano' ? (here && here.type === 'skull' ? 'move.drop.skull' : here && here.type === 'volcanoOrNot' ? 'move.drop.von' : '') : dest ? 'move.drop.exit' : '';
+    if (!key || !REC_INDEX[key]) return anim;
+  }
   // who plays which recorded part, and where our move starts and ends
   let otherSlot = null;
   if (key === 'ufo') otherSlot = ev.with;
   const node = (p) => spaceName(p.track, p.idx);
-  let from = node(actor), to = null, ourA = { x: actor.x, y: actor.y, z: actor.z }, ourB = null;
+  let from = key === 'move.swim' ? scene.cratePick || null : node(actor), to = null, ourA = { x: actor.x, y: actor.y, z: actor.z }, ourB = null;
   if (ev.t === 'move' && ev.path && ev.path.length) {
     const last = ev.stopShort && ev.to ? ev.to : ev.path[ev.path.length - 1];
     to = spaceName(last.track, last.idx); ourB = scene.nodeXYZ(last.track, last.idx, actorSlot, true);
@@ -173,7 +182,7 @@ export function replay(scene, anim, ev) {
     if (key === 'ufo') { // the lander: from their spot to the other's; the other: the other way round
       const U = scene.ufoRec; A = w.role === 'actor' ? U.A : U.B; B = w.role === 'actor' ? U.B : U.A;
       same = w.role === 'actor' ? w.from === node(pawns[U.lander]) && (R.who[1] || {}).from === node(pawns[U.other]) : (R.who[0].from === node(pawns[U.lander]) && w.from === node(pawns[U.other]));
-    } else if (slot === actorSlot) { A = ourA; B = ourB; same = w.from === from && (to == null || w.to === to); }
+    } else if (slot === actorSlot) { A = ourA; B = ourB; same = w.from === from && (to == null || !w.to || w.to === to); }
     else { A = { x: p.x, y: p.y, z: p.z }; same = w.from === node(p); }
     const P = placement(E, A, B, same);
     parts.push({ w, p, slot, E, P, mv: E ? moving(w.k, E) : null });
@@ -202,6 +211,7 @@ export function replay(scene, anim, ev) {
       // the game's own set piece (its models), on its own clock
       anim.t = Math.min(innerDur, tl * 1000);
       if (anim.step) anim.step(Math.min(1, anim.t / innerDur));
+      if (key.startsWith('move.drop') && scene.hideFade) scene.hideFade(); // (the real game does not fade to black: it shows it)
       // the Miis, as recorded
       for (const q of parts) {
         const k = keyAt(q.w.k, t), c = clipAt(q.w.c, t), f = faceAt(q.w.f, t);

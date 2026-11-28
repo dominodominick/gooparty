@@ -600,6 +600,7 @@ export class BoardScene {
       }
       case 'diceStop': this.anim = this.beginLand(ev); break;
       case 'space': {
+        if (ev.fx === 'crates' && !ev.safe) this.cratePick = `${ev.picked ? 'B' : 'C'}${(ev.hit | 0) + 1}`; // (which crate or barrel gives way: its recording)
         this.setBanner(this.fillNames(ev.text));
         for (const w of ev.wonder || []) if (this.pawns[w]) this.pawns[w].wonder = true; // (they look around until it happens to them)
         const show = ev.fx ? this.fx.playNote(ev, this.pawns[ev.slot]) : null; // fireball, pit, crates
@@ -930,6 +931,9 @@ export class BoardScene {
     const anim = this.fx.ufoAnim(ev.phase, pawn, ev.dur);
     return anim || { t: 0, dur: ev.dur };
   }
+
+  /** No black over the screen (a recorded drop into or out of the volcano shows it all, as the real game does). */
+  hideFade() { const f = app.ui.querySelector('#fade'), n = app.ui.querySelector('#fadeName'); if (f) f.style.opacity = '0'; if (n) n.style.opacity = '0'; }
 
   /**
    * A model of a recorded moment (replay.js), placed where the real game had it: the UFO and its beam, the tornado (and
@@ -1711,7 +1715,7 @@ export class BoardScene {
     const pawn = this.pawns[this.camSlot];
     if (!pawn) return;
     const volcano = pawn.track === 'volcano';
-    this.setAmbience(pawn.track);
+    this.setAmbience(this.camHold && this.camHold.up ? (this.camHold.x > VOLCANO_OFFSET.x / 2 ? 'volcano' : 'island') : pawn.track); // (a recorded camera: wherever it is)
     // The chase camera sits behind the pawn along the way it is walking (so it follows the path round every bend).
     if (!this.cam || this.camTrack !== pawn.track) { const d0 = this.pathDir(pawn); pawn.faceYaw = Math.atan2(d0.x, d0.z); } // a fresh place: start looking down the path
     const way = pawn.faceYaw !== undefined ? { x: Math.sin(pawn.faceYaw), z: Math.cos(pawn.faceYaw) } : this.pathDir(pawn);
